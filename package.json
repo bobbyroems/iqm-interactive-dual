@@ -1,0 +1,95 @@
+{
+  "name": "iqm-kiosk",
+  "version": "0.5.8",
+  "private": true,
+  "description": "IQM interactive touchscreen kiosk",
+  "type": "module",
+  "main": "electron/main.cjs",
+  "scripts": {
+    "dev": "concurrently -k \"vite --host 127.0.0.1\" \"wait-on http://127.0.0.1:5173 && electron . --dev\"",
+    "generate:som-frost": "node scripts/generate-som-frost-assets.mjs",
+    "generate:som-scrub-video": "node scripts/generate-som-scrub-video.mjs",
+    "pack:alpha-video": "node scripts/pack-alpha-video.mjs",
+    "check:alpha-video": "node scripts/check-alpha-video.mjs",
+    "prebuild:renderer": "node scripts/check-media-assets.mjs public",
+    "build:renderer": "vite build",
+    "postbuild:renderer": "node scripts/check-media-assets.mjs dist",
+    "build": "npm run check && npm run build:renderer",
+    "preview": "npm run build:renderer && electron . --windowed",
+    "preview:kiosk": "npm run build:renderer && electron . --kiosk --allow-quit",
+    "smoke:protocol": "npm run build:renderer && electron scripts/smoke-packaged-protocol.cjs",
+    "package:win": "npm run build && electron-builder --win nsis --x64",
+    "postpackage:win": "node scripts/check-packaged-assets.mjs build",
+    "package:win:kiosk": "npm run package:win",
+    "package:win:review": "npm run build && electron-builder --config scripts/electron-builder-review.cjs --win portable --x64",
+    "postpackage:win:review": "node scripts/check-packaged-assets.mjs build/review",
+    "package:win:dir": "npm run build && electron-builder --win --dir --x64",
+    "postpackage:win:dir": "node scripts/check-packaged-assets.mjs build",
+    "check": "node scripts/check-syntax.mjs && npm run check:nanoscale && npm run check:assets",
+    "check:nanoscale": "node scripts/check-nanoscale-camera.mjs",
+    "check:assets": "node scripts/check-media-assets.mjs public",
+    "test": "node --test"
+  },
+  "engines": {
+    "node": ">=22.12"
+  },
+  "dependencies": {
+    "gsap": "^3.14.2",
+    "lottie-web": "^5.13.0",
+    "three": "^0.185.1"
+  },
+  "devDependencies": {
+    "@gltf-transform/cli": "^4.4.2",
+    "@gltf-transform/core": "^4.4.2",
+    "@gltf-transform/extensions": "^4.4.2",
+    "concurrently": "^9.2.1",
+    "electron": "^39.2.7",
+    "electron-builder": "^26.4.0",
+    "vite": "^7.3.1",
+    "wait-on": "^9.0.3"
+  },
+  "build": {
+    "appId": "com.makeshiftstudios.iqm-kiosk",
+    "productName": "IQM Interactive Kiosk",
+    "extraMetadata": {
+      "defaultLaunchMode": "kiosk"
+    },
+    "asar": true,
+    "asarUnpack": [
+      "dist/assets/modules/**/*"
+    ],
+    "directories": {
+      "output": "build"
+    },
+    "files": [
+      "electron/**/*",
+      "dist/**/*",
+      "package.json",
+      {
+        "from": "dist",
+        "to": "dist",
+        "filter": [
+          "**/*.obj"
+        ]
+      }
+    ],
+    "extraResources": [
+      {
+        "from": "config/kiosk.config.json",
+        "to": "config/kiosk.config.json"
+      }
+    ],
+    "win": {
+      "target": [
+        "nsis"
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": true,
+      "allowToChangeInstallationDirectory": false,
+      "createDesktopShortcut": false,
+      "createStartMenuShortcut": false
+    }
+  }
+}

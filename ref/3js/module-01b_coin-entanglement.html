@@ -1,0 +1,1919 @@
+<!DOCTYPE html>
+<!--
+THESIS: Entanglement is understood as two visible phases becoming one shared motion; the experience refuses abstract diagrams and control panels.
+OWN-WORLD: Cool white studio, graphite type, brushed nickel coins, electric-blue phase traces, and precise mechanical transitions.
+STORY: Two coins begin in opposing independent rotations, snap into a linked phase, then collapse together into one random measured result.
+FIRST VIEWPORT: Two large hovering coins balance the centre beneath a sparse title; one direct action anchors the bottom edge.
+FORM: Focused Experience surface; a three-state cinematic interaction with one transforming control and no camera manipulation.
+-->
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#f4f6f8">
+  <title>Entangled Pair &mdash; Coin State</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --paper: #f4f6f8;
+      --ink: #171b21;
+      --muted: #656d78;
+      --line: #d8dde3;
+      --blue: #1267e8;
+      --blue-soft: #8fbaff;
+      --white: #ffffff;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    html,
+    body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: var(--paper);
+    }
+
+    body {
+      color: var(--ink);
+      font-family: "Segoe UI Variable", "Segoe UI", Helvetica, Arial, sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+
+    canvas.is-measure-target {
+      cursor: pointer;
+    }
+
+    .interface {
+      position: fixed;
+      inset: 0;
+      z-index: 2;
+      pointer-events: none;
+    }
+
+    .masthead {
+      position: absolute;
+      top: clamp(24px, 4vw, 52px);
+      left: clamp(24px, 5vw, 72px);
+      max-width: 390px;
+    }
+
+    h1 {
+      max-width: 10ch;
+      font-size: clamp(28px, 3.4vw, 52px);
+      font-weight: 520;
+      line-height: 0.98;
+      letter-spacing: -0.04em;
+      text-wrap: balance;
+    }
+
+    .masthead p {
+      max-width: 34ch;
+      margin-top: 13px;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.55;
+    }
+
+    .status {
+      position: absolute;
+      top: clamp(26px, 4vw, 52px);
+      right: clamp(24px, 5vw, 72px);
+      display: grid;
+      grid-template-columns: auto 48px;
+      align-items: center;
+      gap: 12px;
+      color: var(--muted);
+      font-size: 11px;
+    }
+
+    .status-line {
+      position: relative;
+      width: 48px;
+      height: 1px;
+      overflow: hidden;
+      background: var(--line);
+    }
+
+    .status-line::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: var(--blue);
+      transform: translateX(-100%);
+      transition: transform 600ms cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    body[data-state="entangled"] .status,
+    body[data-state="measuring"] .status {
+      color: var(--blue);
+    }
+
+    body[data-state="entangled"] .status-line::after,
+    body[data-state="measuring"] .status-line::after,
+    body[data-state="measured"] .status-line::after {
+      transform: translateX(0);
+    }
+
+    .phase-legend {
+      position: absolute;
+      bottom: clamp(112px, 14vh, 154px);
+      left: clamp(24px, 5vw, 72px);
+      display: grid;
+      gap: 10px;
+      transition:
+        opacity 300ms ease,
+        transform 500ms cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .phase-row {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      color: var(--muted);
+      font-size: 10px;
+    }
+
+    .phase-mark {
+      width: 20px;
+      height: 2px;
+      background: var(--ink);
+    }
+
+    .phase-row:last-child .phase-mark {
+      background: var(--blue);
+    }
+
+    body:not([data-state="independent"]) .phase-legend {
+      opacity: 0;
+      transform: translateX(-10px);
+    }
+
+    .speed-panel {
+      position: absolute;
+      right: clamp(24px, 5vw, 72px);
+      bottom: clamp(112px, 14vh, 154px);
+      display: grid;
+      width: 202px;
+      gap: 10px;
+      border: 0;
+      pointer-events: auto;
+    }
+
+    .speed-panel legend {
+      width: 100%;
+      margin-bottom: 2px;
+      color: var(--muted);
+      font-size: 10px;
+    }
+
+    .speed-row {
+      display: grid;
+      grid-template-columns: 54px 1fr 34px;
+      align-items: center;
+      gap: 8px;
+      color: var(--ink);
+      font-size: 10px;
+    }
+
+    .speed-row output {
+      color: var(--muted);
+      font-size: 9px;
+      font-variant-numeric: tabular-nums;
+      text-align: right;
+    }
+
+    .speed-row input {
+      --range-progress: 33.3%;
+      width: 100%;
+      height: 14px;
+      margin: 0;
+      appearance: none;
+      background: transparent;
+      cursor: pointer;
+    }
+
+    .speed-row input::-webkit-slider-runnable-track {
+      height: 2px;
+      background:
+        linear-gradient(
+          to right,
+          var(--blue) 0 var(--range-progress),
+          var(--line) var(--range-progress) 100%
+        );
+    }
+
+    .speed-row input::-moz-range-track {
+      height: 2px;
+      background: var(--line);
+    }
+
+    .speed-row input::-moz-range-progress {
+      height: 2px;
+      background: var(--blue);
+    }
+
+    .speed-row input::-webkit-slider-thumb {
+      width: 10px;
+      height: 10px;
+      margin-top: -4px;
+      appearance: none;
+      border: 1px solid var(--blue);
+      border-radius: 50%;
+      background: var(--paper);
+    }
+
+    .speed-row input::-moz-range-thumb {
+      width: 9px;
+      height: 9px;
+      border: 1px solid var(--blue);
+      border-radius: 50%;
+      background: var(--paper);
+    }
+
+    .speed-row input:focus-visible {
+      outline: 2px solid var(--blue);
+      outline-offset: 4px;
+    }
+
+    .linked-label {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      color: var(--blue);
+      font-size: 10px;
+      opacity: 0;
+      transform: translate(-50%, calc(-50% + 118px));
+      transition: opacity 380ms ease;
+    }
+
+    body[data-state="entangled"] .linked-label {
+      opacity: 1;
+    }
+
+    .measure-prompt {
+      --prompt-offset: 154px;
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: min(82vw, 420px);
+      color: var(--ink);
+      font-size: 12px;
+      font-weight: 520;
+      line-height: 1.45;
+      text-align: center;
+      visibility: hidden;
+      opacity: 0;
+      filter: blur(4px);
+      transform:
+        translate(-50%, calc(-50% + var(--prompt-offset) + 8px))
+        scale(0.98);
+      pointer-events: none;
+      transition:
+        visibility 0s linear 280ms,
+        opacity 220ms ease,
+        filter 320ms ease,
+        transform 360ms cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    body[data-state="entangled"] .measure-prompt {
+      visibility: visible;
+      opacity: 1;
+      filter: blur(0);
+      transform:
+        translate(-50%, calc(-50% + var(--prompt-offset)))
+        scale(1);
+      transition-delay: 0s;
+    }
+
+    .outcome {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 100%;
+      color: var(--ink);
+      font-size: clamp(50px, 8.5vw, 126px);
+      font-weight: 300;
+      line-height: 0.85;
+      letter-spacing: -0.055em;
+      text-align: center;
+      opacity: 0;
+      filter: blur(12px);
+      transform: translate(-50%, calc(-50% + 20px));
+      transition:
+        opacity 700ms ease 180ms,
+        filter 900ms ease 120ms,
+        transform 900ms cubic-bezier(0.16, 1, 0.3, 1) 120ms;
+    }
+
+    body[data-state="measured"] .outcome {
+      opacity: 0.07;
+      filter: blur(0);
+      transform: translate(-50%, -50%);
+    }
+
+    .controls {
+      position: absolute;
+      bottom: clamp(26px, 5vw, 52px);
+      left: 50%;
+      display: grid;
+      justify-items: center;
+      gap: 10px;
+      width: min(88vw, 480px);
+      transform: translateX(-50%);
+      pointer-events: auto;
+    }
+
+    .action {
+      position: relative;
+      min-width: 124px;
+      height: 42px;
+      padding: 0 24px;
+      overflow: hidden;
+      border: 1px solid var(--ink);
+      border-radius: 0;
+      background: var(--ink);
+      color: var(--white);
+      font: inherit;
+      font-size: 12px;
+      font-weight: 560;
+      cursor: pointer;
+      transition:
+        background-color 180ms ease,
+        border-color 180ms ease,
+        color 180ms ease,
+        transform 180ms ease,
+        opacity 180ms ease;
+    }
+
+    .action::after {
+      content: "";
+      position: absolute;
+      right: 12px;
+      bottom: 8px;
+      left: 12px;
+      height: 1px;
+      background: currentColor;
+      opacity: 0.18;
+      transform: scaleX(0);
+      transform-origin: left;
+      transition: transform 300ms cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .action:hover:not(:disabled)::after {
+      transform: scaleX(1);
+    }
+
+    .action:hover:not(:disabled) {
+      background: var(--blue);
+      border-color: var(--blue);
+    }
+
+    .action:active:not(:disabled) {
+      transform: translateY(1px);
+    }
+
+    .action:disabled {
+      cursor: wait;
+      opacity: 0.64;
+    }
+
+    .action:focus-visible {
+      outline: 2px solid var(--blue);
+      outline-offset: 5px;
+    }
+
+    body[data-state="entangled"] .action {
+      border-color: var(--blue);
+      background: var(--blue);
+    }
+
+    body[data-state="measured"] .action {
+      border-color: var(--ink);
+      background: transparent;
+      color: var(--ink);
+    }
+
+    .state-copy {
+      min-height: 16px;
+      color: var(--muted);
+      font-size: 11px;
+      text-align: center;
+    }
+
+    .clean-view {
+      position: absolute;
+      right: clamp(24px, 5vw, 72px);
+      bottom: clamp(24px, 4vw, 40px);
+      padding: 6px 0;
+      border: 0;
+      border-bottom: 1px solid currentColor;
+      background: transparent;
+      color: var(--muted);
+      font: inherit;
+      font-size: 10px;
+      cursor: pointer;
+      pointer-events: auto;
+      transition:
+        color 150ms ease,
+        opacity 240ms ease,
+        transform 300ms cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .clean-view:hover {
+      color: var(--blue);
+    }
+
+    .clean-view:focus-visible {
+      outline: 2px solid var(--blue);
+      outline-offset: 4px;
+    }
+
+    .clean-view.is-dormant {
+      opacity: 0;
+      pointer-events: none;
+      transform: translateY(5px);
+    }
+
+    .masthead,
+    .status,
+    .speed-panel,
+    .controls {
+      transition: opacity 220ms ease;
+    }
+
+    body.is-clean-view .masthead,
+    body.is-clean-view .status,
+    body.is-clean-view .phase-legend,
+    body.is-clean-view .speed-panel,
+    body.is-clean-view .linked-label {
+      visibility: hidden !important;
+      opacity: 0 !important;
+      pointer-events: none;
+    }
+
+    body.is-clean-view .state-copy {
+      opacity: 0;
+    }
+
+    @media (max-width: 700px) {
+      .masthead {
+        max-width: 250px;
+      }
+
+      .masthead p {
+        display: none;
+      }
+
+      .status {
+        grid-template-columns: auto 36px;
+      }
+
+      .status-line {
+        width: 36px;
+      }
+
+      .phase-legend {
+        bottom: 112px;
+        left: 22px;
+      }
+
+      .speed-panel {
+        right: 22px;
+        bottom: 112px;
+        width: 156px;
+      }
+
+      .speed-row {
+        grid-template-columns: 48px 1fr 30px;
+        gap: 6px;
+      }
+
+      .linked-label {
+        transform: translate(-50%, calc(-50% + 96px));
+      }
+
+      .measure-prompt {
+        --prompt-offset: 130px;
+        width: min(calc(100vw - 48px), 280px);
+      }
+
+      .clean-view {
+        right: 22px;
+        bottom: 22px;
+      }
+    }
+
+    @media (orientation: portrait) {
+      .masthead {
+        top: max(clamp(28px, 5vw, 56px), env(safe-area-inset-top));
+        left: max(clamp(28px, 5vw, 56px), env(safe-area-inset-left));
+        max-width: min(58vw, 620px);
+      }
+
+      h1 {
+        max-width: 9ch;
+        font-size: clamp(32px, 6.2vw, 68px);
+      }
+
+      .masthead p {
+        display: block;
+        max-width: 30ch;
+        margin-top: clamp(12px, 1.5vw, 18px);
+        font-size: clamp(12px, 1.4vw, 16px);
+      }
+
+      .status {
+        top: max(clamp(30px, 5vw, 58px), env(safe-area-inset-top));
+        right: max(clamp(28px, 5vw, 56px), env(safe-area-inset-right));
+        grid-template-columns: auto clamp(38px, 6vw, 64px);
+        gap: clamp(10px, 1.4vw, 16px);
+        font-size: clamp(11px, 1.4vw, 16px);
+      }
+
+      .status-line {
+        width: clamp(38px, 6vw, 64px);
+      }
+
+      .phase-legend,
+      .speed-panel {
+        bottom: max(
+          clamp(132px, 15vh, 288px),
+          calc(env(safe-area-inset-bottom) + 112px)
+        );
+      }
+
+      .phase-legend {
+        left: max(clamp(28px, 5vw, 56px), env(safe-area-inset-left));
+        gap: clamp(10px, 1.2vw, 14px);
+      }
+
+      .phase-row {
+        gap: clamp(9px, 1.2vw, 14px);
+        font-size: clamp(10px, 1.3vw, 14px);
+      }
+
+      .phase-mark {
+        width: clamp(20px, 3vw, 34px);
+      }
+
+      .speed-panel {
+        right: max(clamp(28px, 5vw, 56px), env(safe-area-inset-right));
+        width: clamp(184px, 34vw, 320px);
+        gap: clamp(10px, 1.2vw, 14px);
+      }
+
+      .speed-panel legend {
+        font-size: clamp(10px, 1.3vw, 14px);
+      }
+
+      .speed-row {
+        grid-template-columns:
+          clamp(50px, 9vw, 88px)
+          1fr
+          clamp(32px, 6vw, 56px);
+        gap: clamp(6px, 1.1vw, 12px);
+        font-size: clamp(10px, 1.25vw, 14px);
+      }
+
+      .speed-row output {
+        font-size: clamp(9px, 1.15vw, 13px);
+      }
+
+      .speed-row input {
+        --thumb-size: clamp(12px, 1.5vw, 16px);
+        height: clamp(18px, 2.4vw, 26px);
+      }
+
+      .speed-row input::-webkit-slider-thumb {
+        width: var(--thumb-size);
+        height: var(--thumb-size);
+        margin-top: calc((2px - var(--thumb-size)) / 2);
+      }
+
+      .speed-row input::-moz-range-thumb {
+        width: var(--thumb-size);
+        height: var(--thumb-size);
+      }
+
+      .linked-label {
+        font-size: clamp(10px, 1.25vw, 14px);
+        transform:
+          translate(-50%, calc(-50% + clamp(52px, 9vw, 98px)));
+      }
+
+      .measure-prompt {
+        --prompt-offset: clamp(88px, 15vw, 162px);
+        width: min(76vw, 520px);
+        font-size: clamp(12px, 1.5vw, 17px);
+      }
+
+      .outcome {
+        font-size: clamp(64px, 12vw, 132px);
+      }
+
+      .controls {
+        bottom: max(
+          clamp(30px, 4vh, 76px),
+          calc(env(safe-area-inset-bottom) + 22px)
+        );
+        gap: clamp(10px, 1.3vw, 16px);
+        width: min(84vw, 640px);
+      }
+
+      .action {
+        min-width: clamp(148px, 19vw, 210px);
+        height: clamp(48px, 5.2vw, 60px);
+        padding-inline: clamp(24px, 3vw, 36px);
+        font-size: clamp(12px, 1.35vw, 15px);
+      }
+
+      .state-copy {
+        font-size: clamp(11px, 1.2vw, 14px);
+      }
+
+      .clean-view {
+        right: max(clamp(28px, 5vw, 56px), env(safe-area-inset-right));
+        bottom: max(
+          clamp(30px, 4vh, 76px),
+          calc(env(safe-area-inset-bottom) + 22px)
+        );
+        font-size: clamp(10px, 1.2vw, 13px);
+      }
+    }
+
+    @media (max-height: 680px) {
+      .controls {
+        bottom: 18px;
+      }
+
+      .phase-legend {
+        bottom: 76px;
+      }
+
+      .speed-panel {
+        bottom: 76px;
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .phase-legend,
+      .linked-label,
+      .measure-prompt,
+      .outcome,
+      .status-line::after,
+      .action {
+        transition-duration: 1ms;
+      }
+    }
+  </style>
+</head>
+<body data-state="independent">
+  <main class="interface" aria-live="polite">
+    <header class="masthead">
+      <h1>Two bodies. One state.</h1>
+      <p>Synchronize two opposing coins, then measure one shared outcome.</p>
+    </header>
+
+    <div class="status" aria-label="Pair state">
+      <span id="status-label">Independent</span>
+      <span class="status-line" aria-hidden="true"></span>
+    </div>
+
+    <section class="phase-legend" aria-label="Independent rotations">
+      <div class="phase-row"><span class="phase-mark"></span><span>Coin A &middot; clockwise</span></div>
+      <div class="phase-row"><span class="phase-mark"></span><span>Coin B &middot; counter-clockwise</span></div>
+    </section>
+
+    <fieldset class="speed-panel">
+      <legend>Motion &amp; sphere</legend>
+      <label class="speed-row">
+        <span>Face flip</span>
+        <input id="face-speed" type="range" min="0.25" max="2.5" step="0.05" value="1">
+        <output id="face-speed-output" for="face-speed">1.00x</output>
+      </label>
+      <label class="speed-row">
+        <span>Axial turn</span>
+        <input id="roll-speed" type="range" min="0.25" max="2.5" step="0.05" value="1">
+        <output id="roll-speed-output" for="roll-speed">1.00x</output>
+      </label>
+      <label class="speed-row">
+        <span>Sphere</span>
+        <input
+          id="sphere-opacity"
+          type="range"
+          min="0"
+          max="1"
+          step="0.05"
+          value="0.5"
+          aria-label="Sphere opacity"
+        >
+        <output id="sphere-opacity-output" for="sphere-opacity">50%</output>
+      </label>
+    </fieldset>
+
+    <div class="linked-label">Shared phase &middot; matched rotation</div>
+    <p class="measure-prompt">Click on one of the coins to measure the outcome of both</p>
+    <div class="outcome" id="outcome" aria-hidden="true">Heads + Heads</div>
+
+    <div class="controls">
+      <button class="action" id="action" type="button">Entangle</button>
+      <p class="state-copy" id="state-copy">Opposing rotations &middot; independent phases</p>
+    </div>
+
+    <button
+      class="clean-view"
+      id="clean-view"
+      type="button"
+      aria-pressed="false"
+      title="Hide the interface for screenshots. Press Escape to restore it."
+    >Clean view</button>
+  </main>
+
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js"
+      }
+    }
+  </script>
+
+  <script type="module">
+    import * as THREE from "three";
+
+    const TAU = Math.PI * 2;
+    const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const ENTANGLE_DURATION = reducedMotion ? 0.15 : 1.15;
+    const SPHERE_MEASURE_FADE_DURATION = reducedMotion ? 0.1 : 0.5;
+    const FLOOR_Y = -2.05;
+    const LANDING_Y = FLOOR_Y + 0.08;
+    const HOVER_Y = 0.45;
+    const COIN_RADIUS = 0.98;
+    const COIN_THICKNESS = 0.16;
+    const FALL_GRAVITY = -9.6;
+    const MEASUREMENT_LAUNCH_VELOCITY = 3.4;
+
+    const actionButton = document.getElementById("action");
+    const statusLabel = document.getElementById("status-label");
+    const stateCopy = document.getElementById("state-copy");
+    const outcomeLabel = document.getElementById("outcome");
+    const faceSpeedInput = document.getElementById("face-speed");
+    const rollSpeedInput = document.getElementById("roll-speed");
+    const faceSpeedOutput = document.getElementById("face-speed-output");
+    const rollSpeedOutput = document.getElementById("roll-speed-output");
+    const sphereOpacityInput = document.getElementById("sphere-opacity");
+    const sphereOpacityOutput = document.getElementById("sphere-opacity-output");
+    const cleanViewButton = document.getElementById("clean-view");
+    const spinSpeed = { face: 1, roll: 1 };
+    let sphereOpacity = 0.5;
+    let sphereReveal = 1;
+    let sphereOverlays = [];
+    let cleanViewTimer = 0;
+
+    function updateSpeedControl(axis, input, output) {
+      const value = Number(input.value);
+      spinSpeed[axis] = value;
+      output.value = `${value.toFixed(2)}x`;
+      const progress = (value - Number(input.min))
+        / (Number(input.max) - Number(input.min));
+      input.style.setProperty("--range-progress", `${progress * 100}%`);
+    }
+
+    faceSpeedInput.addEventListener("input", () => {
+      updateSpeedControl("face", faceSpeedInput, faceSpeedOutput);
+    });
+    rollSpeedInput.addEventListener("input", () => {
+      updateSpeedControl("roll", rollSpeedInput, rollSpeedOutput);
+    });
+
+    function updateSphereOpacity() {
+      sphereOpacity = Number(sphereOpacityInput.value);
+      sphereOpacityOutput.value = `${Math.round(sphereOpacity * 100)}%`;
+      sphereOpacityInput.style.setProperty(
+        "--range-progress",
+        `${sphereOpacity * 100}%`
+      );
+      applySphereOverlayOpacity();
+    }
+
+    sphereOpacityInput.addEventListener("input", updateSphereOpacity);
+    updateSpeedControl("face", faceSpeedInput, faceSpeedOutput);
+    updateSpeedControl("roll", rollSpeedInput, rollSpeedOutput);
+    updateSphereOpacity();
+
+    function scheduleCleanViewButtonHide() {
+      window.clearTimeout(cleanViewTimer);
+      cleanViewTimer = window.setTimeout(() => {
+        if (document.body.classList.contains("is-clean-view")) {
+          cleanViewButton.classList.add("is-dormant");
+        }
+      }, 1200);
+    }
+
+    function setCleanView(active) {
+      document.body.classList.toggle("is-clean-view", active);
+      cleanViewButton.classList.remove("is-dormant");
+      cleanViewButton.textContent = active ? "Show interface" : "Clean view";
+      cleanViewButton.setAttribute("aria-pressed", String(active));
+      window.clearTimeout(cleanViewTimer);
+      if (active) scheduleCleanViewButtonHide();
+    }
+
+    cleanViewButton.addEventListener("click", () => {
+      setCleanView(!document.body.classList.contains("is-clean-view"));
+    });
+
+    window.addEventListener("pointermove", () => {
+      if (!document.body.classList.contains("is-clean-view")) return;
+      cleanViewButton.classList.remove("is-dormant");
+      scheduleCleanViewButtonHide();
+    });
+
+    window.addEventListener("pointerdown", () => {
+      if (!document.body.classList.contains("is-clean-view")) return;
+      cleanViewButton.classList.remove("is-dormant");
+      scheduleCleanViewButtonHide();
+    }, true);
+
+    window.addEventListener("keydown", event => {
+      if (
+        event.key === "Escape"
+        && document.body.classList.contains("is-clean-view")
+      ) {
+        setCleanView(false);
+      }
+    });
+
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0xf4f6f8);
+    scene.fog = new THREE.Fog(0xf4f6f8, 12, 30);
+
+    const camera = new THREE.PerspectiveCamera(29, innerWidth / innerHeight, 0.1, 60);
+    camera.position.set(0, 2.35, 11.2);
+    camera.lookAt(0, -0.2, 0);
+
+    const renderer = new THREE.WebGLRenderer({
+      antialias: true,
+      powerPreference: "high-performance"
+    });
+    renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.05;
+    document.body.prepend(renderer.domElement);
+
+    scene.add(new THREE.HemisphereLight(0xffffff, 0xc8d1dc, 2.1));
+
+    const keyLight = new THREE.DirectionalLight(0xffffff, 4.8);
+    keyLight.position.set(-4.5, 8, 7);
+    keyLight.castShadow = true;
+    keyLight.shadow.mapSize.set(2048, 2048);
+    keyLight.shadow.camera.left = -7;
+    keyLight.shadow.camera.right = 7;
+    keyLight.shadow.camera.top = 7;
+    keyLight.shadow.camera.bottom = -5;
+    keyLight.shadow.bias = -0.0003;
+    scene.add(keyLight);
+
+    const phaseLight = new THREE.PointLight(0x5a9bff, 0, 8, 2);
+    phaseLight.position.set(0, HOVER_Y, 2.2);
+    scene.add(phaseLight);
+
+    const floor = new THREE.Mesh(
+      new THREE.PlaneGeometry(30, 30),
+      new THREE.MeshStandardMaterial({
+        color: 0xf4f6f8,
+        roughness: 0.94,
+        metalness: 0
+      })
+    );
+    floor.rotation.x = -Math.PI / 2;
+    floor.position.y = FLOOR_Y;
+    floor.receiveShadow = true;
+    scene.add(floor);
+
+    function makeFaceTexture(label, side) {
+      const size = 768;
+      const canvas = document.createElement("canvas");
+      canvas.width = size;
+      canvas.height = size;
+      const context = canvas.getContext("2d");
+      const center = size / 2;
+
+      const base = context.createRadialGradient(
+        center - 120,
+        center - 150,
+        20,
+        center,
+        center,
+        center
+      );
+      base.addColorStop(0, "#ffffff");
+      base.addColorStop(0.38, "#d9dee4");
+      base.addColorStop(0.78, "#aeb6bf");
+      base.addColorStop(1, "#8e98a3");
+      context.fillStyle = base;
+      context.fillRect(0, 0, size, size);
+
+      context.save();
+      context.translate(center, center);
+      for (let radius = 74; radius < center - 66; radius += 7) {
+        context.strokeStyle = `rgba(255, 255, 255, ${0.045 + (radius % 4) * 0.012})`;
+        context.lineWidth = 2;
+        context.beginPath();
+        context.arc(0, 0, radius, 0, TAU);
+        context.stroke();
+      }
+      context.restore();
+
+      context.strokeStyle = "rgba(54, 63, 73, 0.55)";
+      context.lineWidth = 10;
+      context.beginPath();
+      context.arc(center, center, center - 42, 0, TAU);
+      context.stroke();
+
+      context.strokeStyle = "rgba(255, 255, 255, 0.72)";
+      context.lineWidth = 4;
+      context.beginPath();
+      context.arc(center, center, center - 62, 0, TAU);
+      context.stroke();
+
+      context.fillStyle = "rgba(39, 46, 54, 0.8)";
+      context.textAlign = "center";
+      context.textBaseline = "middle";
+      context.font = '600 46px "Segoe UI", sans-serif';
+      context.fillText(label.toUpperCase(), center, center + 188);
+
+      context.save();
+      context.translate(center, center - 28);
+      context.strokeStyle = "rgba(39, 46, 54, 0.75)";
+      context.fillStyle = "rgba(255, 255, 255, 0.17)";
+      context.lineWidth = 13;
+
+      if (side === "heads") {
+        context.beginPath();
+        context.arc(0, -50, 96, Math.PI * 0.08, Math.PI * 1.92);
+        context.stroke();
+        context.beginPath();
+        context.moveTo(-70, 60);
+        context.quadraticCurveTo(0, 118, 70, 60);
+        context.quadraticCurveTo(44, 160, 0, 174);
+        context.quadraticCurveTo(-44, 160, -70, 60);
+        context.closePath();
+        context.fill();
+        context.stroke();
+      } else {
+        context.rotate(Math.PI / 4);
+        context.strokeRect(-100, -100, 200, 200);
+        context.strokeRect(-62, -62, 124, 124);
+        context.beginPath();
+        context.moveTo(-100, 0);
+        context.lineTo(0, -100);
+        context.lineTo(100, 0);
+        context.lineTo(0, 100);
+        context.closePath();
+        context.stroke();
+      }
+
+      context.restore();
+
+      const texture = new THREE.CanvasTexture(canvas);
+      texture.colorSpace = THREE.SRGBColorSpace;
+      texture.anisotropy = renderer.capabilities.getMaxAnisotropy();
+      return texture;
+    }
+
+    const headsTexture = makeFaceTexture("Heads", "heads");
+    const tailsTexture = makeFaceTexture("Tails", "tails");
+    const coinGeometry = new THREE.CylinderGeometry(
+      COIN_RADIUS,
+      COIN_RADIUS,
+      COIN_THICKNESS,
+      96,
+      3,
+      false
+    );
+
+    function createCoin(direction, initialAngle) {
+      const edgeMaterial = new THREE.MeshPhysicalMaterial({
+        color: 0x8f99a4,
+        roughness: 0.34,
+        metalness: 0.84,
+        anisotropy: 0.72,
+        anisotropyRotation: Math.PI / 2,
+        clearcoat: 0.72,
+        clearcoatRoughness: 0.18
+      });
+      const headsMaterial = new THREE.MeshPhysicalMaterial({
+        color: 0xffffff,
+        map: headsTexture,
+        roughness: 0.25,
+        metalness: 0.66,
+        clearcoat: 0.58,
+        clearcoatRoughness: 0.2
+      });
+      const tailsMaterial = headsMaterial.clone();
+      tailsMaterial.map = tailsTexture;
+      tailsMaterial.needsUpdate = true;
+
+      const root = new THREE.Group();
+      const mesh = new THREE.Mesh(
+        coinGeometry,
+        [edgeMaterial, headsMaterial, tailsMaterial]
+      );
+      mesh.rotation.x = Math.PI / 2;
+      mesh.castShadow = false;
+      mesh.receiveShadow = true;
+      root.add(mesh);
+      scene.add(root);
+
+      return {
+        root,
+        mesh,
+        direction,
+        angle: initialAngle,
+        startAngle: initialAngle,
+        targetAngle: initialAngle,
+        rollAngle: initialAngle * 0.14,
+        startRollAngle: initialAngle * 0.14,
+        targetRollAngle: initialAngle * 0.14,
+        startPosition: new THREE.Vector3()
+      };
+    }
+
+    const coins = [
+      createCoin(1, 0),
+      createCoin(-1, Math.PI * 0.68)
+    ];
+
+    function createPhaseGuide(color) {
+      const points = [];
+      for (let index = 0; index < 96; index += 1) {
+        const angle = (index / 96) * TAU;
+        points.push(new THREE.Vector3(
+          Math.cos(angle) * 1.28,
+          Math.sin(angle) * 1.28,
+          -0.18
+        ));
+      }
+
+      const material = new THREE.LineBasicMaterial({
+        color,
+        transparent: true,
+        opacity: 0.16
+      });
+      const group = new THREE.Group();
+      group.add(new THREE.LineLoop(
+        new THREE.BufferGeometry().setFromPoints(points),
+        material
+      ));
+
+      const markerMaterial = new THREE.MeshBasicMaterial({
+        color,
+        transparent: true,
+        opacity: 0.72
+      });
+      const marker = new THREE.Mesh(
+        new THREE.SphereGeometry(0.035, 10, 8),
+        markerMaterial
+      );
+      marker.position.set(1.28, 0, -0.16);
+      group.add(marker);
+      scene.add(group);
+
+      return { group, material, markerMaterial };
+    }
+
+    const guides = [
+      createPhaseGuide(0x29313a),
+      createPhaseGuide(0x1267e8)
+    ];
+
+    function createSphereOverlay(coin) {
+      const radius = 1.16;
+      const group = new THREE.Group();
+
+      const shellMaterial = new THREE.MeshPhysicalMaterial({
+        color: 0xd9e9ff,
+        transparent: true,
+        opacity: 0,
+        roughness: 0.32,
+        metalness: 0,
+        clearcoat: 0.82,
+        clearcoatRoughness: 0.2,
+        side: THREE.DoubleSide,
+        depthWrite: false
+      });
+      const shell = new THREE.Mesh(
+        new THREE.SphereGeometry(radius, 48, 32),
+        shellMaterial
+      );
+      shell.renderOrder = 4;
+      group.add(shell);
+
+      const equatorPoints = [];
+      for (let index = 0; index <= 128; index += 1) {
+        const angle = (index / 128) * TAU;
+        equatorPoints.push(new THREE.Vector3(
+          Math.cos(angle) * radius,
+          0,
+          Math.sin(angle) * radius
+        ));
+      }
+      const equatorMaterial = new THREE.LineDashedMaterial({
+        color: 0x1267e8,
+        transparent: true,
+        opacity: 0,
+        dashSize: 0.09,
+        gapSize: 0.065,
+        depthTest: false,
+        depthWrite: false
+      });
+      const equator = new THREE.Line(
+        new THREE.BufferGeometry().setFromPoints(equatorPoints),
+        equatorMaterial
+      );
+      equator.computeLineDistances();
+      equator.renderOrder = 6;
+      group.add(equator);
+
+      const meridianPoints = [];
+      for (let index = 0; index <= 128; index += 1) {
+        const angle = (index / 128) * TAU;
+        meridianPoints.push(new THREE.Vector3(
+          Math.cos(angle) * radius,
+          Math.sin(angle) * radius,
+          0
+        ));
+      }
+      const meridianMaterial = new THREE.LineBasicMaterial({
+        color: 0x1267e8,
+        transparent: true,
+        opacity: 0,
+        depthTest: false,
+        depthWrite: false
+      });
+      const meridian = new THREE.Line(
+        new THREE.BufferGeometry().setFromPoints(meridianPoints),
+        meridianMaterial
+      );
+      meridian.renderOrder = 7;
+      group.add(meridian);
+
+      const arrow = new THREE.ArrowHelper(
+        new THREE.Vector3(0.52, 0.68, 0.52).normalize(),
+        new THREE.Vector3(0, 0, 0),
+        radius,
+        0x174f8c,
+        0.18,
+        0.11
+      );
+      const arrowLineMaterial = arrow.line.material;
+      const arrowConeMaterial = arrow.cone.material;
+      [arrowLineMaterial, arrowConeMaterial].forEach(material => {
+        material.transparent = true;
+        material.opacity = 0;
+        material.depthTest = false;
+        material.depthWrite = false;
+      });
+      arrow.line.renderOrder = 8;
+      arrow.cone.renderOrder = 8;
+      group.add(arrow);
+
+      const originMaterial = new THREE.MeshBasicMaterial({
+        color: 0x174f8c,
+        transparent: true,
+        opacity: 0,
+        depthTest: false,
+        depthWrite: false
+      });
+      const origin = new THREE.Mesh(
+        new THREE.SphereGeometry(0.045, 16, 12),
+        originMaterial
+      );
+      origin.renderOrder = 9;
+      group.add(origin);
+
+      group.visible = false;
+      coin.root.add(group);
+
+      return {
+        group,
+        arrow,
+        shellMaterial,
+        equatorMaterial,
+        meridianMaterial,
+        arrowLineMaterial,
+        arrowConeMaterial,
+        originMaterial
+      };
+    }
+
+    function applySphereOverlayOpacity() {
+      const visibleOpacity = sphereOpacity * sphereReveal;
+      sphereOverlays.forEach(overlay => {
+        overlay.group.visible = visibleOpacity > 0.001;
+        overlay.shellMaterial.opacity = visibleOpacity;
+        overlay.equatorMaterial.opacity = Math.min(1, visibleOpacity * 1.35);
+        overlay.meridianMaterial.opacity = Math.min(1, visibleOpacity * 1.5);
+        overlay.arrowLineMaterial.opacity = Math.min(1, visibleOpacity * 1.7);
+        overlay.arrowConeMaterial.opacity = Math.min(1, visibleOpacity * 1.7);
+        overlay.originMaterial.opacity = Math.min(1, visibleOpacity * 1.7);
+      });
+    }
+
+    sphereOverlays = coins.map(createSphereOverlay);
+    const sphereArrowMotion = {
+      start: new THREE.Vector3(0.52, 0.68, 0.52).normalize(),
+      target: new THREE.Vector3(),
+      current: new THREE.Vector3(),
+      elapsed: 0,
+      duration: THREE.MathUtils.randFloat(0.9, 1.6)
+    };
+
+    function randomArrowDirection(reference) {
+      const direction = new THREE.Vector3();
+      do {
+        const vertical = Math.random() * 2 - 1;
+        const azimuth = Math.random() * TAU;
+        const radial = Math.sqrt(1 - vertical * vertical);
+        direction.set(
+          radial * Math.cos(azimuth),
+          vertical,
+          radial * Math.sin(azimuth)
+        );
+      } while (direction.dot(reference) < -0.55);
+      return direction;
+    }
+
+    sphereArrowMotion.target.copy(
+      randomArrowDirection(sphereArrowMotion.start)
+    );
+    sphereArrowMotion.current.copy(sphereArrowMotion.start);
+
+    function updateSphereArrowMotion(delta) {
+      if (reducedMotion) return;
+      sphereArrowMotion.elapsed += delta;
+      if (sphereArrowMotion.elapsed >= sphereArrowMotion.duration) {
+        sphereArrowMotion.elapsed -= sphereArrowMotion.duration;
+        sphereArrowMotion.start.copy(sphereArrowMotion.target);
+        sphereArrowMotion.target.copy(
+          randomArrowDirection(sphereArrowMotion.start)
+        );
+        sphereArrowMotion.duration = THREE.MathUtils.randFloat(0.9, 1.6);
+      }
+      const progress = smoothstep(
+        sphereArrowMotion.elapsed / sphereArrowMotion.duration
+      );
+      sphereArrowMotion.current
+        .lerpVectors(
+          sphereArrowMotion.start,
+          sphereArrowMotion.target,
+          progress
+        )
+        .normalize();
+      sphereOverlays.forEach(overlay => {
+        overlay.arrow.setDirection(sphereArrowMotion.current);
+      });
+    }
+
+    applySphereOverlayOpacity();
+
+    const shadowMaterial = new THREE.MeshBasicMaterial({
+      color: 0x2e3948,
+      transparent: true,
+      opacity: 0.055,
+      depthWrite: false
+    });
+    const shadows = coins.map(() => {
+      const shadow = new THREE.Mesh(
+        new THREE.CircleGeometry(COIN_RADIUS * 0.94, 64),
+        shadowMaterial.clone()
+      );
+      shadow.rotation.x = -Math.PI / 2;
+      shadow.position.y = FLOOR_Y + 0.006;
+      shadow.scale.set(1.25, 0.38, 1);
+      scene.add(shadow);
+      return shadow;
+    });
+
+    const linkedOrbitPoints = [];
+    for (let index = 0; index < 128; index += 1) {
+      const angle = (index / 128) * TAU;
+      linkedOrbitPoints.push(new THREE.Vector3(
+        Math.cos(angle) * 2.65,
+        Math.sin(angle) * 0.58,
+        -0.24
+      ));
+    }
+    const linkedOrbitMaterial = new THREE.LineBasicMaterial({
+      color: 0x1267e8,
+      transparent: true,
+      opacity: 0
+    });
+    const linkedOrbit = new THREE.LineLoop(
+      new THREE.BufferGeometry().setFromPoints(linkedOrbitPoints),
+      linkedOrbitMaterial
+    );
+    linkedOrbit.position.y = HOVER_Y;
+    scene.add(linkedOrbit);
+
+    const linkGeometry = new THREE.BufferGeometry().setFromPoints([
+      new THREE.Vector3(),
+      new THREE.Vector3()
+    ]);
+    const linkMaterial = new THREE.LineBasicMaterial({
+      color: 0x1267e8,
+      transparent: true,
+      opacity: 0
+    });
+    const linkLine = new THREE.Line(linkGeometry, linkMaterial);
+    scene.add(linkLine);
+
+    const linkNodes = [-0.36, 0, 0.36].map(offset => {
+      const node = new THREE.Mesh(
+        new THREE.SphereGeometry(0.025, 10, 8),
+        new THREE.MeshBasicMaterial({
+          color: 0x1267e8,
+          transparent: true,
+          opacity: 0
+        })
+      );
+      node.userData.offset = offset;
+      scene.add(node);
+      return node;
+    });
+
+    const STATE = Object.freeze({
+      INDEPENDENT: "independent",
+      ENTANGLING: "entangling",
+      ENTANGLED: "entangled",
+      MEASURING: "measuring",
+      MEASURED: "measured"
+    });
+
+    let state = STATE.INDEPENDENT;
+    let spread = 2.85;
+    let linkedSpread = 1.32;
+    let sceneScale = 1;
+    let stateElapsed = 0;
+    let sharedAngle = 0;
+    let sharedRollAngle = 0;
+    let fallVelocity = 0;
+    let measuredResult = "Heads";
+    let measurementStartAngle = 0;
+    let measurementStartRollAngle = 0;
+    let measurementTargetAngle = 0;
+    let measurementTargetRollAngle = 0;
+    let measurementFaceVelocity = 0;
+    let measurementRollVelocity = 0;
+    let measurementDuration = 1;
+    let measurementApexY = HOVER_Y;
+    let impactElapsed = 0;
+
+    function clamp01(value) {
+      return THREE.MathUtils.clamp(value, 0, 1);
+    }
+
+    function smoothstep(value) {
+      const clamped = clamp01(value);
+      return clamped * clamped * (3 - 2 * clamped);
+    }
+
+    function easeOutBack(value) {
+      const amount = 1.12;
+      const shifted = value - 1;
+      return 1 + (amount + 1) * shifted ** 3 + amount * shifted ** 2;
+    }
+
+    function previousEquivalent(currentAngle, targetPhase) {
+      let equivalent = targetPhase - Math.ceil((targetPhase - currentAngle) / TAU) * TAU;
+      if (equivalent > currentAngle - TAU * 0.45) equivalent -= TAU;
+      return equivalent;
+    }
+
+    function nextEquivalent(currentAngle, targetPhase, minimumTurns) {
+      let equivalent = targetPhase
+        + Math.ceil((currentAngle - targetPhase) / TAU) * TAU;
+      while (equivalent < currentAngle + TAU * minimumTurns) {
+        equivalent += TAU;
+      }
+      return equivalent;
+    }
+
+    function hermite(
+      start,
+      end,
+      startVelocity,
+      endVelocity,
+      progress,
+      duration
+    ) {
+      const progress2 = progress * progress;
+      const progress3 = progress2 * progress;
+      const startWeight = 2 * progress3 - 3 * progress2 + 1;
+      const startTangentWeight = progress3 - 2 * progress2 + progress;
+      const endWeight = -2 * progress3 + 3 * progress2;
+      const endTangentWeight = progress3 - progress2;
+
+      return startWeight * start
+        + startTangentWeight * duration * startVelocity
+        + endWeight * end
+        + endTangentWeight * duration * endVelocity;
+    }
+
+    function updateLinkGeometry() {
+      const positions = linkGeometry.attributes.position;
+      positions.setXYZ(
+        0,
+        coins[0].root.position.x,
+        coins[0].root.position.y,
+        -0.08
+      );
+      positions.setXYZ(
+        1,
+        coins[1].root.position.x,
+        coins[1].root.position.y,
+        -0.08
+      );
+      positions.needsUpdate = true;
+
+      linkNodes.forEach(node => {
+        node.position.set(
+          node.userData.offset,
+          (coins[0].root.position.y + coins[1].root.position.y) / 2,
+          -0.06
+        );
+      });
+    }
+
+    function setState(nextState) {
+      state = nextState;
+      stateElapsed = 0;
+      document.body.dataset.state = nextState;
+      if (state !== STATE.ENTANGLED) {
+        renderer.domElement.classList.remove("is-measure-target");
+      }
+
+      if (state === STATE.INDEPENDENT) {
+        statusLabel.textContent = "Independent";
+        actionButton.textContent = "Entangle";
+        actionButton.disabled = false;
+        stateCopy.textContent = "Opposing rotations - independent phases";
+      } else if (state === STATE.ENTANGLING) {
+        statusLabel.textContent = "Entangling";
+        actionButton.textContent = "Measure";
+        actionButton.disabled = true;
+        stateCopy.textContent = "Aligning two phases into one";
+      } else if (state === STATE.ENTANGLED) {
+        statusLabel.textContent = "Entangled";
+        actionButton.textContent = "Measure";
+        actionButton.disabled = false;
+        stateCopy.textContent = "One phase shared across both coins";
+      } else if (state === STATE.MEASURING) {
+        statusLabel.textContent = "Measuring";
+        actionButton.textContent = "Measure";
+        actionButton.disabled = true;
+        stateCopy.textContent = "Collapsing one shared state";
+      } else if (state === STATE.MEASURED) {
+        statusLabel.textContent = `${measuredResult} + ${measuredResult}`;
+        actionButton.textContent = "Reset";
+        actionButton.disabled = false;
+        stateCopy.textContent = "The linked pair resolved to the same result";
+      }
+    }
+
+    function setIndependentPositions() {
+      coins[0].root.position.set(-spread, HOVER_Y, 0);
+      coins[1].root.position.set(spread, HOVER_Y, 0);
+    }
+
+    function resetScene() {
+      coins[0].angle = 0;
+      coins[1].angle = Math.PI * 0.68;
+      coins[0].rollAngle = 0;
+      coins[1].rollAngle = -Math.PI * 0.12;
+      coins.forEach((coin, index) => {
+        coin.root.rotation.set(coin.angle, 0, coin.rollAngle);
+        coin.mesh.rotation.set(Math.PI / 2, 0, 0);
+        coin.root.scale.setScalar(sceneScale);
+        guides[index].group.rotation.z = coin.rollAngle;
+        guides[index].material.opacity = 0.16;
+        guides[index].markerMaterial.opacity = 0.72;
+      });
+      sphereReveal = 1;
+      applySphereOverlayOpacity();
+      setIndependentPositions();
+      shadows.forEach((shadow, index) => {
+        shadow.position.x = coins[index].root.position.x;
+        shadow.material.opacity = 0.055;
+        shadow.scale.set(1.25 * sceneScale, 0.38 * sceneScale, 1);
+      });
+      linkedOrbitMaterial.opacity = 0;
+      linkMaterial.opacity = 0;
+      linkNodes.forEach(node => {
+        node.material.opacity = 0;
+      });
+      phaseLight.intensity = 0;
+      outcomeLabel.textContent = "Heads + Heads";
+      sharedAngle = 0;
+      sharedRollAngle = 0;
+      fallVelocity = 0;
+      impactElapsed = 0;
+      setState(STATE.INDEPENDENT);
+    }
+
+    function beginEntanglement() {
+      if (state !== STATE.INDEPENDENT) return;
+
+      coins.forEach(coin => {
+        coin.startAngle = coin.angle;
+        coin.startRollAngle = coin.rollAngle;
+        coin.startPosition.copy(coin.root.position);
+      });
+
+      const targetPhase = coins[0].angle + TAU * 1.15;
+      const targetRollPhase = coins[0].rollAngle + TAU * 0.18;
+      coins[0].targetAngle = targetPhase;
+      coins[1].targetAngle = previousEquivalent(coins[1].angle, targetPhase);
+      coins[0].targetRollAngle = targetRollPhase;
+      coins[1].targetRollAngle = previousEquivalent(
+        coins[1].rollAngle,
+        targetRollPhase
+      );
+      sharedAngle = targetPhase;
+      sharedRollAngle = targetRollPhase;
+      setState(STATE.ENTANGLING);
+    }
+
+    function beginMeasurement() {
+      if (state !== STATE.ENTANGLED) return;
+
+      measuredResult = Math.random() < 0.5 ? "Heads" : "Tails";
+      measurementStartAngle = sharedAngle;
+      measurementStartRollAngle = sharedRollAngle;
+      fallVelocity = MEASUREMENT_LAUNCH_VELOCITY;
+      measurementFaceVelocity = 1.55 * spinSpeed.face;
+      measurementRollVelocity = 0.18 * spinSpeed.roll;
+      const fallDistance = coins[0].root.position.y - LANDING_Y;
+      measurementDuration = (
+        fallVelocity
+        + Math.sqrt(
+          fallVelocity ** 2 + 2 * Math.abs(FALL_GRAVITY) * fallDistance
+        )
+      ) / Math.abs(FALL_GRAVITY);
+      measurementApexY = coins[0].root.position.y
+        + fallVelocity ** 2 / (2 * Math.abs(FALL_GRAVITY));
+      const normalizedFaceSpeed = (
+        spinSpeed.face - Number(faceSpeedInput.min)
+      ) / (
+        Number(faceSpeedInput.max) - Number(faceSpeedInput.min)
+      );
+      const measurementTurns = 2 + normalizedFaceSpeed * 1.5;
+      const targetFaceRotation = measuredResult === "Heads" ? 0 : Math.PI;
+      measurementTargetAngle = nextEquivalent(
+        measurementStartAngle,
+        targetFaceRotation - Math.PI / 2,
+        measurementTurns
+      );
+      measurementTargetRollAngle = measurementStartRollAngle
+        + measurementRollVelocity * measurementDuration * 0.7;
+      impactElapsed = 0;
+      outcomeLabel.textContent = `${measuredResult} + ${measuredResult}`;
+      setState(STATE.MEASURING);
+    }
+
+    actionButton.addEventListener("click", () => {
+      if (state === STATE.INDEPENDENT) beginEntanglement();
+      else if (state === STATE.ENTANGLED) beginMeasurement();
+      else if (state === STATE.MEASURED) resetScene();
+    });
+
+    const coinRaycaster = new THREE.Raycaster();
+    const coinPointer = new THREE.Vector2();
+    const coinMeshes = coins.map(coin => coin.mesh);
+
+    function pointerHitsCoin(event) {
+      const bounds = renderer.domElement.getBoundingClientRect();
+      coinPointer.set(
+        ((event.clientX - bounds.left) / bounds.width) * 2 - 1,
+        -((event.clientY - bounds.top) / bounds.height) * 2 + 1
+      );
+      coinRaycaster.setFromCamera(coinPointer, camera);
+      return coinRaycaster.intersectObjects(coinMeshes, false).length > 0;
+    }
+
+    renderer.domElement.addEventListener("pointermove", event => {
+      const isMeasureTarget = state === STATE.ENTANGLED
+        && pointerHitsCoin(event);
+      renderer.domElement.classList.toggle(
+        "is-measure-target",
+        isMeasureTarget
+      );
+    });
+
+    renderer.domElement.addEventListener("pointerleave", () => {
+      renderer.domElement.classList.remove("is-measure-target");
+    });
+
+    renderer.domElement.addEventListener("click", event => {
+      if (state === STATE.ENTANGLED && pointerHitsCoin(event)) {
+        beginMeasurement();
+      }
+    });
+
+    function updateIndependent(delta, elapsed) {
+      coins.forEach((coin, index) => {
+        coin.angle += delta * 1.75 * spinSpeed.face * coin.direction;
+        coin.rollAngle += delta * 0.24 * spinSpeed.roll * coin.direction;
+        coin.root.rotation.x = coin.angle;
+        coin.root.rotation.z = coin.rollAngle;
+        coin.root.position.y = HOVER_Y + Math.sin(elapsed * 1.4 + index * 1.8) * 0.1;
+        coin.mesh.rotation.set(
+          Math.PI / 2,
+          Math.sin(elapsed * 0.8 + index) * 0.035,
+          0
+        );
+        guides[index].group.position.copy(coin.root.position);
+        guides[index].group.rotation.z = coin.rollAngle;
+        shadows[index].position.x = coin.root.position.x;
+      });
+      linkedOrbitMaterial.opacity = 0;
+      linkMaterial.opacity = 0;
+      phaseLight.intensity = 0;
+    }
+
+    function updateEntangling(delta) {
+      stateElapsed += delta;
+      const progress = clamp01(stateElapsed / ENTANGLE_DURATION);
+      const movement = easeOutBack(progress);
+      const rotation = smoothstep(progress);
+
+      coins.forEach((coin, index) => {
+        const targetX = index === 0 ? -linkedSpread : linkedSpread;
+        coin.root.position.x = THREE.MathUtils.lerp(
+          coin.startPosition.x,
+          targetX,
+          movement
+        );
+        coin.root.position.y = HOVER_Y + Math.sin(progress * Math.PI) * 0.2;
+        coin.angle = THREE.MathUtils.lerp(
+          coin.startAngle,
+          coin.targetAngle,
+          rotation
+        );
+        coin.rollAngle = THREE.MathUtils.lerp(
+          coin.startRollAngle,
+          coin.targetRollAngle,
+          rotation
+        );
+        coin.root.rotation.x = coin.angle;
+        coin.root.rotation.z = coin.rollAngle;
+        guides[index].group.position.copy(coin.root.position);
+        guides[index].group.rotation.z = coin.rollAngle;
+        guides[index].material.opacity = 0.16 * (1 - progress);
+        guides[index].markerMaterial.opacity = 0.72 * (1 - progress);
+        shadows[index].position.x = coin.root.position.x;
+      });
+
+      linkedOrbitMaterial.opacity = progress * 0.18;
+      linkMaterial.opacity = progress * 0.42;
+      linkNodes.forEach((node, index) => {
+        node.material.opacity = progress * (0.65 - index * 0.08);
+      });
+      phaseLight.intensity = progress * 2.6;
+      updateLinkGeometry();
+
+      if (progress >= 1) {
+        sharedAngle %= TAU;
+        sharedRollAngle %= TAU;
+        sphereReveal = 1;
+        applySphereOverlayOpacity();
+        coins.forEach((coin, index) => {
+          coin.angle = sharedAngle;
+          coin.rollAngle = sharedRollAngle;
+          coin.root.rotation.x = sharedAngle;
+          coin.root.rotation.z = sharedRollAngle;
+          coin.root.position.set(index === 0 ? -linkedSpread : linkedSpread, HOVER_Y, 0);
+        });
+        setState(STATE.ENTANGLED);
+      }
+    }
+
+    function updateEntangled(delta, elapsed) {
+      sharedAngle += delta * 1.55 * spinSpeed.face;
+      sharedRollAngle += delta * 0.18 * spinSpeed.roll;
+      const linkedY = HOVER_Y + Math.sin(elapsed * 1.35) * 0.055;
+
+      coins.forEach((coin, index) => {
+        coin.angle = sharedAngle;
+        coin.rollAngle = sharedRollAngle;
+        coin.root.rotation.x = sharedAngle;
+        coin.root.rotation.z = sharedRollAngle;
+        coin.root.position.set(index === 0 ? -linkedSpread : linkedSpread, linkedY, 0);
+        coin.mesh.rotation.set(Math.PI / 2, 0, 0);
+        guides[index].group.position.copy(coin.root.position);
+        guides[index].group.rotation.z = sharedRollAngle;
+        guides[index].material.opacity = 0.055;
+        guides[index].markerMaterial.opacity = 0.42;
+        shadows[index].position.x = coin.root.position.x;
+      });
+
+      linkedOrbit.rotation.z = Math.sin(elapsed * 0.35) * 0.025;
+      linkedOrbitMaterial.opacity = 0.18;
+      linkMaterial.opacity = 0.42 + Math.sin(elapsed * 2.2) * 0.08;
+      linkNodes.forEach((node, index) => {
+        node.material.opacity = 0.58 + Math.sin(elapsed * 2.5 + index) * 0.18;
+      });
+      phaseLight.intensity = 2.3 + Math.sin(elapsed * 1.8) * 0.35;
+      updateLinkGeometry();
+    }
+
+    function updateMeasuring(delta) {
+      stateElapsed += delta;
+      fallVelocity += FALL_GRAVITY * delta;
+      sphereReveal = 1 - smoothstep(
+        clamp01(stateElapsed / SPHERE_MEASURE_FADE_DURATION)
+      );
+      applySphereOverlayOpacity();
+      const nextY = coins[0].root.position.y + fallVelocity * delta;
+      const heightProgress = clamp01(
+        1 - (nextY - LANDING_Y) / (HOVER_Y - LANDING_Y)
+      );
+      const altitudeProgress = clamp01(
+        (Math.max(nextY, LANDING_Y) - LANDING_Y)
+        / (measurementApexY - LANDING_Y)
+      );
+      const orientProgress = smoothstep(heightProgress);
+      const motionProgress = clamp01(stateElapsed / measurementDuration);
+
+      sharedAngle = hermite(
+        measurementStartAngle,
+        measurementTargetAngle,
+        measurementFaceVelocity,
+        0,
+        motionProgress,
+        measurementDuration
+      );
+      sharedRollAngle = hermite(
+        measurementStartRollAngle,
+        measurementTargetRollAngle,
+        measurementRollVelocity,
+        0,
+        motionProgress,
+        measurementDuration
+      );
+
+      coins.forEach((coin, index) => {
+        coin.root.position.y = Math.max(LANDING_Y, nextY);
+        coin.root.rotation.x = sharedAngle;
+        coin.root.rotation.z = sharedRollAngle;
+        coin.mesh.rotation.x = Math.PI / 2;
+        guides[index].group.position.copy(coin.root.position);
+        guides[index].group.rotation.z = sharedRollAngle;
+        guides[index].material.opacity = 0.055 * (1 - heightProgress);
+        guides[index].markerMaterial.opacity = 0.42 * (1 - heightProgress);
+
+        shadows[index].position.x = coin.root.position.x;
+        shadows[index].material.opacity = THREE.MathUtils.lerp(
+          0.14,
+          0.025,
+          altitudeProgress
+        );
+        const shadowScale = THREE.MathUtils.lerp(
+          0.82,
+          1.45,
+          altitudeProgress
+        ) * sceneScale;
+        shadows[index].scale.set(
+          shadowScale,
+          THREE.MathUtils.lerp(0.3, 0.52, altitudeProgress) * sceneScale,
+          1
+        );
+      });
+
+      linkedOrbitMaterial.opacity = 0.18 * (1 - heightProgress);
+      linkMaterial.opacity = 0.42 * (1 - heightProgress);
+      linkNodes.forEach(node => {
+        node.material.opacity *= Math.max(0, 1 - delta * 4.5);
+      });
+      phaseLight.intensity = 2.3 * (1 - heightProgress);
+      updateLinkGeometry();
+
+      if (nextY <= LANDING_Y) {
+        coins.forEach(coin => {
+          coin.root.position.y = LANDING_Y;
+          coin.root.rotation.set(
+            measurementTargetAngle,
+            0,
+            measurementTargetRollAngle
+          );
+          coin.mesh.rotation.x = Math.PI / 2;
+        });
+        linkedOrbitMaterial.opacity = 0;
+        linkMaterial.opacity = 0;
+        linkNodes.forEach(node => {
+          node.material.opacity = 0;
+        });
+        sphereReveal = 0;
+        applySphereOverlayOpacity();
+        phaseLight.intensity = 0;
+        impactElapsed = 0;
+        setState(STATE.MEASURED);
+      }
+    }
+
+    function updateMeasured(delta) {
+      impactElapsed += delta;
+      const bounce = Math.abs(Math.sin(impactElapsed * 13))
+        * Math.exp(-impactElapsed * 8)
+        * 0.07;
+      coins.forEach(coin => {
+        coin.root.position.y = LANDING_Y + bounce;
+      });
+      shadows.forEach(shadow => {
+        shadow.material.opacity = THREE.MathUtils.lerp(
+          shadow.material.opacity,
+          0.14,
+          Math.min(1, delta * 5)
+        );
+      });
+    }
+
+    function resize() {
+      const width = document.documentElement.clientWidth;
+      const height = document.documentElement.clientHeight;
+      const portrait = height > width;
+      const compact = width < 700;
+
+      spread = portrait ? 1.08 : compact ? 1.08 : 2.18;
+      linkedSpread = portrait ? 0.9 : compact ? 0.72 : 1.32;
+      sceneScale = portrait ? 0.72 : compact ? 0.86 : 1;
+      camera.aspect = width / height;
+      camera.position.z = portrait ? 15.4 : compact ? 15.6 : 11.2;
+      camera.position.y = portrait ? 2.25 : compact ? 2.05 : 2.35;
+      camera.updateProjectionMatrix();
+      camera.lookAt(0, portrait ? -0.45 : -0.2, 0);
+      renderer.setSize(width, height, false);
+      linkedOrbit.scale.set(
+        portrait ? 0.66 : compact ? 0.72 : 1,
+        portrait ? 0.84 : compact ? 0.8 : 1,
+        1
+      );
+      coins.forEach((coin, index) => {
+        coin.root.scale.setScalar(sceneScale);
+        guides[index].group.scale.setScalar(sceneScale);
+      });
+      if (state !== STATE.MEASURING && state !== STATE.MEASURED) {
+        shadows.forEach(shadow => {
+          shadow.scale.set(1.25 * sceneScale, 0.38 * sceneScale, 1);
+        });
+      }
+
+      if (state === STATE.INDEPENDENT) {
+        setIndependentPositions();
+      } else if (state !== STATE.ENTANGLING) {
+        coins.forEach((coin, index) => {
+          coin.root.position.x = index === 0 ? -linkedSpread : linkedSpread;
+        });
+      }
+    }
+
+    window.addEventListener("resize", resize);
+
+    const clock = new THREE.Clock();
+    function animate() {
+      requestAnimationFrame(animate);
+      const delta = Math.min(clock.getDelta(), 0.035);
+      const elapsed = clock.elapsedTime;
+
+      if (state === STATE.INDEPENDENT) updateIndependent(delta, elapsed);
+      else if (state === STATE.ENTANGLING) updateEntangling(delta);
+      else if (state === STATE.ENTANGLED) updateEntangled(delta, elapsed);
+      else if (state === STATE.MEASURING) updateMeasuring(delta);
+      else if (state === STATE.MEASURED) updateMeasured(delta);
+
+      if (sphereReveal > 0.001 && sphereOpacity > 0.001) {
+        updateSphereArrowMotion(delta);
+      }
+      renderer.render(scene, camera);
+    }
+
+    resize();
+    resetScene();
+    animate();
+  </script>
+</body>
+</html>

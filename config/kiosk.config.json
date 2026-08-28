@@ -1,0 +1,21 @@
+{
+  "design": {
+    "width": 2160,
+    "height": 3840
+  },
+  "display": {
+    "preferredLabel": "elo",
+    "preferredIndex": null
+  },
+  "development": {
+    "windowWidth": 540,
+    "windowHeight": 960,
+    "openDevTools": false,
+    "showHud": false,
+    "idleTimeoutMs": 600000
+  },
+  "kiosk": {
+    "idleTimeoutMs": 120000,
+    "backgroundColor": "#090b1f"
+  }
+}

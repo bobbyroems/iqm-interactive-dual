@@ -1,0 +1,1231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Shader Playground — Ice Block (igloo.inc material study)</title>
+<style>
+  html, body {
+    margin: 0;
+    height: 100%;
+    overflow: hidden;
+    background: radial-gradient(circle at 50% 34%, #eef1f4 0%, #d4d9de 62%, #c3c9d0 100%);
+    font-family: "Segoe UI", system-ui, sans-serif;
+  }
+  #app { position: fixed; inset: 0; }
+
+  /* Faint survey-dot grid floating in the fog, like the reference. */
+  #dots {
+    position: fixed; inset: 0;
+    background-image: radial-gradient(rgba(70, 80, 92, 0.22) 1.2px, transparent 1.2px);
+    background-size: 64px 64px;
+    background-position: 22px 30px;
+    pointer-events: none;
+    opacity: 0.55;
+  }
+
+  /* Out-of-focus data glyphs drifting behind the fog. */
+  .ghost {
+    position: fixed;
+    font-family: Consolas, "IBM Plex Mono", monospace;
+    color: rgba(90, 100, 112, 0.5);
+    letter-spacing: 0.3em;
+    filter: blur(7px);
+    pointer-events: none;
+    user-select: none;
+    white-space: nowrap;
+  }
+
+  /* HUD annotations — igloo-style monospace survey labels. */
+  .hud {
+    position: fixed;
+    font-family: Consolas, "IBM Plex Mono", monospace;
+    font-size: 13px;
+    letter-spacing: 0.12em;
+    color: #4a5361;
+    text-transform: uppercase;
+    pointer-events: none;
+    user-select: none;
+    line-height: 1.7;
+  }
+  .hud .rule { border-bottom: 1px solid rgba(74, 83, 97, 0.55); padding-bottom: 3px; }
+  #brand { top: 30px; left: 36px; font-size: 15px; font-weight: 600; letter-spacing: 0.34em; }
+  #study { top: 26%; left: 24%; text-align: left; }
+  #temp  { top: 38%; right: 22%; text-align: right; }
+  #cta   { bottom: 26%; right: 24%; text-align: right; }
+  #sound { bottom: 26px; left: 36px; font-size: 12px; opacity: 0.75; }
+
+  .lil-gui { --width: 300px; }
+</style>
+</head>
+<body>
+<div id="dots"></div>
+<div class="ghost" style="top: 18%; right: 8%; font-size: 44px;">D 2024</div>
+<div class="ghost" style="bottom: 22%; left: 6%; font-size: 38px;">-22&deg;</div>
+<div class="ghost" style="top: 62%; right: 12%; font-size: 30px;">GLACIAL_SDF</div>
+<div id="app"></div>
+
+<div class="hud" id="brand">IQM&#8202;/&#8202;ICE</div>
+<div class="hud" id="study"><span class="rule">MATERIAL_STUDY_02</span><br />PROCEDURAL ICE</div>
+<div class="hud" id="temp">TEMP <span id="tempValue">28.42</span><br /><span class="rule" id="tempDelta">-01.99</span></div>
+<div class="hud" id="cta"><span class="rule">SEED <span id="seedValue">0001</span></span><br />CLICK TO REGROW</div>
+<div class="hud" id="sound">MODE: STUDY</div>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.182.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.182.0/examples/jsm/"
+  }
+}
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import GUI from 'https://cdn.jsdelivr.net/npm/lil-gui@0.20.0/+esm';
+
+/* ============================================================
+   Params (wired to GUI)
+
+   Approximates the igloo.inc ice: a jagged chunk grown from
+   noise, glassy facets outside, a raymarched frosty interior
+   with cracks and blue depth absorption inside.
+============================================================ */
+const params = {
+  // shape — rebuilds geometry
+  useModel: true,        // Ice+Cube.glb instead of the procedural chunk
+  seed: 1,
+  detail: 3,             // icosahedron subdivision
+  displacement: 0,       // broad noise swell
+  ridgeAmount: 0,        // sharp crystal ridges carved on top
+  ridgeSharpness: 1,
+  noiseScale: 0.6,       // frequency of the shaping noise
+  elongation: 1,         // vertical stretch, like the reference shard
+  faceting: 0.25,        // 0 smooth blob → 1 hard crystal facets
+
+  // interior (raymarched)
+  quality: 16,           // march steps
+  density: 1.7,          // frost optical density
+  densityScale: 2.0,     // frequency of the interior frost noise
+  absorption: 1.85,      // baseline body absorption, even where the ice is clear
+  iceTint: '#667f93',    // Beer–Lambert transmission tint — thick paths go blue
+  frostColor: '#cfdce8', // milky in-scatter
+  milkiness: 0.14,
+  cracks: 0.7,           // bright internal fracture sheets
+  crackScale: 1.9,
+  crackThreshold: 0.86,
+  flakes: 0.12,          // sparkling trapped-air glints
+  flakeScale: 20,
+  dispersion: 0.0221,    // chromatic spread of the refracted background
+
+  // surface
+  ior: 1.31,             // water ice
+  fresnelPow: 2,
+  reflectivity: 1,
+  specIntensity: 1,
+  specPower: 120,
+  normalStrength: 0.38,  // scanned ice normal map, projected triplanar
+  normalScale: 0.32,     // triplanar tiling frequency, in object units
+  microRough: 0.03,      // extra "orange peel" jitter on top of the map
+  crust: 0.05,           // frosty white growth on the high ridges
+  crustColor: '#f4f9fd',
+
+  // glossy clear coat (additive physical shell → env reflections only)
+  glossStrength: 0.5,
+  glossRoughness: 0.14,
+  glossReflect: 1.1,
+
+  // lights
+  keyColor: '#ffffff',
+  keyIntensity: 1.2,
+  keyX: 2.4, keyY: 3.0, keyZ: 2.0,
+  envIntensity: 0.35,
+
+  // env flags — black cards baked into the reflection map only (never
+  // visible to the camera), studio negative-fill for richer reflections
+  flagCount: 3,
+  flagSize: 5,
+  flagDistance: 6.5,
+  flagHeight: 1.5,
+  flagAngle: 0,        // degrees, spins the ring of cards
+  flagTilt: 0,         // degrees, leans each card
+  flagDarkness: 0,     // 0 pure black → 1 white card
+  envBlur: 0.04,       // PMREM sigma: soft vs hard card edges
+
+  // draggable negative-fill card
+  reflectorOn: true,
+  reflectorVisible: true, // show the card itself, not just its reflection
+  reflectorSize: 2.2,
+  reflectorDistance: 2.6, // dragging orbits the card on a sphere this wide
+  reflectorDark: 0.9,     // how black it reads in the ice's own reflection
+
+  // motion
+  spinSpeed: 0.14,
+  bobAmount: 0.05,
+  bobSpeed: 0.55,
+  growDuration: 1.9,
+
+  // scene
+  exposure: 1.05,
+  /* These drive the in-shader environment only — the page background is
+     painted by CSS. They used to match it, which is what kept the ice
+     white: a bright dome in every direction has no shadow side to refract. */
+  bgTop: '#dfe6ec',
+  bgBottom: '#55636f',
+  bgGround: '#252f3a',   // the dark studio floor/surround the ice refracts
+  groundLevel: 0.55,     // how high that darkness wraps up around the block
+  shadowVisible: true,
+  shadowOpacity: 0.14,
+
+  regrow() { startGrow(); },
+  regenerate() { params.seed = (params.seed % 9999) + 1; rebuildChunk(); startGrow(); },
+  reflectorReset() { reflector.position.set(-2.0, 0.7, 1.6); syncReflector(); },
+};
+
+/* ============================================================
+   Renderer / scene / camera
+============================================================ */
+const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = params.exposure;
+document.getElementById('app').appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+
+const camera = new THREE.PerspectiveCamera(36, window.innerWidth / window.innerHeight, 0.1, 50);
+camera.position.set(0, 0.2, 5.2);
+
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+controls.enablePan = false;
+controls.minDistance = 2.8;
+controls.maxDistance = 10;
+controls.target.set(0, 0, 0);
+
+const pmrem = new THREE.PMREMGenerator(renderer);
+let envRenderTarget = null;
+let envScene = null;
+let envDirty = false;
+
+/* The draggable negative-fill card exists as two meshes sharing one
+   geometry and material: `reflector` is the one in the scene you grab,
+   `reflectorEnv` is its twin inside the environment scene that the PMREM
+   bake sees. A three.js object has a single parent, so the pair is kept
+   in sync by hand in syncReflector(). */
+const reflectorGeometry = new THREE.PlaneGeometry(1, 1);
+const reflectorMaterial = new THREE.MeshBasicMaterial({
+  color: 0x000000,
+  side: THREE.DoubleSide,
+});
+const reflector = new THREE.Mesh(reflectorGeometry, reflectorMaterial);
+const reflectorEnv = new THREE.Mesh(reflectorGeometry, reflectorMaterial);
+reflector.position.set(-2.0, 0.7, 1.6);
+reflector.scale.set(params.reflectorSize, params.reflectorSize * 1.5, 1);
+reflector.lookAt(0, 0, 0);
+reflectorEnv.position.copy(reflector.position);
+reflectorEnv.quaternion.copy(reflector.quaternion);
+reflectorEnv.scale.copy(reflector.scale);
+scene.add(reflector);
+
+/* RoomEnvironment plus a ring of flag cards and the draggable card. The
+   flags live only inside the baked environment texture, so they shape the
+   reflections without ever appearing in the scene. */
+function buildEnvScene() {
+  const next = new RoomEnvironment();
+  if (params.flagCount > 0) {
+    const flagMaterial = new THREE.MeshBasicMaterial({
+      color: new THREE.Color().setScalar(params.flagDarkness)
+    });
+    for (let index = 0; index < params.flagCount; index += 1) {
+      const flag = new THREE.Mesh(
+        new THREE.PlaneGeometry(params.flagSize, params.flagSize * 1.6),
+        flagMaterial
+      );
+      const angle = (index / params.flagCount) * Math.PI * 2 +
+        THREE.MathUtils.degToRad(params.flagAngle);
+      flag.position.set(
+        Math.cos(angle) * params.flagDistance,
+        params.flagHeight,
+        Math.sin(angle) * params.flagDistance
+      );
+      flag.lookAt(0, params.flagHeight * 0.5, 0);
+      flag.rotation.z += THREE.MathUtils.degToRad(params.flagTilt);
+      next.add(flag);
+    }
+  }
+  next.add(reflectorEnv);
+  return next;
+}
+
+/* Re-bake only. Cheap enough to run while dragging, because the room and
+   the flags are already built — this just re-renders them to the cubemap. */
+function bakeEnvironment() {
+  const nextTarget = pmrem.fromScene(envScene, params.envBlur);
+  envRenderTarget?.dispose();
+  envRenderTarget = nextTarget;
+  scene.environment = nextTarget.texture;
+}
+
+function rebuildEnvironment() {
+  if (envScene) {
+    /* RoomEnvironment.dispose() traverses everything under it, so the
+       shared reflector geometry and material have to come out first or
+       they get disposed along with the room. */
+    envScene.remove(reflectorEnv);
+    envScene.dispose?.();
+  }
+  envScene = buildEnvScene();
+  bakeEnvironment();
+}
+rebuildEnvironment();
+scene.environmentIntensity = params.envIntensity;
+
+const keyLight = new THREE.DirectionalLight(params.keyColor, params.keyIntensity);
+keyLight.position.set(params.keyX, params.keyY, params.keyZ);
+scene.add(keyLight);
+scene.add(new THREE.HemisphereLight(0xf2f5fa, 0xc9cdd4, 0.45));
+
+/* ============================================================
+   Seeded noise (JS side, for shaping the chunk geometry)
+============================================================ */
+function mulberry32(seed) {
+  let a = seed >>> 0;
+  return () => {
+    a |= 0; a = (a + 0x6D2B79F5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function makeNoise(seed) {
+  const rand = mulberry32(seed);
+  const perm = new Uint8Array(512);
+  const source = Array.from({ length: 256 }, (_, i) => i);
+  for (let i = 255; i > 0; i--) {
+    const j = Math.floor(rand() * (i + 1));
+    [source[i], source[j]] = [source[j], source[i]];
+  }
+  for (let i = 0; i < 512; i++) perm[i] = source[i & 255];
+
+  const lattice = (x, y, z) => perm[(perm[(perm[x & 255] + y) & 255] + z) & 255] / 255;
+  const fade = t => t * t * (3 - 2 * t);
+  const lerp = (a, b, t) => a + (b - a) * t;
+
+  const value3 = (x, y, z) => {
+    const xi = Math.floor(x), yi = Math.floor(y), zi = Math.floor(z);
+    const xf = fade(x - xi), yf = fade(y - yi), zf = fade(z - zi);
+    const x0y0 = lerp(lattice(xi, yi, zi), lattice(xi + 1, yi, zi), xf);
+    const x1y0 = lerp(lattice(xi, yi + 1, zi), lattice(xi + 1, yi + 1, zi), xf);
+    const x0y1 = lerp(lattice(xi, yi, zi + 1), lattice(xi + 1, yi, zi + 1), xf);
+    const x1y1 = lerp(lattice(xi, yi + 1, zi + 1), lattice(xi + 1, yi + 1, zi + 1), xf);
+    return lerp(lerp(x0y0, x1y0, yf), lerp(x0y1, x1y1, yf), zf);
+  };
+
+  const fbm = (x, y, z, octaves = 4) => {
+    let amp = 0.5, sum = 0, norm = 0;
+    for (let o = 0; o < octaves; o++) {
+      sum += amp * value3(x, y, z);
+      norm += amp;
+      x *= 2.03; y *= 2.03; z *= 2.03;
+      amp *= 0.5;
+    }
+    return sum / norm; // ~0..1
+  };
+
+  const ridge = (x, y, z) => 1 - Math.abs(2 * fbm(x, y, z, 3) - 1); // 0..1, sharp crests
+
+  return { fbm, ridge };
+}
+
+/* ============================================================
+   Geometry — a chunk grown from noise, flat crystal facets
+============================================================ */
+let chunkRadius = 1;
+
+function buildChunkGeometry() {
+  const noise = makeNoise(params.seed * 7919 + 17);
+  /* Icosahedron geometry ships non-indexed; weld it first so displacement
+     and smooth normals are computed on shared vertices. */
+  const base = mergeVertices(new THREE.IcosahedronGeometry(1, params.detail));
+  const pos = base.attributes.position;
+  const dir = new THREE.Vector3();
+  const displacements = new Float32Array(pos.count);
+
+  /* Radial heightfield: every vertex slides along its own direction, so
+     shared icosahedron vertices stay welded and the chunk stays convex-ish
+     (which keeps the bounding-sphere chord estimate in the shader honest). */
+  let maxRadius = 0;
+  for (let i = 0; i < pos.count; i++) {
+    dir.fromBufferAttribute(pos, i).normalize();
+    const f = params.noiseScale;
+    const swell = (noise.fbm(dir.x * f + 11.3, dir.y * f + 5.1, dir.z * f + 7.7) - 0.5) * 2;
+    const crest = Math.pow(noise.ridge(dir.x * f * 1.9 + 3.7, dir.y * f * 1.9 + 9.2, dir.z * f * 1.9 + 1.3), params.ridgeSharpness) - 0.5;
+    const displacement = swell * params.displacement + crest * params.ridgeAmount;
+    const radius = 1 + displacement;
+    displacements[i] = displacement;
+    dir.multiplyScalar(radius);
+    dir.y *= params.elongation;
+    pos.setXYZ(i, dir.x, dir.y, dir.z);
+    maxRadius = Math.max(maxRadius, dir.length());
+  }
+
+  /* Normalise the chunk so its bounding sphere is always ~1.05: framing
+     stays constant across seeds and the shader's chord estimate is tight. */
+  const fit = 1.05 / maxRadius;
+  for (let i = 0; i < pos.count; i++) {
+    pos.setXYZ(i, pos.getX(i) * fit, pos.getY(i) * fit, pos.getZ(i) * fit);
+  }
+  maxRadius = 1.05;
+  base.setAttribute('aDisp', new THREE.BufferAttribute(displacements, 1));
+  base.computeVertexNormals(); // smooth normals on the welded mesh
+
+  chunkRadius = maxRadius;
+  const geometry = facetGeometry(base);
+  base.dispose();
+  return geometry;
+}
+
+/* Explode to per-face vertices: keep the smooth normal as an attribute,
+   overwrite `normal` with flat facet normals, and blend in the vertex
+   shader with uFacet. Takes a welded base (position/normal/aDisp) and
+   returns a fresh non-indexed geometry, leaving the base untouched. */
+function facetGeometry(base) {
+  const geometry = base.toNonIndexed();
+  geometry.setAttribute('aSmoothNormal', geometry.attributes.normal.clone());
+
+  const p = geometry.attributes.position;
+  const n = geometry.attributes.normal;
+  const a = new THREE.Vector3(), b = new THREE.Vector3(), c = new THREE.Vector3();
+  const ab = new THREE.Vector3(), ac = new THREE.Vector3();
+  for (let i = 0; i < p.count; i += 3) {
+    a.fromBufferAttribute(p, i);
+    b.fromBufferAttribute(p, i + 1);
+    c.fromBufferAttribute(p, i + 2);
+    ab.subVectors(b, a);
+    ac.subVectors(c, a);
+    ab.cross(ac).normalize();
+    for (let v = 0; v < 3; v++) n.setXYZ(i + v, ab.x, ab.y, ab.z);
+  }
+  n.needsUpdate = true;
+  return geometry;
+}
+
+/* ============================================================
+   Ice+Cube.glb — sculpted model alternative to the procedural chunk.
+   Run through the same weld → center → fit → facet pipeline so the
+   ice shader's chord estimate and crust mask keep working.
+============================================================ */
+const MODEL_URL = '/assets/modules/states-of-matter/Ice+Cube.glb';
+
+/* Scanned ice-surface relief. Sampled triplanar in object space, because
+   the chunk has no UVs at all — `strip` deletes every attribute but
+   position so the weld can run, and the procedural path never had any. */
+const NORMAL_MAP_URL =
+  '/assets/modules/states-of-matter/6e07645d25fbf75018a90fc7255386d77c474263.jpg';
+
+const normalMap = new THREE.TextureLoader().load(NORMAL_MAP_URL);
+normalMap.wrapS = THREE.RepeatWrapping;
+normalMap.wrapT = THREE.RepeatWrapping;
+/* Tangent vectors, not colour — an sRGB decode here would bend every
+   normal it returns. */
+normalMap.colorSpace = THREE.NoColorSpace;
+normalMap.anisotropy = renderer.capabilities.getMaxAnisotropy();
+
+let modelBodyGeo = null;    // welded + centered + fitted, position-only
+
+new GLTFLoader().loadAsync(MODEL_URL).then(gltf => {
+  gltf.scene.updateMatrixWorld(true);
+  /* The file also carries a "Droplets" condensation mesh. It is skipped:
+     the surface relief now comes from the scanned normal map, and welding
+     bumps into the chunk fought that detail instead of adding to it. */
+  let source = null;
+  gltf.scene.traverse(o => {
+    if (!o.isMesh) return;
+    if (/droplet/i.test(o.name)) return;
+    if (!source || o.geometry.attributes.position.count > source.geometry.attributes.position.count) {
+      source = o;
+    }
+  });
+  const strip = geo => {
+    for (const name of Object.keys(geo.attributes)) {
+      if (name !== 'position') geo.deleteAttribute(name);
+    }
+    return mergeVertices(geo);
+  };
+
+  const geo = strip(source.geometry.clone().applyMatrix4(source.matrixWorld));
+  geo.computeBoundingSphere();
+  const bs = geo.boundingSphere;
+  geo.translate(-bs.center.x, -bs.center.y, -bs.center.z);
+  const fit = 1.05 / bs.radius;
+  geo.scale(fit, fit, fit);
+  modelBodyGeo = geo;
+
+  if (params.useModel) { rebuildChunk(); startGrow(); }
+}).catch(err => console.error('Ice+Cube.glb failed to load:', err));
+
+/* The model body with smooth normals and the aDisp crust attribute —
+   the same contract the procedural path hands to facetGeometry. */
+function buildModelBase() {
+  const base = modelBodyGeo.clone();
+  base.computeVertexNormals();
+
+  /* aDisp drives the frost crust; use radial deviation from the mean
+     radius so crust grows on the protruding corners. */
+  const pos = base.attributes.position;
+  const v = new THREE.Vector3();
+  let mean = 0;
+  const radii = new Float32Array(pos.count);
+  for (let i = 0; i < pos.count; i++) {
+    radii[i] = v.fromBufferAttribute(pos, i).length();
+    mean += radii[i];
+  }
+  mean /= Math.max(pos.count, 1);
+  const disp = new Float32Array(pos.count);
+  for (let i = 0; i < pos.count; i++) disp[i] = (radii[i] - mean) / mean;
+  base.setAttribute('aDisp', new THREE.BufferAttribute(disp, 1));
+  return base;
+}
+
+/* ============================================================
+   Ice shader — refraction + interior raymarch
+============================================================ */
+const MAX_STEPS = 40;
+
+const iceUniforms = {
+  uCamPosObj: { value: new THREE.Vector3() },
+  uModelRot: { value: new THREE.Matrix3() },
+  uKeyDir: { value: new THREE.Vector3(1, 1, 0.8).normalize() },
+  uKeyColor: { value: new THREE.Color(params.keyColor) },
+  uKeyIntensity: { value: params.keyIntensity },
+  uFacet: { value: params.faceting },
+  uRadius: { value: 1.4 },
+  uSteps: { value: params.quality },
+  uIor: { value: params.ior },
+  uDensity: { value: params.density },
+  uDensityScale: { value: params.densityScale },
+  uAbsorb: { value: params.absorption },
+  uIceTint: { value: new THREE.Color(params.iceTint) },
+  uFrostColor: { value: new THREE.Color(params.frostColor) },
+  uMilkiness: { value: params.milkiness },
+  uCracks: { value: params.cracks },
+  uCrackScale: { value: params.crackScale },
+  uCrackThreshold: { value: params.crackThreshold },
+  uFlakes: { value: params.flakes },
+  uFlakeScale: { value: params.flakeScale },
+  uDispersion: { value: params.dispersion },
+  uFresnelPow: { value: params.fresnelPow },
+  uReflectivity: { value: params.reflectivity },
+  uSpecIntensity: { value: params.specIntensity },
+  uSpecPower: { value: params.specPower },
+  uNormalMap: { value: normalMap },
+  uNormalStrength: { value: params.normalStrength },
+  uNormalScale: { value: params.normalScale },
+  uMicroRough: { value: params.microRough },
+  uCrust: { value: params.crust },
+  uCrustColor: { value: new THREE.Color(params.crustColor) },
+  uBgTop: { value: new THREE.Color(params.bgTop) },
+  uBgBottom: { value: new THREE.Color(params.bgBottom) },
+  uBgGround: { value: new THREE.Color(params.bgGround) },
+  uGroundLevel: { value: params.groundLevel },
+  uReflectorDir: { value: new THREE.Vector3(1, 0, 0) },
+  uReflectorCos: { value: 0.95 },
+  uReflectorDark: { value: params.reflectorDark },
+  uSeedOffset: { value: new THREE.Vector3(3.1, 7.7, 1.9) },
+  uGrow: { value: 0 },
+  uTime: { value: 0 },
+};
+
+const iceMaterial = new THREE.ShaderMaterial({
+  uniforms: iceUniforms,
+  /* Nudge the ice base pass slightly deeper so the coplanar additive
+     gloss shell always wins the depth test — no z-fighting, ever. */
+  polygonOffset: true,
+  polygonOffsetFactor: 1,
+  polygonOffsetUnits: 1,
+  vertexShader: /* glsl */ `
+    attribute vec3 aSmoothNormal;
+    attribute float aDisp;
+
+    uniform float uFacet;
+
+    varying vec3 vObjPos;
+    varying vec3 vObjNormal;
+    varying vec3 vWorldPos;
+    varying vec3 vWorldNormal;
+    varying float vDisp;
+
+    void main() {
+      vObjPos = position;
+      vec3 blended = normalize(mix(aSmoothNormal, normal, uFacet));
+      vObjNormal = blended;
+      vec4 worldPosition = modelMatrix * vec4(position, 1.0);
+      vWorldPos = worldPosition.xyz;
+      vWorldNormal = normalize(mat3(modelMatrix) * blended);
+      vDisp = aDisp;
+      /* Must match MeshPhysicalMaterial's transform bit-for-bit: the
+         additive gloss shell draws the same geometry, and any float
+         difference in depth makes the coplanar surfaces z-fight.
+         Two statements on purpose — P * (MV * v), not (P * MV) * v. */
+      vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+      gl_Position = projectionMatrix * mvPosition;
+    }
+  `,
+  fragmentShader: /* glsl */ `
+    uniform vec3 uCamPosObj;
+    uniform mat3 uModelRot;
+    uniform vec3 uKeyDir;
+    uniform vec3 uKeyColor;
+    uniform float uKeyIntensity;
+    uniform float uRadius;
+    uniform int uSteps;
+    uniform float uIor;
+    uniform float uDensity;
+    uniform float uDensityScale;
+    uniform float uAbsorb;
+    uniform vec3 uIceTint;
+    uniform vec3 uFrostColor;
+    uniform float uMilkiness;
+    uniform float uCracks;
+    uniform float uCrackScale;
+    uniform float uCrackThreshold;
+    uniform float uFlakes;
+    uniform float uFlakeScale;
+    uniform float uDispersion;
+    uniform float uFresnelPow;
+    uniform float uReflectivity;
+    uniform float uSpecIntensity;
+    uniform float uSpecPower;
+    uniform sampler2D uNormalMap;
+    uniform float uNormalStrength;
+    uniform float uNormalScale;
+    uniform float uMicroRough;
+    uniform float uCrust;
+    uniform vec3 uCrustColor;
+    uniform vec3 uBgTop;
+    uniform vec3 uBgBottom;
+    uniform vec3 uBgGround;
+    uniform float uGroundLevel;
+    uniform vec3 uReflectorDir;
+    uniform float uReflectorCos;
+    uniform float uReflectorDark;
+    uniform vec3 uSeedOffset;
+    uniform float uGrow;
+    uniform float uTime;
+
+    varying vec3 vObjPos;
+    varying vec3 vObjNormal;
+    varying vec3 vWorldPos;
+    varying vec3 vWorldNormal;
+    varying float vDisp;
+
+    float hash13(vec3 p) {
+      p = fract(p * 0.1031);
+      p += dot(p, p.zyx + 31.32);
+      return fract((p.x + p.y) * p.z);
+    }
+
+    float vnoise(vec3 p) {
+      vec3 i = floor(p);
+      vec3 f = fract(p);
+      f = f * f * (3.0 - 2.0 * f);
+      float n000 = hash13(i);
+      float n100 = hash13(i + vec3(1.0, 0.0, 0.0));
+      float n010 = hash13(i + vec3(0.0, 1.0, 0.0));
+      float n110 = hash13(i + vec3(1.0, 1.0, 0.0));
+      float n001 = hash13(i + vec3(0.0, 0.0, 1.0));
+      float n101 = hash13(i + vec3(1.0, 0.0, 1.0));
+      float n011 = hash13(i + vec3(0.0, 1.0, 1.0));
+      float n111 = hash13(i + vec3(1.0, 1.0, 1.0));
+      return mix(
+        mix(mix(n000, n100, f.x), mix(n010, n110, f.x), f.y),
+        mix(mix(n001, n101, f.x), mix(n011, n111, f.x), f.y),
+        f.z
+      );
+    }
+
+    float fbm(vec3 p) {
+      float amp = 0.5;
+      float sum = 0.0;
+      for (int o = 0; o < 3; o++) {
+        sum += amp * vnoise(p);
+        p *= 2.07;
+        amp *= 0.5;
+      }
+      return sum / 0.875; // ~0..1
+    }
+
+    /* Triplanar normal mapping, UDN blend.
+
+       Three planar projections of the scanned map (one per axis), each
+       weighted by how much the surface faces that axis. UDN rather than
+       full reoriented-normal mapping: it is a couple of adds instead of a
+       basis solve, and on relief this fine the difference is invisible.
+
+       Each sample arrives in the projection's own tangent space, so the
+       .xy detail is added to the *swizzled* surface normal — the pair of
+       axes that projection actually spans — then swizzled back. */
+    vec3 triplanarNormal(vec3 p, vec3 n) {
+      vec3 uvw = p * uNormalScale;
+
+      /* Power-4 blend keeps the seams between projections tight; without
+         it the three copies cross-fade over half the chunk and the relief
+         mushes out where the faces angle away. */
+      vec3 blend = pow(abs(n), vec3(4.0));
+      blend /= max(blend.x + blend.y + blend.z, 1e-4);
+
+      vec3 tx = texture2D(uNormalMap, uvw.zy).xyz * 2.0 - 1.0;
+      vec3 ty = texture2D(uNormalMap, uvw.xz).xyz * 2.0 - 1.0;
+      vec3 tz = texture2D(uNormalMap, uvw.xy).xyz * 2.0 - 1.0;
+
+      tx = vec3(tx.xy * uNormalStrength + n.zy, n.x);
+      ty = vec3(ty.xy * uNormalStrength + n.xz, n.y);
+      tz = vec3(tz.xy * uNormalStrength + n.xy, n.z);
+
+      return normalize(tx.zyx * blend.x + ty.xzy * blend.y + tz.xyz * blend.z);
+    }
+
+    /* The page's fog, in-shader, so refraction and reflection bend the
+       same environment the CSS paints behind the canvas. */
+    vec3 fogColor(vec3 dir) {
+      vec3 fog = mix(uBgBottom, uBgTop, clamp(dir.y * 0.5 + 0.55, 0.0, 1.0));
+
+      /* Studio floor and surround. Real ice photographs grey on a white
+         sweep because it refracts a dark room, not because the ice is
+         grey — with a bright dome in every direction the body can never
+         be darker than the page behind it, and it reads as white plastic. */
+      fog = mix(fog, uBgGround, 1.0 - smoothstep(-uGroundLevel, 0.02, dir.y));
+
+      float sunGlow = pow(max(dot(dir, uKeyDir), 0.0), 10.0);
+      fog += uKeyColor * sunGlow * 0.18 * uKeyIntensity;
+
+      /* The draggable card, as a cone of dark directions. This environment
+         has no origin — fogColor only knows a direction — so the card can
+         only enter it as an angular blob, sized JS-side from how much of
+         the sky it actually covers. Cheap, and it means the ice body and
+         its refracted background both see the card, not just the gloss
+         shell that samples the baked envmap. */
+      float toward = dot(dir, uReflectorDir);
+      float blob = smoothstep(uReflectorCos, mix(uReflectorCos, 1.0, 0.45), toward);
+      return mix(fog, fog * 0.05, blob * uReflectorDark);
+    }
+
+    void main() {
+      vec3 nObj = normalize(vObjNormal);
+
+      /* Scanned surface relief. Applied before the refraction below, so
+         the interior march bends with the detail rather than sitting
+         behind a smooth shell. */
+      nObj = triplanarNormal(vObjPos, nObj);
+
+      /* Orange-peel micro relief: jitter on top of the map, for grain
+         finer than the texture resolves. */
+      vec3 peel = vec3(
+        vnoise(vObjPos * 34.0),
+        vnoise(vObjPos * 34.0 + 19.1),
+        vnoise(vObjPos * 34.0 + 47.7)
+      ) - 0.5;
+      nObj = normalize(nObj + peel * uMicroRough);
+      vec3 nWorld = normalize(uModelRot * nObj);
+
+      vec3 rayObj = normalize(vObjPos - uCamPosObj);
+      float ndv = clamp(dot(nObj, -rayObj), 0.0, 1.0);
+      float fresnel = pow(1.0 - ndv, uFresnelPow);
+
+      /* ---- interior: refract, then march frost density ---- */
+      vec3 refr = refract(rayObj, nObj, 1.0 / uIor);
+      if (dot(refr, refr) < 0.0001) refr = rayObj;
+
+      /* Distance to the far side of the bounding sphere = march length. */
+      float tMid = dot(-vObjPos, refr);
+      float b2 = dot(vObjPos, vObjPos) - tMid * tMid;
+      float chord = tMid + sqrt(max(uRadius * uRadius - b2, 0.0));
+      chord = clamp(chord, uRadius * 0.15, uRadius * 2.2);
+
+      float stepLen = chord / float(uSteps);
+      vec3 samplePos = vObjPos;
+      /* Static per-pixel jitter on the march start breaks step banding
+         (the moire stripes on the facets) into stable fine grain. */
+      samplePos += refr * stepLen * hash13(vec3(gl_FragCoord.xy, 17.0));
+      float opticalDepth = 0.0;
+      float crackGlow = 0.0;
+      float flakeGlow = 0.0;
+      float scatter = 0.0;
+
+      for (int i = 0; i < ${MAX_STEPS}; i++) {
+        if (i >= uSteps) break;
+        samplePos += refr * stepLen;
+        /* Carve the frost: clear glassy pockets where the field is low,
+           dense milky pockets where it is high — not a uniform haze. The
+           floor sits high on purpose, so most of the volume is fully clear
+           and the frost reads as a few sheets rather than marbling. */
+        /* Squashed on Y so the features draw out into vertical feathering
+           rather than round blobs — real block ice freezes in columns. */
+        float dens = smoothstep(0.56, 0.9, fbm(samplePos * uDensityScale * vec3(1.0, 0.4, 1.0) + uSeedOffset));
+        /* Growth: the frost body condenses in as uGrow rises. */
+        dens = max(dens - (1.0 - uGrow) * 0.9, 0.0);
+        float transNow = exp(-opticalDepth * uDensity);
+        /* Even the clear pockets absorb a little — deep paths always
+           drift toward the tint, which pulls the core darker than the fog. */
+        opticalDepth += (dens + uAbsorb * 0.35) * stepLen;
+
+        /* Fracture sheets: ridges of the same field, thresholded thin. */
+        float ridge = 1.0 - abs(2.0 * fbm(samplePos * uCrackScale * vec3(1.0, 0.35, 1.0) + uSeedOffset * 1.71) - 1.0);
+        crackGlow += smoothstep(uCrackThreshold, uCrackThreshold + 0.06, ridge) * transNow * stepLen;
+
+        /* Trapped-air flakes: rare bright specks that twinkle slowly.
+           Gated per lattice cell (not per sample) so they stay point-like
+           instead of smearing into streaks along the ray. */
+        vec3 cell = floor(samplePos * uFlakeScale);
+        float speck = step(0.996 - uFlakes * 0.008, hash13(cell))
+          * step(0.5, vnoise(samplePos * uFlakeScale * 2.0));
+        flakeGlow += speck * transNow * stepLen
+          * (0.5 + 0.5 * sin(uTime * 1.4 + hash13(cell) * 40.0));
+
+        scatter += dens * transNow * stepLen;
+      }
+
+      /* Beer–Lambert with an artist tint: deep paths drift blue. */
+      vec3 transmitted = pow(max(uIceTint, vec3(0.001)), vec3(opticalDepth * uDensity));
+
+      /* Background seen through the ice, split per channel for dispersion. */
+      vec3 background;
+      background.r = fogColor(normalize(uModelRot * refract(rayObj, nObj, 1.0 / (uIor * (1.0 - uDispersion))))).r;
+      background.g = fogColor(normalize(uModelRot * refr)).g;
+      background.b = fogColor(normalize(uModelRot * refract(rayObj, nObj, 1.0 / (uIor * (1.0 + uDispersion))))).b;
+
+      float topLight = clamp(nWorld.y * 0.5 + 0.65, 0.0, 1.0);
+      vec3 color = background * transmitted;
+      color += uFrostColor * (1.0 - exp(-scatter * uMilkiness * 2.2)) * topLight;
+      color += uKeyColor * crackGlow * uCracks * 1.6 * uKeyIntensity;
+      color += vec3(1.0) * flakeGlow * 2.4;
+
+      /* ---- surface: reflection, speculars, frost crust ---- */
+      vec3 viewWorld = normalize(vWorldPos - cameraPosition);
+      vec3 reflWorld = reflect(viewWorld, nWorld);
+      vec3 reflection = fogColor(reflWorld);
+      color = mix(color, reflection, clamp(fresnel * uReflectivity, 0.0, 1.0));
+
+      vec3 halfDir = normalize(-viewWorld + uKeyDir);
+      /* Smooth noise, not white noise: per-pixel hash sparkles as the
+         chunk spins. */
+      float grain = vnoise(vObjPos * 21.0);
+      float spec = pow(max(dot(nWorld, halfDir), 0.0), uSpecPower) * uSpecIntensity;
+      vec3 fillDir = normalize(vec3(-0.6, 0.3, 0.55));
+      float sheen = pow(max(dot(nWorld, normalize(-viewWorld + fillDir)), 0.0), 24.0) * 0.25;
+      color += uKeyColor * (spec + sheen) * (0.8 + 0.4 * grain) * uKeyIntensity;
+
+      /* Frosty crust on the carved ridges (high displacement) plus a
+         noise breakup so it reads as growth, not paint. */
+      float crustMask = smoothstep(0.12, 0.5, vDisp) * fbm(vObjPos * 7.0 + uSeedOffset * 3.3);
+      crustMask = clamp(crustMask * uCrust * 2.2, 0.0, 1.0);
+      color = mix(color, uCrustColor * (0.72 + 0.4 * topLight), crustMask);
+
+      /* Milky grazing rim so the silhouette never goes fully clear. */
+      color += uFrostColor * fresnel * 0.12;
+
+      /* Per-facet light variation: faces angled toward the key read a
+         touch brighter, faces away a touch darker — crystal contrast. */
+      float lambert = clamp(dot(nWorld, uKeyDir), 0.0, 1.0);
+      color *= 0.84 + 0.28 * lambert;
+
+      gl_FragColor = vec4(color, 1.0);
+      #include <tonemapping_fragment>
+      #include <colorspace_fragment>
+    }
+  `,
+});
+
+/* Additive black-diffuse physical shell: contributes only environment
+   reflections and clearcoat glints on the flat facets (same trick as the
+   error-correction sphere's gloss coat). */
+const glossMaterial = new THREE.MeshPhysicalMaterial({
+  color: 0x000000,
+  metalness: 0,
+  roughness: params.glossRoughness,
+  envMapIntensity: params.glossReflect,
+  clearcoat: 1,
+  clearcoatRoughness: 0.12,
+  transparent: true,
+  opacity: params.glossStrength,
+  blending: THREE.AdditiveBlending,
+  depthWrite: false,
+});
+
+/* The gloss shell must honor the same smooth↔facet normal blend as the
+   ice shader — the geometry's `normal` attribute is the FLAT facet
+   normal, so without this the coat reflects individual faces even at
+   faceting 0. Shares the ice shader's uFacet uniform object, so the GUI
+   slider drives both. */
+glossMaterial.onBeforeCompile = shader => {
+  shader.uniforms.uFacet = iceUniforms.uFacet;
+  shader.vertexShader =
+    'attribute vec3 aSmoothNormal;\nuniform float uFacet;\n' +
+    shader.vertexShader.replace(
+      '#include <beginnormal_vertex>',
+      'vec3 objectNormal = normalize(mix(aSmoothNormal, normal, uFacet));'
+    );
+};
+
+const chunkGroup = new THREE.Group();
+scene.add(chunkGroup);
+
+let iceMesh = null;
+let glossMesh = null;
+
+function rebuildChunk() {
+  let geometry;
+  if (params.useModel && modelBodyGeo) {
+    const base = buildModelBase();
+    geometry = facetGeometry(base);
+    base.dispose();
+    chunkRadius = 1.05;
+  } else {
+    geometry = buildChunkGeometry();
+  }
+  if (iceMesh) {
+    iceMesh.geometry.dispose();
+    iceMesh.geometry = geometry;
+    glossMesh.geometry = geometry;
+  } else {
+    iceMesh = new THREE.Mesh(geometry, iceMaterial);
+    glossMesh = new THREE.Mesh(geometry, glossMaterial);
+    glossMesh.renderOrder = 1;
+    chunkGroup.add(iceMesh, glossMesh);
+  }
+  iceUniforms.uRadius.value = chunkRadius;
+  iceUniforms.uSeedOffset.value.set(
+    3.1 + (params.seed % 13) * 1.7,
+    7.7 + (params.seed % 7) * 2.3,
+    1.9 + (params.seed % 5) * 3.1
+  );
+  document.getElementById('seedValue').textContent = String(params.seed).padStart(4, '0');
+}
+rebuildChunk();
+
+/* Soft contact-shadow blob far below the floating chunk. */
+const shadowCanvas = document.createElement('canvas');
+shadowCanvas.width = shadowCanvas.height = 128;
+const shadowCtx = shadowCanvas.getContext('2d');
+const gradient = shadowCtx.createRadialGradient(64, 64, 6, 64, 64, 62);
+gradient.addColorStop(0, 'rgba(40, 48, 60, 1)');
+gradient.addColorStop(1, 'rgba(40, 48, 60, 0)');
+shadowCtx.fillStyle = gradient;
+shadowCtx.fillRect(0, 0, 128, 128);
+const shadowTexture = new THREE.CanvasTexture(shadowCanvas);
+const shadowBlob = new THREE.Mesh(
+  new THREE.PlaneGeometry(2.6, 2.6),
+  new THREE.MeshBasicMaterial({
+    map: shadowTexture,
+    transparent: true,
+    opacity: params.shadowOpacity,
+    depthWrite: false,
+  })
+);
+shadowBlob.rotation.x = -Math.PI / 2;
+shadowBlob.position.y = -2.1;
+scene.add(shadowBlob);
+
+/* ============================================================
+   Grow-in animation (igloo's crystals condense into place)
+============================================================ */
+let growStart = -10;
+
+function startGrow() {
+  growStart = clock.getElapsedTime();
+}
+
+function backOut(t) {
+  const s = 1.70158;
+  const u = t - 1;
+  return u * u * ((s + 1) * u + s) + 1;
+}
+
+/* ============================================================
+   Draggable negative-fill card
+============================================================ */
+/* Push the card's transform to its environment twin and to the ice
+   shader's angular blob. Called on every drag frame. */
+function syncReflector() {
+  reflector.scale.set(params.reflectorSize, params.reflectorSize * 1.5, 1);
+  /* The card orbits the block at a fixed radius rather than floating free.
+     Dragging it on a camera-facing plane let it wander toward the lens,
+     where it turned edge-on and smeared a black wedge across the frame —
+     and a lighting card is aimed by angle anyway, not by depth. */
+  reflector.position.setLength(params.reflectorDistance);
+  /* Always aimed at the block, so dragging orbits the card around the
+     subject instead of letting it turn edge-on and vanish. */
+  reflector.lookAt(0, 0, 0);
+  reflector.visible = params.reflectorOn && params.reflectorVisible;
+
+  reflectorEnv.position.copy(reflector.position);
+  reflectorEnv.quaternion.copy(reflector.quaternion);
+  reflectorEnv.scale.copy(reflector.scale);
+  reflectorEnv.visible = params.reflectorOn;
+
+  const distance = Math.max(reflector.position.length(), 0.001);
+  iceUniforms.uReflectorDir.value.copy(reflector.position).divideScalar(distance);
+  /* Half-angle the card subtends from the block's center. 0.75 is the mean
+     of the card's half-width and half-height, which is as exact as a round
+     blob standing in for a rectangle deserves. */
+  const halfAngle = Math.atan2(params.reflectorSize * 0.75, distance);
+  iceUniforms.uReflectorCos.value = Math.min(Math.cos(halfAngle), 0.9995);
+  iceUniforms.uReflectorDark.value = params.reflectorOn ? params.reflectorDark : 0;
+
+  envDirty = true;
+}
+syncReflector();
+
+const raycaster = new THREE.Raycaster();
+const pointer = new THREE.Vector2();
+const dragPlane = new THREE.Plane();
+const dragNormal = new THREE.Vector3();
+const dragPoint = new THREE.Vector3();
+const dragOffset = new THREE.Vector3();
+let dragging = false;
+
+function pointerToNdc(event) {
+  pointer.set(
+    (event.clientX / window.innerWidth) * 2 - 1,
+    -(event.clientY / window.innerHeight) * 2 + 1
+  );
+}
+
+/* Right-drag is free — OrbitControls has panning disabled — so it aims the
+   card from anywhere. Needed because at any useful distance the card sits
+   outside this narrow 36° frustum, where there is nothing to click on. */
+renderer.domElement.addEventListener('contextmenu', event => event.preventDefault());
+
+renderer.domElement.addEventListener('pointerdown', event => {
+  const aimFromAnywhere = event.button === 2 && params.reflectorOn;
+  let hit = null;
+  if (!aimFromAnywhere && reflector.visible) {
+    pointerToNdc(event);
+    raycaster.setFromCamera(pointer, camera);
+    hit = raycaster.intersectObject(reflector, false)[0] || null;
+  }
+
+  if (aimFromAnywhere || hit) {
+    dragging = true;
+    /* Orbit would otherwise spin the camera under the drag. */
+    controls.enabled = false;
+    /* Drag across the plane facing the camera through the card, so screen
+       motion maps 1:1 before syncReflector pins it back to its sphere. */
+    camera.getWorldDirection(dragNormal);
+    dragPlane.setFromNormalAndCoplanarPoint(dragNormal.negate(), reflector.position);
+    /* Grabbing the card keeps the spot you grabbed under the cursor; a
+       right-drag from empty space just points it where you aim. */
+    if (hit) dragOffset.copy(reflector.position).sub(hit.point);
+    else dragOffset.set(0, 0, 0);
+    /* Capture throws if the pointer is already gone; the drag still works
+       without it, so losing it is not worth an exception. */
+    try { renderer.domElement.setPointerCapture(event.pointerId); } catch {}
+    return;
+  }
+
+  startGrow();
+});
+
+renderer.domElement.addEventListener('pointermove', event => {
+  if (!dragging) return;
+  pointerToNdc(event);
+  raycaster.setFromCamera(pointer, camera);
+  if (!raycaster.ray.intersectPlane(dragPlane, dragPoint)) return;
+  reflector.position.copy(dragPoint).add(dragOffset);
+  syncReflector();
+});
+
+function endDrag(event) {
+  if (!dragging) return;
+  dragging = false;
+  controls.enabled = true;
+  try { renderer.domElement.releasePointerCapture(event.pointerId); } catch {}
+}
+renderer.domElement.addEventListener('pointerup', endDrag);
+renderer.domElement.addEventListener('pointercancel', endDrag);
+
+/* Ticking HUD temperature readout. */
+let hudTemp = 28.42;
+window.setInterval(() => {
+  hudTemp += (Math.random() - 0.52) * 0.35;
+  hudTemp = Math.min(31, Math.max(24, hudTemp));
+  document.getElementById('tempValue').textContent = hudTemp.toFixed(2);
+  document.getElementById('tempDelta').textContent = `-0${(1.99 + (Math.random() - 0.5) * 0.1).toFixed(2)}`;
+}, 900);
+
+/* ============================================================
+   GUI
+============================================================ */
+const gui = new GUI({ title: 'Ice Block' });
+
+const fShape = gui.addFolder('Shape');
+fShape.add(params, 'useModel').name('use Ice+Cube.glb').onChange(() => { rebuildChunk(); startGrow(); });
+fShape.add(params, 'seed', 1, 9999, 1).onFinishChange(() => { rebuildChunk(); startGrow(); });
+fShape.add(params, 'detail', 3, 7, 1).onFinishChange(rebuildChunk);
+fShape.add(params, 'displacement', 0, 0.7).onFinishChange(rebuildChunk);
+fShape.add(params, 'ridgeAmount', 0, 0.9).onFinishChange(rebuildChunk);
+fShape.add(params, 'ridgeSharpness', 1, 5).onFinishChange(rebuildChunk);
+fShape.add(params, 'noiseScale', 0.6, 3.5).onFinishChange(rebuildChunk);
+fShape.add(params, 'elongation', 1, 1.8).onFinishChange(rebuildChunk);
+fShape.add(params, 'faceting', 0, 1).onChange(v => iceUniforms.uFacet.value = v);
+fShape.add(params, 'regenerate').name('regenerate (new seed)');
+
+const fIce = gui.addFolder('Ice interior');
+fIce.add(params, 'quality', 8, MAX_STEPS, 1).onChange(v => iceUniforms.uSteps.value = v);
+fIce.add(params, 'density', 0, 4).onChange(v => iceUniforms.uDensity.value = v);
+fIce.add(params, 'densityScale', 0.8, 8).onChange(v => iceUniforms.uDensityScale.value = v);
+fIce.add(params, 'absorption', 0, 1.5).onChange(v => iceUniforms.uAbsorb.value = v);
+fIce.addColor(params, 'iceTint').onChange(v => iceUniforms.uIceTint.value.set(v));
+fIce.addColor(params, 'frostColor').onChange(v => iceUniforms.uFrostColor.value.set(v));
+fIce.add(params, 'milkiness', 0, 2).onChange(v => iceUniforms.uMilkiness.value = v);
+fIce.add(params, 'cracks', 0, 2).onChange(v => iceUniforms.uCracks.value = v);
+fIce.add(params, 'crackScale', 1, 8).onChange(v => iceUniforms.uCrackScale.value = v);
+fIce.add(params, 'crackThreshold', 0.6, 0.97).onChange(v => iceUniforms.uCrackThreshold.value = v);
+fIce.add(params, 'flakes', 0, 1).onChange(v => iceUniforms.uFlakes.value = v);
+fIce.add(params, 'flakeScale', 8, 60).onChange(v => iceUniforms.uFlakeScale.value = v);
+fIce.add(params, 'dispersion', 0, 0.05).onChange(v => iceUniforms.uDispersion.value = v);
+
+const fSurface = gui.addFolder('Surface');
+fSurface.add(params, 'ior', 1.05, 1.8).onChange(v => iceUniforms.uIor.value = v);
+fSurface.add(params, 'fresnelPow', 1, 6).onChange(v => iceUniforms.uFresnelPow.value = v);
+fSurface.add(params, 'reflectivity', 0, 1.5).onChange(v => iceUniforms.uReflectivity.value = v);
+fSurface.add(params, 'specIntensity', 0, 3).onChange(v => iceUniforms.uSpecIntensity.value = v);
+fSurface.add(params, 'specPower', 10, 240).onChange(v => iceUniforms.uSpecPower.value = v);
+fSurface.add(params, 'normalStrength', 0, 3).name('normal map').onChange(v => iceUniforms.uNormalStrength.value = v);
+fSurface.add(params, 'normalScale', 0.2, 8).name('normal tiling').onChange(v => iceUniforms.uNormalScale.value = v);
+fSurface.add(params, 'microRough', 0, 0.6).onChange(v => iceUniforms.uMicroRough.value = v);
+fSurface.add(params, 'crust', 0, 1.5).onChange(v => iceUniforms.uCrust.value = v);
+fSurface.addColor(params, 'crustColor').onChange(v => iceUniforms.uCrustColor.value.set(v));
+fSurface.add(params, 'glossStrength', 0, 1).onChange(v => glossMaterial.opacity = v);
+fSurface.add(params, 'glossRoughness', 0.02, 0.5).onChange(v => glossMaterial.roughness = v);
+fSurface.add(params, 'glossReflect', 0, 2.5).onChange(v => glossMaterial.envMapIntensity = v);
+
+const fLights = gui.addFolder('Lights');
+fLights.addColor(params, 'keyColor').onChange(v => {
+  keyLight.color.set(v);
+  iceUniforms.uKeyColor.value.set(v);
+});
+fLights.add(params, 'keyIntensity', 0, 4).onChange(v => {
+  keyLight.intensity = v;
+  iceUniforms.uKeyIntensity.value = v;
+});
+fLights.add(params, 'keyX', -5, 5).onChange(updateKeyLight);
+fLights.add(params, 'keyY', -2, 6).onChange(updateKeyLight);
+fLights.add(params, 'keyZ', -5, 5).onChange(updateKeyLight);
+fLights.add(params, 'envIntensity', 0, 1.5).onChange(v => scene.environmentIntensity = v);
+fLights.close();
+
+const fFlags = gui.addFolder('Env flags (reflections)');
+fFlags.add(params, 'flagCount', 0, 8, 1).onChange(rebuildEnvironment);
+fFlags.add(params, 'flagSize', 1, 12, 0.1).onChange(rebuildEnvironment);
+fFlags.add(params, 'flagDistance', 2, 12, 0.1).onChange(rebuildEnvironment);
+fFlags.add(params, 'flagHeight', -4, 8, 0.1).onChange(rebuildEnvironment);
+fFlags.add(params, 'flagAngle', 0, 360, 1).onChange(rebuildEnvironment);
+fFlags.add(params, 'flagTilt', -90, 90, 1).onChange(rebuildEnvironment);
+fFlags.add(params, 'flagDarkness', 0, 1, 0.01).onChange(rebuildEnvironment);
+fFlags.add(params, 'envBlur', 0, 0.3, 0.005).onChange(rebuildEnvironment);
+
+const fReflector = gui.addFolder('Reflector card (drag it / right-drag)');
+fReflector.add(params, 'reflectorOn').name('enabled').onChange(syncReflector);
+fReflector.add(params, 'reflectorVisible').name('show card').onChange(syncReflector);
+fReflector.add(params, 'reflectorSize', 0.5, 8).name('size').onChange(syncReflector);
+/* Floor is 1.3: the chunk's fitted radius is 1.05, so anything closer
+   pushes the card through the ice. */
+fReflector.add(params, 'reflectorDistance', 1.3, 9).name('distance').onChange(syncReflector);
+fReflector.add(params, 'reflectorDark', 0, 1).name('darkness in ice').onChange(syncReflector);
+fReflector.add(params, 'reflectorReset').name('reset position');
+
+function updateKeyLight() {
+  keyLight.position.set(params.keyX, params.keyY, params.keyZ);
+  iceUniforms.uKeyDir.value.copy(keyLight.position).normalize();
+}
+updateKeyLight();
+
+const fMotion = gui.addFolder('Motion');
+fMotion.add(params, 'spinSpeed', 0, 0.8);
+fMotion.add(params, 'bobAmount', 0, 0.2);
+fMotion.add(params, 'bobSpeed', 0, 2);
+fMotion.add(params, 'growDuration', 0.5, 5);
+fMotion.add(params, 'regrow').name('regrow (or click scene)');
+fMotion.close();
+
+const fScene = gui.addFolder('Scene');
+fScene.add(params, 'exposure', 0.4, 1.8).onChange(v => renderer.toneMappingExposure = v);
+fScene.addColor(params, 'bgTop').onChange(v => iceUniforms.uBgTop.value.set(v));
+fScene.addColor(params, 'bgBottom').onChange(v => iceUniforms.uBgBottom.value.set(v));
+fScene.addColor(params, 'bgGround').name('ground (refracted)').onChange(v => iceUniforms.uBgGround.value.set(v));
+fScene.add(params, 'groundLevel', 0, 1).name('ground height').onChange(v => iceUniforms.uGroundLevel.value = v);
+fScene.add(params, 'shadowVisible').onChange(v => shadowBlob.visible = v);
+fScene.add(params, 'shadowOpacity', 0, 0.5).onChange(v => shadowBlob.material.opacity = v);
+fScene.close();
+
+/* ============================================================
+   Frame loop
+============================================================ */
+const clock = new THREE.Clock();
+const camObj = new THREE.Vector3();
+const inverseModel = new THREE.Matrix4();
+let lastFrameTime = 0;
+let lastEnvBake = -1;
+
+/* The card moves in the ice's own reflection instantly (it is three
+   uniforms), so the envmap the gloss shell samples can lag a couple of
+   frames without the drag feeling heavy. */
+const ENV_BAKE_INTERVAL = 0.05;
+
+function animate() {
+  requestAnimationFrame(animate);
+  const t = clock.getElapsedTime();
+  const dt = Math.min(t - lastFrameTime, 0.05);
+  lastFrameTime = t;
+
+  if (envDirty && t - lastEnvBake > ENV_BAKE_INTERVAL) {
+    envDirty = false;
+    lastEnvBake = t;
+    bakeEnvironment();
+  }
+
+  controls.update();
+
+  chunkGroup.rotation.y += params.spinSpeed * dt;
+  chunkGroup.position.y = Math.sin(t * params.bobSpeed) * params.bobAmount;
+
+  /* Grow-in: scale springs with a back-out ease while the interior
+     frost condenses (uGrow gates the density field). */
+  const growT = Math.min(Math.max((t - growStart) / params.growDuration, 0), 1);
+  const scale = 0.42 + 0.58 * backOut(growT);
+  chunkGroup.scale.setScalar(scale);
+  iceUniforms.uGrow.value = 1 - Math.pow(1 - growT, 3);
+
+  /* Object-space camera + rotation for the interior march. */
+  chunkGroup.updateMatrixWorld();
+  if (iceMesh) {
+    inverseModel.copy(iceMesh.matrixWorld).invert();
+    camObj.copy(camera.position).applyMatrix4(inverseModel);
+    iceUniforms.uCamPosObj.value.copy(camObj);
+    iceUniforms.uModelRot.value.setFromMatrix4(iceMesh.matrixWorld);
+  }
+  iceUniforms.uTime.value = t;
+
+  shadowBlob.material.opacity = params.shadowOpacity * (0.6 + 0.4 * (1 - chunkGroup.position.y * 3));
+
+  renderer.render(scene, camera);
+}
+startGrow();
+animate();
+
+window.addEventListener('resize', () => {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+});
+</script>
+</body>
+</html>
