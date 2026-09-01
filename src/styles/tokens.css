@@ -1,8 +1,4 @@
 :root {
-  --design-width: 2160;
-  --design-height: 3840;
-  --stage-scale: 1;
-
   /* Microsoft Quantum light palette (Figma "reimagine/day") */
   --color-background: #ffffff;
   --color-background-deep: #ececec;

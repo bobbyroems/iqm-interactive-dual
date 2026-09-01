@@ -6,10 +6,10 @@
 .qe {
   --qe-ink: #243f6a;
   --qe-surface: #f2f4f5;
-  position: absolute;
+  position: relative;
   inset: 0;
-  width: 2160px;
-  height: 3840px;
+  width: 100%;
+  height: 100%;
   overflow: hidden;
   background: var(--qe-surface);
   color: var(--qe-ink);
@@ -578,4 +578,23 @@
 .qe .kiosk-up-next__chip {
   background: #c3aee6;
   color: #3d2a63;
+}
+
+@media (max-width: 1399px), (max-height: 1199px) {
+  .qe__header { min-height: 72px; }
+  .qe__experience { inset: 72px 0 0; }
+  .qe__intro { top: clamp(48px, 9vh, 128px); padding: 0 24px; }
+  .qe__intro-copy h2 { width: min(90vw, 820px); font-size: clamp(30px, 5vw, 64px); }
+  .qe__intro-copy p { width: min(86vw, 640px); margin-top: 18px; font-size: clamp(17px, 2.5vw, 28px); }
+  .qe__continue {
+    top: auto;
+    right: 24px;
+    bottom: 24px;
+    left: 50%;
+    width: min(calc(100% - 48px), 510px);
+  }
+  .qe__tuning { top: clamp(110px, 18vh, 180px); width: min(88vw, 760px); }
+  .qe__tuning-title { font-size: clamp(28px, 4.5vw, 56px); }
+  .qe__tuning-description,
+  .qe__tuning-footnote { width: min(86vw, 640px); font-size: clamp(16px, 2.3vw, 26px); }
 }

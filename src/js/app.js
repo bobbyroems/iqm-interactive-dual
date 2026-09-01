@@ -14,7 +14,6 @@ import { splitTextForReveal } from './core/text-reveal.js'
 import { ModuleHost } from './core/module-host.js'
 import { moduleUnmountDelay } from './core/module-resource-policy.js'
 import { ScreenRouter } from './core/screen-router.js'
-import { StageScaler } from './core/stage-scaler.js'
 import { createMajoranaScene } from './modules/build-majorana-2/majorana-scene.js'
 import { getModule, isPlayable, MODULE_CATEGORIES, MODULES } from './modules/module-registry.js'
 
@@ -179,12 +178,6 @@ export class KioskApp {
     this.screenWipe.setAttribute('aria-hidden', 'true')
     this.stage.append(this.screenWipe)
 
-    this.stageScaler = new StageScaler({
-      stage: root.getElementById('kiosk-stage'),
-      designWidth: this.config.design.width,
-      designHeight: this.config.design.height,
-      onScale: scale => this.updateDevelopmentHud(scale)
-    })
   }
 
   start() {
@@ -200,7 +193,8 @@ export class KioskApp {
     this.applyMenuLayout(this.settings?.layout ?? 'top', { animate: false })
     this.setupTextReveals()
     this.setupDevelopmentHud()
-    this.stageScaler.start()
+    this.updateDevelopmentHud()
+    window.addEventListener('resize', () => this.updateDevelopmentHud(), { passive: true })
     this.router.show('attract')
     this.restoreDevelopmentView()
     void this.preloadMajoranaModule()
@@ -773,7 +767,7 @@ export class KioskApp {
       toggle.setAttribute('aria-pressed', String(collapsed))
       /* The settings cog clears the dock by its measured height; re-run that
          with the new one. Layout has to settle first, hence the next frame. */
-      window.requestAnimationFrame(() => this.updateDevelopmentHud(this.lastStageScale ?? 1))
+      window.requestAnimationFrame(() => this.updateDevelopmentHud())
     }
 
     let collapsed = false
@@ -1336,11 +1330,13 @@ export class KioskApp {
     window.requestAnimationFrame(tick)
   }
 
-  updateDevelopmentHud(scale) {
-    /* Kept so collapsing the dock can re-measure without waiting for a resize. */
-    this.lastStageScale = scale
+  updateDevelopmentHud() {
     const scaleLabel = this.root.getElementById('development-scale')
-    if (scaleLabel) scaleLabel.textContent = `${Math.round(scale * 100)}%`
+    if (scaleLabel) scaleLabel.textContent = 'Fluid'
+    const resolutionLabel = this.root.getElementById('development-resolution')
+    if (resolutionLabel) {
+      resolutionLabel.textContent = `${this.stage.clientWidth} × ${this.stage.clientHeight}`
+    }
 
     const hud = this.root.getElementById('development-hud')
     if (!hud || hud.hidden) return
@@ -1350,10 +1346,9 @@ export class KioskApp {
     hud.style.right = `${Math.max(edgeGap, window.innerWidth - stageRect.right + edgeGap)}px`
     hud.style.bottom = `${Math.max(edgeGap, window.innerHeight - stageRect.bottom + edgeGap)}px`
 
-    const safeScale = scale > 0 ? scale : 1
     const settingsBottom = Math.max(
       132,
-      Math.ceil((edgeGap + hud.getBoundingClientRect().height + 12) / safeScale)
+      Math.ceil(edgeGap + hud.getBoundingClientRect().height + 12)
     )
     this.stage.style.setProperty('--development-settings-bottom', `${settingsBottom}px`)
     this.positionMaterialPanel?.()

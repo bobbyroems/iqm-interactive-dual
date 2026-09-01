@@ -2,7 +2,7 @@
   padding: 0;
 }
 
-/* Interactive modules own their production header and full 2160 × 3840 frame.
+/* Interactive modules own their production header and full viewport frame.
    Keep the shell header for loading/concept/error views only. */
 .screen--module:has(.module-host[data-module-state="active"]) > .microsoft-header {
   display: none;
@@ -127,4 +127,30 @@
   to {
     transform: rotate(360deg);
   }
+}
+
+@media (max-width: 1399px), (max-height: 1199px) {
+    .module-host__scaffold,
+    .module-host__system-view {
+      padding: clamp(32px, 7vw, 80px) clamp(24px, 6vw, 72px);
+    }
+
+    .module-host__system-copy h2 {
+      margin-top: 20px;
+      font-size: clamp(32px, 5vw, 64px);
+    }
+
+    .module-host__system-copy > p:not(.module-kicker) {
+      margin-top: 20px;
+      font-size: clamp(17px, 2.2vw, 26px);
+    }
+
+    .module-host__spinner {
+      width: 72px;
+      height: 72px;
+      margin-bottom: 34px;
+      border-width: 7px;
+    }
+
+    .module-host__retry { width: min(100%, 440px); margin-top: 36px; }
 }

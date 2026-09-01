@@ -7,10 +7,10 @@
   --nw-ink: #2a446f;
   --nw-loupe-x: -700px;
   --nw-loupe-y: -700px;
-  position: absolute;
+  position: relative;
   inset: 0;
-  width: 2160px;
-  height: 3840px;
+  width: 100%;
+  height: 100%;
   overflow: hidden;
   background: #fff;
   color: var(--nw-ink);
@@ -647,4 +647,16 @@
     animation: none;
   }
 
+}
+
+@media (max-width: 1399px), (max-height: 1199px) {
+  .nw__header { min-height: 72px; }
+  .nw__experience { inset: 72px 0 0; }
+  .nw__scene { inset: 0; }
+  .nw__prompt { width: min(88vw, 760px); }
+  .nw__instruction { right: 24px; bottom: 24px; left: 24px; width: auto; }
+  .nw__loupe { width: clamp(156px, 26vw, 270px); height: clamp(156px, 26vw, 270px); }
+  .nw__correct,
+  .nw__corrected { right: clamp(20px, 5vw, 70px); bottom: clamp(24px, 7vh, 80px); }
+  .nw__completion { bottom: clamp(40px, 10vh, 110px); width: min(88vw, 520px); }
 }

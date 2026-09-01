@@ -23,10 +23,10 @@
   --som-copy-height: 300px;
   --som-video-blur: 0px;
   --som-video-scale: 1;
-  position: absolute;
+  position: relative;
   inset: 0;
-  width: 2160px;
-  height: 3840px;
+  width: 100%;
+  height: 100%;
   overflow: hidden;
   background: #d7d8d9;
   color: var(--som-ink);
@@ -499,4 +499,23 @@
   .som__hint {
     transition: none;
   }
+
+}
+
+@media (max-width: 1399px), (max-height: 1199px) {
+  .som__nav { min-height: 72px; }
+  .som__info { top: clamp(96px, 14vh, 160px); left: clamp(20px, 6vw, 96px); width: min(48ch, calc(100% - clamp(40px, 12vw, 192px))); }
+  .som__info h2 { font-size: clamp(30px, 4.8vw, 64px); }
+  .som__info-copy p { font-size: clamp(17px, 2vw, 28px); line-height: 1.35; }
+  .som__title-group {
+    top: auto;
+    right: clamp(20px, 6vw, 96px);
+    bottom: clamp(145px, 22vh, 230px);
+    left: clamp(20px, 6vw, 96px);
+    width: auto;
+  }
+  .som__active-phase { font-size: clamp(36px, 6vw, 82px); }
+  .som__timeline { right: clamp(20px, 6vw, 96px); bottom: clamp(46px, 8vh, 96px); left: clamp(20px, 6vw, 96px); width: auto; }
+  .som__range-label { width: 100%; }
+  .som__hint { top: auto; bottom: clamp(110px, 17vh, 180px); left: 50%; width: min(90vw, 520px); height: auto; transform: translateX(-50%); }
 }

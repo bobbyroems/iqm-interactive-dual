@@ -11,10 +11,10 @@
   --qvc-gradient: linear-gradient(130deg, #2a446f 18%, #185998 50%, #1163ab 64%, #0078d4 92%);
   /* The flat blue the principle pills are drawn in on the 25 Aug board. */
   --qvc-principle-blue: #0055d4;
-  position: absolute;
+  position: relative;
   inset: 0;
-  width: 2160px;
-  height: 3840px;
+  width: 100%;
+  height: 100%;
   overflow: hidden;
   /* Soft aurora wash (same family as the main carousel screen) instead
      of a flat surface. */
@@ -2522,6 +2522,37 @@
 .qvc-up-next-card__chevron img {
   width: 100%;
   height: 100%;
+}
+
+@media (max-width: 1399px), (max-height: 1199px) {
+  .qvc__header { min-height: 72px; }
+  .qvc__experience { inset: 72px 0 0; }
+  .qvc__menu { display: flex; flex-direction: column; gap: clamp(20px, 4vh, 44px); padding: clamp(24px, 5vw, 72px); overflow: auto; }
+  .qvc-copy,
+  .qvc__menu-copy { position: static; width: min(100%, 760px); margin: 0 auto; text-align: center; }
+  .qvc-copy h2,
+  .qvc__menu-copy h2 { font-size: clamp(30px, 4.6vw, 60px); }
+  .qvc-copy p,
+  .qvc__menu-copy p { font-size: clamp(16px, 2vw, 24px); }
+  .qvc__menu-cards { position: static; display: grid; width: min(100%, 980px); margin: 0 auto; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: clamp(12px, 2vw, 28px); }
+  .qvc__menu-card {
+    position: static;
+    width: auto;
+    min-width: 0;
+    height: clamp(210px, 32vw, 380px);
+  }
+  .qvc__transition-content { top: 30%; width: min(86vw, 760px); gap: clamp(32px, 6vh, 70px); }
+  .qvc-game__masthead { top: clamp(20px, 4vh, 56px); right: 24px; left: 24px; }
+  .qvc-game__controls { right: 24px; bottom: 24px; left: 24px; width: auto; justify-content: center; }
+}
+
+@media (max-width: 599px) {
+  .qvc__menu { gap: 20px; padding: 20px; }
+  .qvc__menu-cards { grid-template-columns: 1fr; max-width: 360px; }
+  .qvc__menu-card { height: 165px; }
+  .qvc__transition-title { align-items: center; flex-direction: column; gap: 8px; font-size: 17px; }
+  .qvc__transition-title strong { font-size: 30px; }
+  .qvc__transition-index { width: 48px; height: 48px; border-width: 2px; font-size: 18px; }
 }
 
 @media (prefers-reduced-motion: reduce) {

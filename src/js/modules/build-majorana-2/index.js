@@ -905,8 +905,10 @@ export function mount(container, options = {}) {
   }
 
   function currentStageScale() {
-    const rootBounds = root.getBoundingClientRect()
-    return root.offsetWidth > 0 ? rootBounds.width / root.offsetWidth : 1
+    /* The old kiosk stage was uniformly transformed. The module now lays out
+       directly in viewport pixels, so DOM rects and CSS coordinates share the
+       same space even as breakpoint layouts reflow. */
+    return 1
   }
 
   function captureInlineStyle(element) {

@@ -27,10 +27,10 @@
   /* Kept in step with NANOSCALE_SCRUBBER.y, which overrides this inline. */
   --nz-scrubber-y: 2702px;
   --nz-scrubber-width: 1109px;
-  position: absolute;
+  position: relative;
   inset: 0;
-  width: 2160px;
-  height: 3840px;
+  width: 100%;
+  height: 100%;
   overflow: hidden;
   background: #fff;
   color: var(--nz-navy);
@@ -899,4 +899,40 @@ body.is-kiosk .nz__scroll-cue.kiosk-tooltip {
     transition-duration: 1ms;
     transition-delay: 0ms;
   }
+
+}
+
+/* The camera art remains a registered scene, while its readable chrome becomes
+   a viewport layout. This keeps the zoom journey intact without reducing the
+   controls to kiosk-scale pixels on a handheld screen. */
+@media (max-width: 1399px), (max-height: 1199px) {
+  .nz__header.microsoft-header { min-height: 72px; padding-inline: clamp(16px, 4vw, 48px); }
+  .nz__header .microsoft-header__actions { gap: 10px; }
+  .nz__header .microsoft-header__action.microsoft-header__action { width: auto; min-height: 48px; height: 48px; }
+  .nz__stack-camera,
+  .nz__scene-camera,
+  .nz__scene { width: 100%; height: 100%; }
+  .nz__dimension { width: 100%; height: 100%; }
+  .nz__intro.kiosk-explainer { top: clamp(96px, 16vh, 180px) !important; right: 20px !important; left: 20px !important; width: auto !important; padding: 24px; }
+  .nz__intro .kiosk-explainer__copy { gap: 16px; }
+  .nz__intro .kiosk-explainer__title { width: auto; height: auto; font-size: clamp(30px, 5vw, 58px); line-height: 1.12; }
+  .nz__intro .kiosk-explainer__body { width: min(100%, 42ch); height: auto; font-size: clamp(16px, 2.3vw, 24px); line-height: 1.35; }
+  .nz__identity.kiosk-explainer { right: 20px !important; bottom: 150px !important; left: 20px !important; width: auto !important; height: auto !important; }
+  .nz__identity .kiosk-explainer__copy,
+  .nz__identity .kiosk-explainer__title,
+  .nz__identity .kiosk-explainer__body { position: static; width: auto; height: auto; }
+  .nz__identity .kiosk-explainer__title { font-size: clamp(24px, 3.5vw, 40px); }
+  .nz__identity .kiosk-explainer__body { margin-top: 8px; font-size: clamp(15px, 2vw, 21px); line-height: 1.35; }
+  .nz__comparison { grid-template-rows: minmax(150px, 30vh) auto; width: min(72vw, 500px) !important; }
+  .nz__comparison-footer { min-height: 70px; font-size: clamp(15px, 2vw, 20px); }
+  .nz__scrubber { top: auto !important; right: clamp(20px, 5vw, 64px); bottom: 30px; left: clamp(20px, 5vw, 64px); width: auto; }
+  .nz__finale { width: 100%; height: 100%; }
+}
+
+@media (max-width: 599px) {
+  .nz__header .microsoft-header__action:first-child { width: 48px; }
+  .nz__header .microsoft-header__action:first-child > span:not(.microsoft-header__action-icon) { display: none; }
+  .nz__comparison { width: calc(100vw - 40px) !important; }
+  .nz__instruction.kiosk-tooltip,
+  .nz__finale-prompt.kiosk-tooltip { max-width: calc(100vw - 40px); }
 }

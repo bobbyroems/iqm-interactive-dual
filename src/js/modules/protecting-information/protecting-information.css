@@ -39,10 +39,10 @@
   --pqi-temp-cooling-top-alpha: 0;
   --pqi-temp-cooling-mid-alpha: 0;
   --pqi-rim: 0;
-  position: absolute;
+  position: relative;
   inset: 0;
-  width: 2160px;
-  height: 3840px;
+  width: 100%;
+  height: 100%;
   overflow: hidden;
   background: transparent;
   color: var(--pqi-ink);
@@ -1036,4 +1036,38 @@
 .pqi-camera-debug--collapsed footer,
 .pqi-camera-debug--collapsed pre {
   display: none;
+}
+
+@media (max-width: 1399px), (max-height: 1199px) {
+  .pqi__header { min-height: 72px; }
+  .pqi__experience { inset: 72px 0 0; }
+  .pqi__content {
+    top: clamp(24px, 5vh, 72px);
+    left: clamp(20px, 5vw, 72px);
+    width: min(46ch, calc(100% - 40px));
+  }
+  .pqi__content h2 { font-size: clamp(30px, 4.8vw, 64px); }
+  .pqi__content p { font-size: clamp(16px, 2.1vw, 26px); }
+  .pqi__scene-shell { width: min(76vw, 680px); height: min(48vh, 600px); right: 4vw; bottom: 17vh; left: auto; }
+  .pqi__controls {
+    top: auto;
+    right: clamp(16px, 5vw, 72px);
+    bottom: clamp(18px, 4vh, 48px);
+    left: clamp(16px, 5vw, 72px);
+    width: auto;
+    justify-content: space-between;
+    transform: none;
+  }
+  .pqi__control { width: clamp(82px, 16vw, 168px); }
+  .pqi__dial { width: 100%; aspect-ratio: 1; height: auto; }
+  .pqi__guidance { right: 20px; bottom: clamp(150px, 23vh, 240px); left: 20px; width: auto; }
+  .pqi__progress { right: 20px; bottom: clamp(118px, 18vh, 190px); left: auto; }
+}
+
+@media (max-width: 599px) {
+  .pqi__scene-shell { top: 28%; right: 8vw; bottom: auto; width: 84vw; height: 37vh; }
+  .pqi__content { top: 22px; }
+  .pqi__controls { gap: 8px; }
+  .pqi__control-label,
+  .pqi__control-state { font-size: 13px; }
 }
