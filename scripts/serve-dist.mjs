@@ -18,7 +18,7 @@ const TYPES = {
   '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8',
   '.css': 'text/css; charset=utf-8', '.json': 'application/json; charset=utf-8',
   '.svg': 'image/svg+xml', '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg',
-  '.webp': 'image/webp', '.bmp': 'image/bmp', '.tga': 'image/x-tga', '.mp4': 'video/mp4',
+  '.webp': 'image/webp', '.mp4': 'video/mp4',
   '.webm': 'video/webm', '.ogg': 'audio/ogg', '.wav': 'audio/wav', '.glb': 'model/gltf-binary',
   '.obj': 'text/plain; charset=utf-8', '.mtl': 'text/plain; charset=utf-8',
   '.fbx': 'application/octet-stream', '.hdr': 'image/vnd.radiance', '.exr': 'image/x-exr'

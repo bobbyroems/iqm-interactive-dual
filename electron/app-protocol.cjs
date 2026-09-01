@@ -37,7 +37,6 @@ const APP_PROTOCOL_PRIVILEGES = Object.freeze({
    Extensions are matched lowercased: some delivered meshes and textures arrive
    with upper-case ones. */
 const CONTENT_TYPES = Object.freeze({
-  '.bmp': 'image/bmp',
   '.css': 'text/css; charset=utf-8',
   '.exr': 'image/x-exr',
   '.fbx': 'application/octet-stream',
@@ -60,7 +59,6 @@ const CONTENT_TYPES = Object.freeze({
   '.otf': 'font/otf',
   '.png': 'image/png',
   '.svg': 'image/svg+xml',
-  '.tga': 'image/x-tga',
   '.ttf': 'font/ttf',
   '.txt': 'text/plain; charset=utf-8',
   '.wav': 'audio/wav',

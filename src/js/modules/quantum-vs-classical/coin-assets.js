@@ -13,8 +13,8 @@ export const ENTANGLEMENT_COIN_MATERIAL_SEEDS = Object.freeze([41, 42])
 
 const COIN_DIR = 'assets/modules/differences/coins/'
 const OBJ_URL = `${COIN_DIR}US Coins OBj.obj`
-const COLOR_URL = `${COIN_DIR}TwentyFive_Cent_Color.bmp`
-const BUMP_URL = `${COIN_DIR}TwentyFive_Cent_Bump.bmp`
+const COLOR_URL = `${COIN_DIR}TwentyFive_Cent_Color.png`
+const BUMP_URL = `${COIN_DIR}TwentyFive_Cent_Bump.png`
 /* Photographed quarter variants — assigned per seed so a pile of coins
    never shows the same face twice in a row. */
 const COLOR_VARIANT_URLS = Object.freeze([

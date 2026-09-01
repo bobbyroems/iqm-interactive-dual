@@ -37,8 +37,8 @@ const BASE_MODULE_ASSETS = Object.freeze([
   { path: 'assets/audio/285555-Whoosh_-Low_gentle-slow_calm_and_deep.wav', type: 'wav', minimumBytes: 700_000 },
   { path: 'assets/modules/differences/Buoy.glb', type: 'glb', minimumBytes: 150_000 },
   { path: 'assets/modules/differences/coins/US Coins OBj.obj', type: 'obj', minimumBytes: 200_000 },
-  { path: 'assets/modules/differences/coins/TwentyFive_Cent_Color.bmp', type: 'bmp', minimumBytes: 8_000_000 },
-  { path: 'assets/modules/differences/coins/TwentyFive_Cent_Bump.bmp', type: 'bmp', minimumBytes: 8_000_000 },
+  { path: 'assets/modules/differences/coins/TwentyFive_Cent_Color.png', type: 'png', minimumBytes: 5_000_000 },
+  { path: 'assets/modules/differences/coins/TwentyFive_Cent_Bump.png', type: 'png', minimumBytes: 1_000_000 },
   { path: 'assets/modules/differences/coins/TwentyFive_Cent_Color01.jpg', type: 'jpg', minimumBytes: 800_000 },
   { path: 'assets/modules/differences/coins/TwentyFive_Cent_Color02.jpg', type: 'jpg', minimumBytes: 800_000 },
   { path: 'assets/modules/differences/coins/TwentyFive_Cent_Color03.jpg', type: 'jpg', minimumBytes: 800_000 },
@@ -139,7 +139,6 @@ function assertSignature(buffer, type, filename) {
   const isOggOpus = ascii(0, 4) === 'OggS' && buffer.includes('OpusHead')
 
   const valid = {
-    bmp: ascii(0, 2) === 'BM',
     glb: ascii(0, 4) === 'glTF',
     jpg: isJpeg,
     mp4: ascii(4, 8) === 'ftyp',
