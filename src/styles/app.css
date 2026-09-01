@@ -1750,8 +1750,8 @@
 }
 
 @media (max-width: 599px) {
-  .microsoft-brand__divider,
-  .microsoft-brand__quantum,
+  /* .microsoft-brand__divider, */
+  /* .microsoft-brand__quantum, */
   .microsoft-header__action > span:not(.microsoft-header__action-icon) { display: none; }
 
   .microsoft-header__action.microsoft-header__action { width: 48px; padding: 8px; }
@@ -2746,6 +2746,38 @@
   }
 }
 
+/* On responsive screens the chip is a centered grid item rather than an
+   absolutely positioned stage element. Its entry animation must not retain
+   the fixed-stage translate used to center the kiosk composition. */
+@media (max-width: 1399px), (max-height: 1199px) {
+  .screen--attract.is-active .attract-chip {
+    animation-name: attract-chip-in-responsive;
+  }
+
+  .screen--attract.is-leaving .attract-chip {
+    animation-name: attract-chip-out-responsive;
+  }
+}
+
+@keyframes attract-chip-in-responsive {
+  from {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes attract-chip-out-responsive {
+  to {
+    opacity: 0;
+    transform: scale(0.94);
+  }
+}
+
 @keyframes breathe {
   0%,
   100% {
@@ -2992,4 +3024,31 @@ body.is-kiosk .kiosk-tooltip:not([hidden]) .kiosk-tooltip__text {
   .kiosk-settings__label { font-size: 20px; }
   .kiosk-settings__volume { gap: 14px; }
   .kiosk-settings__volume-icon { width: 28px; height: 28px; }
+  .kiosk-settings__slider { height: 36px; }
+  .kiosk-settings__slider::-webkit-slider-runnable-track { height: 8px; }
+  .kiosk-settings__slider::-webkit-slider-thumb {
+    width: 28px;
+    height: 28px;
+    margin-top: -10px;
+  }
+  .kiosk-settings__segments { gap: 6px; padding: 6px; border-radius: 12px; }
+  .kiosk-settings__segment-thumb {
+    top: 6px;
+    bottom: 6px;
+    left: 6px;
+    width: calc(50% - 9px);
+    border-radius: 8px;
+  }
+  .kiosk-settings[data-layout="center"] #kiosk-settings-layout .kiosk-settings__segment-thumb,
+  .kiosk-settings[data-upnext="off"] #kiosk-settings-upnext .kiosk-settings__segment-thumb {
+    transform: translateX(calc(100% + 6px));
+  }
+  .kiosk-settings__segment {
+    min-height: 64px;
+    gap: 8px;
+    padding: 0 12px;
+    border-radius: 8px;
+    font-size: 17px;
+  }
+  .kiosk-settings__segment svg { width: 24px; height: 24px; }
 }
