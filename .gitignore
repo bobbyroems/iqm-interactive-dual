@@ -1,0 +1,17 @@
+node_modules/
+dist/
+build/
+.DS_Store
+*.log
+
+threejs-water-pro/demo/*.pem
+
+# Large source art kept out of the served build (see art-source/README.md)
+art-source/
+
+# Local, generated previews for the black-matte video compositing draft.
+public/assets/drafts/video-key/
+
+# Packed H.264 comparison clips for the codec benchmark. Development only —
+# bake them with pack:alpha-video --codec h264-packed --out public/assets/video-fx/bench
+public/assets/video-fx/bench/

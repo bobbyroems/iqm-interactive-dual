@@ -1,0 +1,650 @@
+.nw,
+.nw * {
+  box-sizing: border-box;
+}
+
+.nw {
+  --nw-ink: #2a446f;
+  --nw-loupe-x: -700px;
+  --nw-loupe-y: -700px;
+  position: absolute;
+  inset: 0;
+  width: 2160px;
+  height: 3840px;
+  overflow: hidden;
+  background: #fff;
+  color: var(--nw-ink);
+  font-family: var(--font-text);
+  isolation: isolate;
+}
+
+.nw button {
+  font: inherit;
+}
+
+.nw__header {
+  width: 100%;
+  min-height: 120px;
+  background: rgba(255, 255, 255, 0.72);
+  backdrop-filter: blur(14px);
+}
+
+.nw__experience {
+  position: absolute;
+  inset: 120px 0 0;
+  overflow: hidden;
+  background: #fff;
+  outline: none;
+  touch-action: none;
+}
+
+.nw__backdrop {
+  position: absolute;
+  z-index: 0;
+  inset: 0;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 520ms var(--ease-out);
+}
+
+.nw__backdrop--perturbation {
+  background: linear-gradient(180deg, rgba(102, 102, 102, 0) 0%, rgba(255, 98, 0, 0.4) 100%);
+}
+
+.nw__backdrop--repair {
+  overflow: hidden;
+  background: linear-gradient(
+    180deg,
+    rgba(102, 102, 102, 0) 0%,
+    rgba(77, 210, 227, 0.2) 43.446%,
+    rgba(77, 174, 227, 0.4) 100%
+  );
+  mix-blend-mode: multiply;
+}
+
+/* A single asymmetric completion sweep, built from broad colour fields rather
+   than a glossy stripe. Transform-only motion keeps the 4K kiosk compositor
+   calm while the uneven radial centres make the gradient feel fluid. */
+.nw__backdrop--repair::before {
+  position: absolute;
+  inset: -18% -28%;
+  background:
+    radial-gradient(ellipse at 17% 83%, rgba(38, 221, 205, 0.46) 0%, rgba(38, 221, 205, 0) 48%),
+    radial-gradient(ellipse at 58% 92%, rgba(36, 170, 235, 0.52) 0%, rgba(36, 170, 235, 0) 53%),
+    radial-gradient(ellipse at 88% 66%, rgba(46, 113, 232, 0.35) 0%, rgba(46, 113, 232, 0) 46%);
+  content: '';
+  opacity: 0;
+  transform: translate3d(-12%, 8%, 0) scale(1.08);
+  transform-origin: 50% 78%;
+}
+
+.nw[data-phase="scanning"] .nw__backdrop--perturbation,
+.nw[data-phase="inspect"] .nw__backdrop--perturbation,
+.nw[data-phase="targeted"] .nw__backdrop--perturbation,
+.nw[data-phase="correcting"] .nw__backdrop--perturbation {
+  opacity: 1;
+}
+
+.nw[data-phase="repaired"]:not([data-repair-exit="true"]) .nw__backdrop--repair {
+  opacity: 1;
+}
+
+.nw[data-phase="repaired"]:not([data-repair-exit="true"]) .nw__backdrop--repair::before {
+  animation: nw-repair-fluid-sweep 1450ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  will-change: transform, opacity;
+}
+
+@keyframes nw-repair-fluid-sweep {
+  0% {
+    opacity: 0.18;
+    transform: translate3d(-12%, 8%, 0) scale(1.08);
+  }
+
+  38% {
+    opacity: 0.88;
+    transform: translate3d(-3%, 1%, 0) scale(1.13) rotate(-0.35deg);
+  }
+
+  72% {
+    opacity: 0.68;
+    transform: translate3d(7%, -3%, 0) scale(1.08) rotate(0.45deg);
+  }
+
+  100% {
+    opacity: 0.42;
+    transform: translate3d(13%, -7%, 0) scale(1.04);
+  }
+}
+
+.nw__scene,
+.nw__canvas,
+.nw__scene-wash {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.nw__atom-start {
+  position: absolute;
+  z-index: 7;
+  top: var(--nw-atom-start-y, 1550px);
+  left: var(--nw-atom-start-x, 850px);
+  width: 460px;
+  height: 460px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  cursor: pointer;
+  touch-action: manipulation;
+  transform: translate(-50%, -50%);
+}
+
+.nw__atom-start:focus-visible {
+  outline: 5px solid rgba(0, 120, 212, 0.72);
+  outline-offset: 12px;
+}
+
+.nw__atom-start[hidden] {
+  display: none;
+}
+
+.nw__scene {
+  z-index: 1;
+}
+
+.nw__canvas {
+  display: block;
+}
+
+.nw__scene-wash {
+  z-index: 2;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse at 50% 51%, transparent 42%, rgba(255, 255, 255, 0.12) 66%, rgba(255, 255, 255, 0.78) 100%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.24), transparent 17%, transparent 82%, rgba(255, 255, 255, 0.62));
+}
+
+/* Keep the authored gradients attached to the physical bottom edge. The
+   default white vignette is useful on the opening scene, but over the orange
+   and blue beats it produced a pale oval that cut the gradient short. */
+.nw[data-phase="scanning"] .nw__scene-wash,
+.nw[data-phase="inspect"] .nw__scene-wash,
+.nw[data-phase="targeted"] .nw__scene-wash,
+.nw[data-phase="correcting"] .nw__scene-wash,
+.nw[data-phase="repaired"] .nw__scene-wash {
+  background:
+    radial-gradient(ellipse at 50% 51%, transparent 48%, rgba(255, 255, 255, 0.05) 74%, rgba(255, 255, 255, 0.1) 100%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.18), transparent 18%, transparent 100%);
+}
+
+.nw__prompt {
+  --kiosk-explainer-body-size: 60px;
+  --kiosk-explainer-body-white-space: normal;
+  --kiosk-explainer-content-gap: 48px;
+  --kiosk-explainer-padding: 0;
+  --kiosk-explainer-title-size: 96px;
+  position: absolute;
+  z-index: 5;
+  top: 430px;
+  left: 50%;
+  width: 1600px;
+  transform: translateX(-50%);
+}
+
+.nw__prompt.is-showing {
+  transform: translateX(-50%);
+}
+
+.nw__prompt .kiosk-explainer__body,
+.nw__prompt .kiosk-explainer__footer {
+  width: 1040px;
+  margin-inline: auto;
+}
+
+.nw__prompt[data-kiosk-explainer-layout="split"] {
+  --kiosk-explainer-border-radius: 20px;
+  --kiosk-explainer-box-shadow: 0 4px 104px rgba(0, 0, 0, 0.1);
+  --kiosk-explainer-content-gap: 56px;
+  --kiosk-explainer-padding: 8px;
+  top: 380px;
+  width: 1894px;
+  height: 672px;
+}
+
+.nw__prompt[data-kiosk-explainer-layout="split"] .kiosk-explainer__media {
+  width: 712px;
+  height: 656px;
+  overflow: hidden;
+  border-radius: 14px;
+}
+
+.nw__prompt[data-kiosk-explainer-layout="split"] .kiosk-explainer__copy {
+  width: 1098px;
+  justify-content: center;
+}
+
+.nw__prompt[data-kiosk-explainer-layout="split"] .kiosk-explainer__body {
+  width: 980px;
+}
+
+.nw__instruction {
+  position: absolute;
+  z-index: 6;
+  top: 1160px;
+  left: 50%;
+  opacity: 0;
+  transform: translate(-50%, 18px);
+  transition: opacity 380ms var(--ease-out), transform 480ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.nw__instruction.is-showing {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+
+.nw__instruction.has-swipe-arrow {
+  grid-auto-flow: column;
+  column-gap: 18px;
+}
+
+.nw__instruction-arrow {
+  display: none;
+  width: 44px;
+  height: 54px;
+  flex: 0 0 auto;
+}
+
+.nw__instruction.has-swipe-arrow .nw__instruction-arrow {
+  display: block;
+  animation: nw-swipe-arrow-nudge 1800ms cubic-bezier(0.16, 1, 0.3, 1) infinite;
+}
+
+.nw__instruction[hidden] {
+  display: none;
+}
+
+.nw__loupe {
+  position: absolute;
+  z-index: 9;
+  top: 0;
+  left: 0;
+  width: 524px;
+  height: 524px;
+  overflow: visible;
+  border-radius: 50%;
+  opacity: 0;
+  pointer-events: none;
+  transform: translate3d(var(--nw-loupe-x), var(--nw-loupe-y), 0) translate(-50%, -50%);
+  transition: opacity 420ms var(--ease-out), filter 220ms var(--ease-out);
+  will-change: transform;
+}
+
+.nw__loupe-visual {
+  position: absolute;
+  inset: 0;
+  display: block;
+  transform: translate3d(0, 0, 0);
+}
+
+/* The nudge, reworked to IQM's note on the 25 Aug board: "a quick left-right
+   shake, as if nudging the user to grab it. Keep the movement small and snappy,
+   not playful or exaggerated. Pause for a few seconds, then repeat."
+
+   It used to be a single slow diagonal lean with about a second of rest, which
+   read as the loupe drifting rather than asking to be picked up.
+
+   The delay holds it back until the visitor has had a moment to look at the
+   scene first, and `:not(.has-interacted)` is what stops it the instant a drag
+   begins — that class is set on pointerdown and never comes off, so the loupe
+   asks once, and stops asking for good once it has been used. */
+.nw[data-phase="inspect"] .nw__loupe:not(.is-dragging):not(.has-interacted) .nw__loupe-visual {
+  animation: nw-loupe-invitation 4200ms ease-in-out 1200ms infinite;
+  will-change: transform;
+}
+
+.nw[data-phase="inspect"] .nw__loupe,
+.nw[data-phase="targeted"] .nw__loupe,
+.nw[data-phase="correcting"] .nw__loupe,
+.nw[data-phase="repaired"] .nw__loupe {
+  opacity: 1;
+}
+
+.nw[data-phase="inspect"] .nw__loupe,
+.nw[data-phase="targeted"] .nw__loupe {
+  pointer-events: auto;
+}
+
+.nw[data-phase="inspect"] .nw__loupe {
+  cursor: grab;
+  touch-action: none;
+}
+
+.nw[data-phase="inspect"] .nw__loupe.is-dragging {
+  cursor: grabbing;
+}
+
+.nw__loupe-glass {
+  position: absolute;
+  inset: 37px;
+  overflow: hidden;
+  border: 2px solid rgba(70, 79, 89, 0.58);
+  border-radius: 50%;
+  background: rgba(248, 250, 252, 0.18);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.86),
+    inset 0 0 42px rgba(255, 255, 255, 0.3);
+  transition: border-color 220ms var(--ease-out), box-shadow 220ms var(--ease-out);
+}
+
+.nw__loupe-glass::after {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background:
+    radial-gradient(circle at 31% 23%, rgba(255, 255, 255, 0.34), rgba(255, 255, 255, 0.1) 20%, transparent 44%),
+    linear-gradient(145deg, rgba(255, 255, 255, 0.08), transparent 56%, rgba(57, 66, 75, 0.04));
+  content: "";
+  pointer-events: none;
+}
+
+.nw__loupe-frame {
+  position: absolute;
+  z-index: 4;
+  inset: 0;
+  display: block;
+  background: linear-gradient(145deg, #fff 0%, #f3f5f6 20%, #d5dade 56%, #8f99a2 100%);
+  filter:
+    drop-shadow(0 2px 2px rgba(40, 48, 56, 0.78))
+    drop-shadow(0 14px 26px rgba(37, 45, 54, 0.16));
+  pointer-events: none;
+  -webkit-mask-image: var(--nw-loupe-frame-image);
+  mask-image: var(--nw-loupe-frame-image);
+  -webkit-mask-position: center;
+  mask-position: center;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  -webkit-mask-size: 100% 100%;
+  mask-size: 100% 100%;
+}
+
+.nw__loupe-view,
+.nw__loupe-canvas {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.nw__loupe-crosshair {
+  position: absolute;
+  z-index: 3;
+  top: 50%;
+  left: 50%;
+  width: 32px;
+  height: 32px;
+  opacity: 0.34;
+  pointer-events: none;
+  transform: translate(-50%, -50%);
+  transition: opacity 160ms ease;
+}
+
+.nw__loupe-crosshair::before,
+.nw__loupe-crosshair::after {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  background: var(--nw-ink);
+  content: "";
+  transform: translate(-50%, -50%);
+}
+
+.nw__loupe-crosshair::before {
+  width: 32px;
+  height: 2px;
+}
+
+.nw__loupe-crosshair::after {
+  width: 2px;
+  height: 32px;
+}
+
+.nw__loupe.is-near-defect .nw__loupe-glass {
+  border-color: rgba(70, 79, 89, 0.7);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.9),
+    inset 0 0 42px rgba(255, 255, 255, 0.34);
+}
+
+.nw[data-phase="targeted"] .nw__loupe-crosshair,
+.nw[data-phase="correcting"] .nw__loupe-crosshair,
+.nw[data-phase="repaired"] .nw__loupe-crosshair {
+  opacity: 0;
+}
+
+.nw .nw__correct,
+.nw .nw__corrected {
+  position: absolute;
+  z-index: 5;
+  top: calc(100% + 28px);
+  bottom: auto;
+  left: 50%;
+  display: flex;
+  min-width: 369px;
+  height: 140px;
+  align-items: center;
+  justify-content: center;
+  gap: 24px;
+  padding: 0 48px;
+  border: 0;
+  border-radius: 16px;
+  background: #580fb7;
+  box-shadow: 0 0 6px rgba(0, 0, 0, 0.65);
+  color: #fff;
+  font-size: 56px;
+  font-weight: 650;
+  line-height: 1;
+  opacity: 0;
+  pointer-events: none;
+  transform: translate(-50%, 8px);
+  transition: opacity 180ms ease, transform 220ms var(--ease-out);
+}
+
+.nw .nw__corrected {
+  min-width: 568px;
+  background: #1d77ff;
+}
+
+.nw__action-check {
+  display: grid;
+  width: 72px;
+  height: 72px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.2);
+  place-items: center;
+}
+
+.nw__action-check img {
+  width: 61px;
+  height: 61px;
+}
+
+.nw[data-phase="targeted"] .nw__correct,
+.nw[data-phase="correcting"] .nw__correct,
+.nw[data-phase="repaired"] .nw__corrected {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+
+/* IQM asked for the correct button to be drawn attention to (25 Aug), by
+   growing, shrinking or sweeping. It grows: the button is small and round and
+   sits below the loupe, where a sweep would be lost, while a size change on a
+   pill reads clearly at a glance.
+
+   Only while it can actually be pressed. The phase becomes "correcting" the
+   moment it is, which drops this rule and stops the animation — the button
+   should not still be asking once it has been answered. */
+.nw[data-phase="targeted"] .nw__correct {
+  pointer-events: auto;
+  cursor: pointer;
+  animation: nw-correct-attention 2600ms ease-in-out 600ms infinite;
+}
+
+/* Nearly a second and a half of stillness, then one grow and settle. A
+   continuous pulse turns into wallpaper and stops being noticed; a beat of
+   rest is what makes the next one register. */
+@keyframes nw-correct-attention {
+  0%,
+  55% {
+    transform: translate(-50%, 0) scale(1);
+  }
+
+  67% {
+    transform: translate(-50%, 0) scale(1.055);
+  }
+
+  78% {
+    transform: translate(-50%, 0) scale(0.99);
+  }
+
+  86%,
+  100% {
+    transform: translate(-50%, 0) scale(1);
+  }
+}
+
+.nw[data-phase="correcting"] .nw__correct {
+  opacity: 0.64;
+}
+
+.nw[data-phase="repaired"] .nw__loupe-glass {
+  border-color: rgba(29, 119, 255, 0.38);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.88),
+    inset 0 0 42px rgba(210, 235, 255, 0.34);
+}
+
+/* The whole shake is over inside the first 525ms of a 4.2s cycle, leaving the
+   rest as the pause. Each leg is roughly 105ms and each one smaller than the
+   last, so it settles rather than stopping dead — snappy, and over before it
+   can start to look playful. Sideways only: a vertical component would read as
+   a bob, which is a different invitation. */
+@keyframes nw-loupe-invitation {
+  0% {
+    transform: translate3d(0, 0, 0);
+  }
+
+  2.5% {
+    transform: translate3d(-16px, 0, 0);
+  }
+
+  5% {
+    transform: translate3d(14px, 0, 0);
+  }
+
+  7.5% {
+    transform: translate3d(-9px, 0, 0);
+  }
+
+  10% {
+    transform: translate3d(5px, 0, 0);
+  }
+
+  12.5%,
+  100% {
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@keyframes nw-swipe-arrow-nudge {
+  0%,
+  18%,
+  100% {
+    transform: translateY(0);
+  }
+
+  42% {
+    transform: translateY(9px);
+  }
+
+  62% {
+    transform: translateY(2px);
+  }
+}
+
+.nw__completion {
+  position: absolute;
+  z-index: 8;
+  left: 50%;
+  bottom: 440px;
+  display: flex;
+  align-items: center;
+  flex-direction: column;
+  opacity: 0;
+  pointer-events: none;
+  transform: translate(-50%, 28px);
+  transition: opacity 420ms var(--ease-out), transform 520ms var(--ease-out);
+}
+
+.nw[data-complete="true"] .nw__completion {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translate(-50%, 0);
+}
+
+/* The completion block now carries only a screen-reader announcement — the
+   "Back to module menu" button it used to style is gone. */
+
+.nw button:focus-visible,
+.nw__loupe:focus-visible {
+  outline: 5px solid #0078d4;
+  outline-offset: 8px;
+}
+
+.nw__sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nw__prompt,
+  .nw__prompt-secondary,
+  .nw__instruction,
+  .nw__loupe,
+  .nw__loupe-visual,
+  .nw__loupe-glass,
+  .nw__loupe-crosshair,
+  .nw__correct,
+  .nw__corrected,
+  .nw__completion,
+  .nw__backdrop {
+    transition-duration: 1ms;
+  }
+
+  .nw[data-phase="inspect"] .nw__loupe:not(.is-dragging):not(.has-interacted) .nw__loupe-visual {
+    animation: none;
+    transform: none;
+  }
+
+  .nw[data-phase="targeted"] .nw__correct {
+    animation: none;
+  }
+
+  .nw[data-phase="repaired"]:not([data-repair-exit="true"]) .nw__backdrop--repair::before {
+    animation: none;
+    opacity: 0.62;
+    transform: translate3d(2%, -1%, 0) scale(1.1);
+  }
+
+  .nw__instruction.has-swipe-arrow .nw__instruction-arrow {
+    animation: none;
+  }
+
+}

@@ -1,0 +1,1680 @@
+<!DOCTYPE html>
+<!--
+THESIS: Probability is made tangible by holding one coin at its impossible midpoint; the experience refuses a control-heavy physics demo.
+OWN-WORLD: Cool white studio, graphite type, brushed nickel, electric-blue timing marks, and thin orbital traces.
+STORY: The visitor swipes, watches one outcome split into two counter-rotating possibilities, then sees one result survive and advance its tally.
+FIRST VIEWPORT: A palm-sized coin rests low and central beneath a sparse title; the trajectory, swipe instruction, and twin mechanical registers complete the stage.
+FORM: Focused Experience surface; direct gesture, cinematic state changes, and one secondary replay action.
+-->
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#f4f6f8">
+  <title>Coin State — Bullet Time</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --paper: #f4f6f8;
+      --ink: #171b21;
+      --muted: #656d78;
+      --line: #d8dde3;
+      --blue: #1267e8;
+      --blue-soft: #8fbaff;
+      --white: #ffffff;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    html,
+    body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: var(--paper);
+    }
+
+    body {
+      color: var(--ink);
+      font-family: "Segoe UI Variable", "Segoe UI", Helvetica, Arial, sans-serif;
+      -webkit-font-smoothing: antialiased;
+      overscroll-behavior: none;
+    }
+
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+      touch-action: none;
+      cursor: grab;
+    }
+
+    body.is-pressing canvas {
+      cursor: grabbing;
+    }
+
+    .interface {
+      position: fixed;
+      inset: 0;
+      z-index: 2;
+      pointer-events: none;
+    }
+
+    .masthead {
+      position: absolute;
+      top: clamp(24px, 4vw, 52px);
+      left: clamp(24px, 5vw, 72px);
+      max-width: 360px;
+    }
+
+    h1 {
+      max-width: 10ch;
+      font-size: clamp(26px, 3vw, 46px);
+      font-weight: 520;
+      line-height: 0.98;
+      letter-spacing: -0.04em;
+      text-wrap: balance;
+    }
+
+    .masthead p {
+      max-width: 32ch;
+      margin-top: 13px;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.55;
+    }
+
+    .phase {
+      position: absolute;
+      top: clamp(26px, 4vw, 52px);
+      right: clamp(24px, 5vw, 72px);
+      display: grid;
+      grid-template-columns: auto 48px;
+      align-items: center;
+      gap: 12px;
+      color: var(--muted);
+      font-size: 11px;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .phase-label {
+      transition: color 280ms ease;
+    }
+
+    .phase-track {
+      position: relative;
+      width: 48px;
+      height: 1px;
+      overflow: hidden;
+      background: var(--line);
+    }
+
+    .phase-fill {
+      position: absolute;
+      inset: 0;
+      background: var(--blue);
+      transform: translateX(-100%);
+      transform-origin: left;
+    }
+
+    body.is-bullet-time .phase-label {
+      color: var(--blue);
+    }
+
+    .time-readout {
+      position: absolute;
+      top: 50%;
+      right: clamp(24px, 5vw, 72px);
+      width: 136px;
+      opacity: 0;
+      transform: translateY(-50%) translateX(10px);
+      transition:
+        opacity 450ms ease,
+        transform 600ms cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    body.is-bullet-time .time-readout {
+      opacity: 1;
+      transform: translateY(-50%) translateX(0);
+    }
+
+    .time-label {
+      color: var(--blue);
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+    }
+
+    .time-value {
+      margin-top: 4px;
+      color: var(--ink);
+      font-size: 34px;
+      font-weight: 300;
+      line-height: 1;
+      letter-spacing: -0.035em;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .time-copy {
+      margin-top: 10px;
+      color: var(--muted);
+      font-size: 10px;
+      line-height: 1.5;
+    }
+
+    .legend {
+      position: absolute;
+      left: clamp(24px, 5vw, 72px);
+      top: 50%;
+      display: grid;
+      gap: 10px;
+      opacity: 0;
+      transform: translateY(-50%) translateX(-10px);
+      transition:
+        opacity 450ms ease,
+        transform 600ms cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    body.is-bullet-time .legend {
+      opacity: 1;
+      transform: translateY(-50%) translateX(0);
+    }
+
+    .legend-row {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      color: var(--muted);
+      font-size: 10px;
+      white-space: nowrap;
+    }
+
+    .legend-mark {
+      width: 20px;
+      height: 2px;
+      background: var(--ink);
+    }
+
+    .legend-row:last-child .legend-mark {
+      background: var(--blue);
+    }
+
+    .tally {
+      position: absolute;
+      bottom: clamp(108px, 16vh, 148px);
+      left: 50%;
+      display: grid;
+      grid-template-columns: repeat(2, auto);
+      gap: 8px 18px;
+      opacity: 1;
+      transform: translateX(-50%);
+      transition: opacity 220ms ease;
+    }
+
+    .tally-header {
+      grid-column: 1 / -1;
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .tally-title {
+      color: var(--muted);
+      font-size: 10px;
+      line-height: 1;
+    }
+
+    .tally-reset {
+      padding: 0 0 2px;
+      border: 0;
+      border-bottom: 1px solid currentColor;
+      background: transparent;
+      color: var(--muted);
+      font: inherit;
+      font-size: 9px;
+      line-height: 1;
+      cursor: pointer;
+      pointer-events: auto;
+      transition: color 150ms ease;
+    }
+
+    body.is-bullet-time .tally {
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .tally-reset:hover {
+      color: var(--blue);
+    }
+
+    .tally-reset:focus-visible {
+      outline: 2px solid var(--blue);
+      outline-offset: 4px;
+    }
+
+    .tally-row {
+      display: grid;
+      grid-template-columns: 38px auto;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .tally-name {
+      color: var(--ink);
+      font-size: 10px;
+      font-weight: 560;
+    }
+
+    .flip-counter {
+      display: flex;
+      gap: 3px;
+    }
+
+    .flip-digit {
+      position: relative;
+      width: 24px;
+      height: 34px;
+      overflow: hidden;
+      border: 1px solid #151a20;
+      border-radius: 3px;
+      background: #222830;
+      box-shadow:
+        0 5px 12px rgba(24, 30, 38, 0.18),
+        0 1px 2px rgba(24, 30, 38, 0.16);
+      color: #f4f6f8;
+      font-size: 21px;
+      font-weight: 520;
+      line-height: 34px;
+      font-variant-numeric: tabular-nums;
+      perspective: 130px;
+    }
+
+    .flip-digit::after {
+      content: "";
+      position: absolute;
+      top: calc(50% - 0.5px);
+      left: 0;
+      z-index: 6;
+      width: 100%;
+      border-top: 1px solid rgba(6, 9, 12, 0.72);
+      box-shadow: 0 1px 0 rgba(255, 255, 255, 0.08);
+      pointer-events: none;
+    }
+
+    .digit-half,
+    .digit-flap {
+      position: absolute;
+      left: 0;
+      width: 100%;
+      height: 50%;
+      overflow: hidden;
+      backface-visibility: hidden;
+    }
+
+    .digit-top,
+    .digit-flap-top {
+      top: 0;
+      background: #2b323b;
+    }
+
+    .digit-bottom,
+    .digit-flap-bottom {
+      bottom: 0;
+      background: #20262d;
+    }
+
+    .digit-value {
+      position: absolute;
+      left: 0;
+      display: grid;
+      width: 100%;
+      height: 34px;
+      place-items: center;
+    }
+
+    .digit-top .digit-value,
+    .digit-flap-top .digit-value {
+      top: 0;
+    }
+
+    .digit-bottom .digit-value,
+    .digit-flap-bottom .digit-value {
+      bottom: 0;
+    }
+
+    .digit-flap-top {
+      z-index: 3;
+      transform: rotateX(0);
+      transform-origin: center bottom;
+    }
+
+    .digit-flap-bottom {
+      z-index: 4;
+      transform: rotateX(90deg);
+      transform-origin: center top;
+    }
+
+    .flip-digit.is-flipping .digit-flap-top {
+      animation: flip-top 210ms cubic-bezier(0.55, 0.06, 0.68, 0.19) forwards;
+    }
+
+    .flip-digit.is-flipping .digit-flap-bottom {
+      animation: flip-bottom 230ms cubic-bezier(0.22, 0.61, 0.36, 1) 205ms forwards;
+    }
+
+    .tally-row.is-counting .flip-counter {
+      animation: counter-settle 460ms cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+    }
+
+    .instruction {
+      position: absolute;
+      bottom: clamp(28px, 5vw, 58px);
+      left: 50%;
+      width: min(88vw, 540px);
+      transform: translateX(-50%);
+      text-align: center;
+    }
+
+    .instruction-main {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      font-size: 13px;
+      font-weight: 560;
+      letter-spacing: -0.01em;
+    }
+
+    .gesture {
+      position: relative;
+      width: 14px;
+      height: 28px;
+      border-left: 1.5px solid currentColor;
+      animation: gesture-up 1.8s cubic-bezier(0.16, 1, 0.3, 1) infinite;
+    }
+
+    .gesture::before,
+    .gesture::after {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: -1px;
+      width: 7px;
+      height: 1.5px;
+      background: currentColor;
+      transform-origin: left center;
+    }
+
+    .gesture::before {
+      transform: rotate(45deg);
+    }
+
+    .gesture::after {
+      transform: rotate(-45deg);
+    }
+
+    .instruction-sub {
+      margin-top: 7px;
+      color: var(--muted);
+      font-size: 11px;
+    }
+
+    .replay {
+      position: absolute;
+      right: clamp(24px, 5vw, 72px);
+      bottom: clamp(26px, 5vw, 54px);
+      padding: 8px 0;
+      border: 0;
+      border-bottom: 1px solid currentColor;
+      background: transparent;
+      color: var(--ink);
+      font: inherit;
+      font-size: 11px;
+      cursor: pointer;
+      pointer-events: auto;
+      opacity: 0;
+      visibility: hidden;
+      transform: translateY(5px);
+      transition:
+        color 150ms ease,
+        opacity 180ms ease,
+        transform 240ms cubic-bezier(0.16, 1, 0.3, 1),
+        visibility 0s linear 240ms;
+    }
+
+    .replay.is-visible {
+      opacity: 1;
+      visibility: visible;
+      transform: translateY(0);
+      transition-delay: 0s;
+    }
+
+    .replay:hover {
+      color: var(--blue);
+    }
+
+    .replay:focus-visible {
+      outline: 2px solid var(--blue);
+      outline-offset: 5px;
+    }
+
+    .result {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      color: var(--ink);
+      font-size: clamp(54px, 9vw, 128px);
+      font-weight: 300;
+      line-height: 0.8;
+      letter-spacing: -0.055em;
+      opacity: 0;
+      transform: translate(-50%, calc(-50% + 54px));
+      filter: blur(12px);
+      transition:
+        opacity 700ms ease 250ms,
+        transform 900ms cubic-bezier(0.16, 1, 0.3, 1) 180ms,
+        filter 900ms ease 180ms;
+    }
+
+    body.is-landed .result {
+      opacity: 0.085;
+      transform: translate(-50%, calc(-50% + 30px));
+      filter: blur(0);
+    }
+
+    .swipe-energy {
+      position: fixed;
+      left: 50%;
+      bottom: 0;
+      width: 1px;
+      height: 0;
+      z-index: 1;
+      background: linear-gradient(to top, transparent, var(--blue-soft));
+      opacity: 0;
+      transform: translateX(-50%);
+      pointer-events: none;
+    }
+
+    body.is-pressing .swipe-energy {
+      opacity: 0.8;
+    }
+
+    @keyframes gesture-up {
+      0%,
+      28% {
+        opacity: 0.4;
+        transform: translateY(5px);
+      }
+      70%,
+      100% {
+        opacity: 1;
+        transform: translateY(-4px);
+      }
+    }
+
+    @keyframes flip-top {
+      from { transform: rotateX(0); }
+      to { transform: rotateX(-90deg); }
+    }
+
+    @keyframes flip-bottom {
+      from { transform: rotateX(90deg); }
+      to { transform: rotateX(0); }
+    }
+
+    @keyframes counter-settle {
+      0%,
+      72% { transform: translateY(0); }
+      84% { transform: translateY(1px); }
+      100% { transform: translateY(0); }
+    }
+
+    @media (max-width: 700px) {
+      .masthead {
+        max-width: 250px;
+      }
+
+      .masthead p {
+        display: none;
+      }
+
+      .phase {
+        grid-template-columns: auto 36px;
+      }
+
+      .phase-track {
+        width: 36px;
+      }
+
+      .tally {
+        transform: translateX(-50%) scale(0.94);
+        transform-origin: bottom center;
+      }
+
+      .legend {
+        top: auto;
+        bottom: 118px;
+        left: 22px;
+      }
+
+      .time-readout {
+        top: auto;
+        right: 22px;
+        bottom: 108px;
+        width: 116px;
+        transform: translateX(8px);
+      }
+
+      body.is-bullet-time .time-readout {
+        transform: translateX(0);
+      }
+
+      .time-value {
+        font-size: 28px;
+      }
+
+      .time-copy {
+        display: none;
+      }
+
+      .replay {
+        right: 50%;
+        bottom: 82px;
+        transform: translate(50%, 5px);
+      }
+
+      .replay.is-visible {
+        transform: translate(50%, 0);
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .gesture {
+        animation: none;
+      }
+
+      .time-readout,
+      .legend,
+      .replay,
+      .result {
+        transition-duration: 1ms;
+      }
+
+      .tally-row.is-counting .flip-counter {
+        animation: none;
+      }
+    }
+
+  </style>
+</head>
+<body>
+  <main class="interface" aria-live="polite">
+    <header class="masthead">
+      <h1>One toss. Two possibilities.</h1>
+      <p>At the apex, time opens just long enough to observe both outcomes.</p>
+    </header>
+
+    <div class="phase" aria-label="Flip state">
+      <span class="phase-label" id="phase-label">Ready</span>
+      <span class="phase-track" aria-hidden="true">
+        <span class="phase-fill" id="phase-fill"></span>
+      </span>
+    </div>
+
+    <section class="tally" aria-labelledby="tally-title">
+      <div class="tally-header">
+        <div class="tally-title" id="tally-title">Running tally</div>
+        <button class="tally-reset" id="tally-reset" type="button">Reset</button>
+      </div>
+      <div class="tally-row" id="heads-tally" aria-label="Heads: 0">
+        <span class="tally-name">Heads</span>
+        <span class="flip-counter" id="heads-counter" aria-hidden="true"></span>
+      </div>
+      <div class="tally-row" id="tails-tally" aria-label="Tails: 0">
+        <span class="tally-name">Tails</span>
+        <span class="flip-counter" id="tails-counter" aria-hidden="true"></span>
+      </div>
+      <span class="sr-only" id="tally-announcement" aria-live="polite"></span>
+    </section>
+
+    <section class="legend" aria-label="Possible outcomes">
+      <div class="legend-row"><span class="legend-mark"></span><span>Heads · clockwise</span></div>
+      <div class="legend-row"><span class="legend-mark"></span><span>Tails · counter-clockwise</span></div>
+    </section>
+
+    <section class="time-readout" aria-label="Bullet time countdown">
+      <div class="time-label">Bullet time</div>
+      <div class="time-value"><span id="time-value">5.0</span>s</div>
+      <p class="time-copy">Gravity off<br>Rotation × 0.07</p>
+    </section>
+
+    <div class="result" id="result" aria-hidden="true">Heads</div>
+
+    <div class="instruction" id="instruction">
+      <div class="instruction-main">
+        <span class="gesture" id="gesture" aria-hidden="true"></span>
+        <span id="instruction-main">Swipe up to flip</span>
+      </div>
+      <p class="instruction-sub" id="instruction-sub">Drag upward anywhere · Space or ↑ also works</p>
+    </div>
+
+    <button class="replay" id="replay" type="button">Flip again</button>
+  </main>
+
+  <div class="swipe-energy" id="swipe-energy" aria-hidden="true"></div>
+
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js"
+      }
+    }
+  </script>
+
+  <script type="module">
+    import * as THREE from "three";
+
+    const TAU = Math.PI * 2;
+    const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const BULLET_DURATION = reducedMotion ? 1.5 : 5;
+    const BULLET_SPHERE_OPACITY = 0.5;
+    const TALLY_STORAGE_KEY = "coin-state-tallies-v1";
+    const COIN_RADIUS = 1.02;
+    const COIN_THICKNESS = 0.15;
+    const FLOOR_Y = -1.75;
+    const START_Y = FLOOR_Y + 0.2;
+    const PEAK_Y = 1.2;
+    const GRAVITY = -11.5;
+    const LAUNCH_VELOCITY = Math.sqrt(2 * Math.abs(GRAVITY) * (PEAK_Y - START_Y));
+
+    const phaseLabel = document.getElementById("phase-label");
+    const phaseFill = document.getElementById("phase-fill");
+    const timeValue = document.getElementById("time-value");
+    const instructionMain = document.getElementById("instruction-main");
+    const instructionSub = document.getElementById("instruction-sub");
+    const gesture = document.getElementById("gesture");
+    const replayButton = document.getElementById("replay");
+    const resultLabel = document.getElementById("result");
+    const swipeEnergy = document.getElementById("swipe-energy");
+    const tallyAnnouncement = document.getElementById("tally-announcement");
+    const tallyResetButton = document.getElementById("tally-reset");
+    const tallyCounts = loadTallyCounts();
+    const tallyRows = {
+      Heads: document.getElementById("heads-tally"),
+      Tails: document.getElementById("tails-tally")
+    };
+    const tallyDigits = {
+      Heads: createCounter(document.getElementById("heads-counter"), tallyCounts.Heads),
+      Tails: createCounter(document.getElementById("tails-counter"), tallyCounts.Tails)
+    };
+    Object.keys(tallyCounts).forEach(result => {
+      tallyRows[result].setAttribute("aria-label", `${result}: ${tallyCounts[result]}`);
+    });
+
+    function createCounter(container, initialCount) {
+      return [...String(initialCount).padStart(2, "0")].map(value => {
+        const digit = document.createElement("span");
+        digit.className = "flip-digit";
+        digit.dataset.value = value;
+        digit.innerHTML = `
+          <span class="digit-half digit-top"><span class="digit-value">${value}</span></span>
+          <span class="digit-half digit-bottom"><span class="digit-value">${value}</span></span>
+          <span class="digit-flap digit-flap-top"><span class="digit-value">${value}</span></span>
+          <span class="digit-flap digit-flap-bottom"><span class="digit-value">${value}</span></span>
+        `;
+        container.appendChild(digit);
+        return digit;
+      });
+    }
+
+    function loadTallyCounts() {
+      const emptyTallies = { Heads: 0, Tails: 0 };
+
+      try {
+        const storedValue = localStorage.getItem(TALLY_STORAGE_KEY);
+        if (storedValue === null) return emptyTallies;
+
+        const storedTallies = JSON.parse(storedValue);
+        const validShape = storedTallies
+          && typeof storedTallies === "object"
+          && !Array.isArray(storedTallies)
+          && storedTallies.version === 1;
+        const validCounts = Number.isInteger(storedTallies?.heads)
+          && storedTallies.heads >= 0
+          && storedTallies.heads <= 99
+          && Number.isInteger(storedTallies?.tails)
+          && storedTallies.tails >= 0
+          && storedTallies.tails <= 99;
+
+        if (!validShape || !validCounts) {
+          throw new RangeError("Stored tally data is outside the supported 00–99 range.");
+        }
+
+        return {
+          Heads: storedTallies.heads,
+          Tails: storedTallies.tails
+        };
+      } catch (error) {
+        if (
+          !(error instanceof DOMException)
+          && !(error instanceof SyntaxError)
+          && !(error instanceof RangeError)
+        ) {
+          throw error;
+        }
+
+        console.error("Unable to restore saved tally counts.", error);
+        tallyAnnouncement.textContent = "Saved tallies could not be restored; starting at zero";
+        return emptyTallies;
+      }
+    }
+
+    function persistTallies() {
+      try {
+        localStorage.setItem(TALLY_STORAGE_KEY, JSON.stringify({
+          version: 1,
+          heads: tallyCounts.Heads,
+          tails: tallyCounts.Tails
+        }));
+      } catch (error) {
+        if (!(error instanceof DOMException)) throw error;
+        console.error("Unable to save tally counts.", error);
+        tallyAnnouncement.textContent =
+          "Tallies could not be saved in this browser; they will last for this page only";
+      }
+    }
+
+    function setDigit(digit, nextValue) {
+      const previousValue = digit.dataset.value;
+      if (previousValue === nextValue) return;
+
+      window.clearTimeout(digit.flipTimer);
+      const top = digit.querySelector(".digit-top .digit-value");
+      const bottom = digit.querySelector(".digit-bottom .digit-value");
+      const topFlap = digit.querySelector(".digit-flap-top .digit-value");
+      const bottomFlap = digit.querySelector(".digit-flap-bottom .digit-value");
+      digit.dataset.value = nextValue;
+
+      if (reducedMotion) {
+        [top, bottom, topFlap, bottomFlap].forEach(element => {
+          element.textContent = nextValue;
+        });
+        return;
+      }
+
+      top.textContent = nextValue;
+      bottom.textContent = previousValue;
+      topFlap.textContent = previousValue;
+      bottomFlap.textContent = nextValue;
+      digit.classList.remove("is-flipping");
+      void digit.offsetWidth;
+      digit.classList.add("is-flipping");
+
+      digit.flipTimer = window.setTimeout(() => {
+        bottom.textContent = nextValue;
+        topFlap.textContent = nextValue;
+        digit.classList.remove("is-flipping");
+      }, 450);
+    }
+
+    function renderTally(result) {
+      const displayValue = String(tallyCounts[result]).padStart(2, "0");
+      tallyDigits[result].forEach((digit, index) => {
+        setDigit(digit, displayValue[index]);
+      });
+
+      const row = tallyRows[result];
+      row.setAttribute("aria-label", `${result}: ${tallyCounts[result]}`);
+      row.classList.remove("is-counting");
+      void row.offsetWidth;
+      row.classList.add("is-counting");
+      window.clearTimeout(row.settleTimer);
+      row.settleTimer = window.setTimeout(() => {
+        row.classList.remove("is-counting");
+      }, 470);
+    }
+
+    function incrementTally(result) {
+      const nextCount = Math.min(99, tallyCounts[result] + 1);
+      if (nextCount === tallyCounts[result]) {
+        tallyAnnouncement.textContent = `${result} tally is at its maximum of 99`;
+        return;
+      }
+
+      tallyCounts[result] = nextCount;
+      renderTally(result);
+      tallyAnnouncement.textContent = `${result} tally ${nextCount}`;
+      persistTallies();
+    }
+
+    function resetTallies() {
+      const hadValues = Object.values(tallyCounts).some(count => count > 0);
+      Object.keys(tallyCounts).forEach(result => {
+        if (tallyCounts[result] === 0) return;
+        tallyCounts[result] = 0;
+        renderTally(result);
+      });
+      tallyAnnouncement.textContent = hadValues
+        ? "Heads and tails tallies reset to zero"
+        : "Tallies are already at zero";
+      persistTallies();
+    }
+
+    tallyResetButton.addEventListener("click", resetTallies);
+
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0xf4f6f8);
+    scene.fog = new THREE.Fog(0xf4f6f8, 12, 26);
+
+    const camera = new THREE.PerspectiveCamera(29, innerWidth / innerHeight, 0.1, 60);
+    camera.position.set(0, 2.15, 11.5);
+    camera.lookAt(0, -0.15, 0);
+
+    const renderer = new THREE.WebGLRenderer({
+      antialias: true,
+      powerPreference: "high-performance"
+    });
+    renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+    renderer.setSize(innerWidth, innerHeight);
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.05;
+    document.body.prepend(renderer.domElement);
+
+    const hemisphere = new THREE.HemisphereLight(0xffffff, 0xc8d1dc, 2.15);
+    scene.add(hemisphere);
+
+    const keyLight = new THREE.DirectionalLight(0xffffff, 4.8);
+    keyLight.position.set(-4.5, 8, 7);
+    keyLight.castShadow = true;
+    keyLight.shadow.mapSize.set(2048, 2048);
+    keyLight.shadow.camera.left = -6;
+    keyLight.shadow.camera.right = 6;
+    keyLight.shadow.camera.top = 7;
+    keyLight.shadow.camera.bottom = -5;
+    keyLight.shadow.bias = -0.0003;
+    scene.add(keyLight);
+
+    const blueLight = new THREE.PointLight(0x5a9bff, 0, 8, 2);
+    blueLight.position.set(0, 1.8, 2.8);
+    scene.add(blueLight);
+
+    const floorMaterial = new THREE.MeshStandardMaterial({
+      color: 0xf4f6f8,
+      roughness: 0.94,
+      metalness: 0
+    });
+    const floor = new THREE.Mesh(new THREE.PlaneGeometry(30, 30), floorMaterial);
+    floor.rotation.x = -Math.PI / 2;
+    floor.position.y = FLOOR_Y;
+    floor.receiveShadow = true;
+    scene.add(floor);
+
+    const shadowMaterial = new THREE.MeshBasicMaterial({
+      color: 0x2e3948,
+      transparent: true,
+      opacity: 0.1,
+      depthWrite: false
+    });
+    const contactShadow = new THREE.Mesh(
+      new THREE.CircleGeometry(COIN_RADIUS * 0.94, 64),
+      shadowMaterial
+    );
+    contactShadow.rotation.x = -Math.PI / 2;
+    contactShadow.position.set(0, FLOOR_Y + 0.007, 0);
+    contactShadow.scale.set(0.82, 0.3, 1);
+    scene.add(contactShadow);
+
+    const trajectoryMaterial = new THREE.LineDashedMaterial({
+      color: 0xb9c2cc,
+      transparent: true,
+      opacity: 0.62,
+      dashSize: 0.1,
+      gapSize: 0.11
+    });
+    const trajectoryPoints = [];
+    for (let index = 0; index <= 48; index += 1) {
+      const t = index / 48;
+      trajectoryPoints.push(new THREE.Vector3(
+        Math.sin(t * Math.PI) * 0.28,
+        START_Y + (PEAK_Y - START_Y) * Math.sin(t * Math.PI / 2),
+        -0.9
+      ));
+    }
+    const trajectory = new THREE.Line(
+      new THREE.BufferGeometry().setFromPoints(trajectoryPoints),
+      trajectoryMaterial
+    );
+    trajectory.computeLineDistances();
+    scene.add(trajectory);
+
+    function makeFaceTexture(label, side) {
+      const size = 768;
+      const canvas = document.createElement("canvas");
+      canvas.width = size;
+      canvas.height = size;
+      const context = canvas.getContext("2d");
+      const center = size / 2;
+
+      const base = context.createRadialGradient(
+        center - 120,
+        center - 150,
+        20,
+        center,
+        center,
+        center
+      );
+      base.addColorStop(0, "#ffffff");
+      base.addColorStop(0.38, "#d9dee4");
+      base.addColorStop(0.78, "#aeb6bf");
+      base.addColorStop(1, "#8e98a3");
+      context.fillStyle = base;
+      context.fillRect(0, 0, size, size);
+
+      context.save();
+      context.translate(center, center);
+      for (let radius = 78; radius < center - 70; radius += 7) {
+        context.strokeStyle = `rgba(255, 255, 255, ${0.045 + (radius % 4) * 0.012})`;
+        context.lineWidth = 2;
+        context.beginPath();
+        context.arc(0, 0, radius, 0, Math.PI * 2);
+        context.stroke();
+      }
+      context.restore();
+
+      context.strokeStyle = "rgba(54, 63, 73, 0.55)";
+      context.lineWidth = 10;
+      context.beginPath();
+      context.arc(center, center, center - 42, 0, Math.PI * 2);
+      context.stroke();
+
+      context.strokeStyle = "rgba(255, 255, 255, 0.7)";
+      context.lineWidth = 4;
+      context.beginPath();
+      context.arc(center, center, center - 62, 0, Math.PI * 2);
+      context.stroke();
+
+      context.fillStyle = "rgba(39, 46, 54, 0.78)";
+      context.textAlign = "center";
+      context.textBaseline = "middle";
+      context.font = '600 48px "Segoe UI", sans-serif';
+      context.letterSpacing = "8px";
+      context.fillText(label.toUpperCase(), center, center + 186);
+
+      context.save();
+      context.translate(center, center - 28);
+      context.strokeStyle = "rgba(39, 46, 54, 0.74)";
+      context.fillStyle = "rgba(255, 255, 255, 0.18)";
+      context.lineWidth = 13;
+
+      if (side === "heads") {
+        context.beginPath();
+        context.arc(0, -50, 96, Math.PI * 0.08, Math.PI * 1.92);
+        context.stroke();
+        context.beginPath();
+        context.moveTo(-70, 60);
+        context.quadraticCurveTo(0, 118, 70, 60);
+        context.quadraticCurveTo(44, 160, 0, 174);
+        context.quadraticCurveTo(-44, 160, -70, 60);
+        context.closePath();
+        context.fill();
+        context.stroke();
+      } else {
+        context.rotate(Math.PI / 4);
+        context.strokeRect(-100, -100, 200, 200);
+        context.strokeRect(-62, -62, 124, 124);
+        context.beginPath();
+        context.moveTo(-100, 0);
+        context.lineTo(0, -100);
+        context.lineTo(100, 0);
+        context.lineTo(0, 100);
+        context.closePath();
+        context.stroke();
+      }
+
+      context.restore();
+
+      const texture = new THREE.CanvasTexture(canvas);
+      texture.colorSpace = THREE.SRGBColorSpace;
+      texture.anisotropy = renderer.capabilities.getMaxAnisotropy();
+      return texture;
+    }
+
+    const headsTexture = makeFaceTexture("Heads", "heads");
+    const tailsTexture = makeFaceTexture("Tails", "tails");
+    const coinGeometry = new THREE.CylinderGeometry(
+      COIN_RADIUS,
+      COIN_RADIUS,
+      COIN_THICKNESS,
+      96,
+      3,
+      false
+    );
+
+    function createCoin() {
+      const edgeMaterial = new THREE.MeshPhysicalMaterial({
+        color: 0x8f99a4,
+        roughness: 0.34,
+        metalness: 0.84,
+        anisotropy: 0.72,
+        anisotropyRotation: Math.PI / 2,
+        clearcoat: 0.72,
+        clearcoatRoughness: 0.18
+      });
+      const headsMaterial = new THREE.MeshPhysicalMaterial({
+        color: 0xffffff,
+        map: headsTexture,
+        roughness: 0.24,
+        metalness: 0.66,
+        clearcoat: 0.58,
+        clearcoatRoughness: 0.2
+      });
+      const tailsMaterial = headsMaterial.clone();
+      tailsMaterial.map = tailsTexture;
+      tailsMaterial.needsUpdate = true;
+
+      const mesh = new THREE.Mesh(
+        coinGeometry,
+        [edgeMaterial, headsMaterial, tailsMaterial]
+      );
+      mesh.castShadow = true;
+      mesh.receiveShadow = true;
+      return mesh;
+    }
+
+    const primaryCoin = createCoin();
+    const alternateCoin = createCoin();
+    alternateCoin.material = alternateCoin.material.map(material => material.clone());
+    alternateCoin.material.forEach(material => {
+      material.transparent = true;
+      material.opacity = 0;
+      material.depthWrite = false;
+    });
+    primaryCoin.position.set(0, START_Y, 0);
+    alternateCoin.position.copy(primaryCoin.position);
+    alternateCoin.visible = false;
+    scene.add(primaryCoin, alternateCoin);
+
+    function createSphereOverlay() {
+      const radius = COIN_RADIUS * 1.2;
+      const group = new THREE.Group();
+
+      const shellMaterial = new THREE.MeshPhysicalMaterial({
+        color: 0xd9e9ff,
+        transparent: true,
+        opacity: 0,
+        roughness: 0.32,
+        metalness: 0,
+        clearcoat: 0.82,
+        clearcoatRoughness: 0.2,
+        side: THREE.DoubleSide,
+        depthWrite: false
+      });
+      const shell = new THREE.Mesh(
+        new THREE.SphereGeometry(radius, 48, 32),
+        shellMaterial
+      );
+      shell.renderOrder = 4;
+      group.add(shell);
+
+      const equatorPoints = [];
+      for (let index = 0; index <= 128; index += 1) {
+        const angle = (index / 128) * TAU;
+        equatorPoints.push(new THREE.Vector3(
+          Math.cos(angle) * radius,
+          0,
+          Math.sin(angle) * radius
+        ));
+      }
+      const equatorMaterial = new THREE.LineDashedMaterial({
+        color: 0x1267e8,
+        transparent: true,
+        opacity: 0,
+        dashSize: 0.09,
+        gapSize: 0.065,
+        depthTest: false,
+        depthWrite: false
+      });
+      const equator = new THREE.Line(
+        new THREE.BufferGeometry().setFromPoints(equatorPoints),
+        equatorMaterial
+      );
+      equator.computeLineDistances();
+      equator.renderOrder = 6;
+      group.add(equator);
+
+      const meridianPoints = [];
+      for (let index = 0; index <= 128; index += 1) {
+        const angle = (index / 128) * TAU;
+        meridianPoints.push(new THREE.Vector3(
+          Math.cos(angle) * radius,
+          Math.sin(angle) * radius,
+          0
+        ));
+      }
+      const meridianMaterial = new THREE.LineBasicMaterial({
+        color: 0x1267e8,
+        transparent: true,
+        opacity: 0,
+        depthTest: false,
+        depthWrite: false
+      });
+      const meridian = new THREE.Line(
+        new THREE.BufferGeometry().setFromPoints(meridianPoints),
+        meridianMaterial
+      );
+      meridian.renderOrder = 7;
+      group.add(meridian);
+
+      const arrow = new THREE.ArrowHelper(
+        new THREE.Vector3(0.52, 0.68, 0.52).normalize(),
+        new THREE.Vector3(0, 0, 0),
+        radius,
+        0x174f8c,
+        0.18,
+        0.11
+      );
+      const arrowLineMaterial = arrow.line.material;
+      const arrowConeMaterial = arrow.cone.material;
+      [arrowLineMaterial, arrowConeMaterial].forEach(material => {
+        material.transparent = true;
+        material.opacity = 0;
+        material.depthTest = false;
+        material.depthWrite = false;
+      });
+      arrow.line.renderOrder = 8;
+      arrow.cone.renderOrder = 8;
+      group.add(arrow);
+
+      const originMaterial = new THREE.MeshBasicMaterial({
+        color: 0x174f8c,
+        transparent: true,
+        opacity: 0,
+        depthTest: false,
+        depthWrite: false
+      });
+      const origin = new THREE.Mesh(
+        new THREE.SphereGeometry(0.045, 16, 12),
+        originMaterial
+      );
+      origin.renderOrder = 9;
+      group.add(origin);
+
+      group.visible = false;
+      scene.add(group);
+
+      return {
+        group,
+        arrow,
+        shellMaterial,
+        equatorMaterial,
+        meridianMaterial,
+        arrowLineMaterial,
+        arrowConeMaterial,
+        originMaterial
+      };
+    }
+
+    const sphereOverlay = createSphereOverlay();
+    const sphereArrowMotion = {
+      start: new THREE.Vector3(0.52, 0.68, 0.52).normalize(),
+      target: new THREE.Vector3(),
+      current: new THREE.Vector3(),
+      elapsed: 0,
+      duration: THREE.MathUtils.randFloat(0.9, 1.6)
+    };
+
+    function randomArrowDirection(reference) {
+      const direction = new THREE.Vector3();
+      do {
+        const vertical = Math.random() * 2 - 1;
+        const azimuth = Math.random() * TAU;
+        const radial = Math.sqrt(1 - vertical * vertical);
+        direction.set(
+          radial * Math.cos(azimuth),
+          vertical,
+          radial * Math.sin(azimuth)
+        );
+      } while (direction.dot(reference) < -0.55);
+      return direction;
+    }
+
+    sphereArrowMotion.target.copy(
+      randomArrowDirection(sphereArrowMotion.start)
+    );
+    sphereArrowMotion.current.copy(sphereArrowMotion.start);
+
+    function updateSphereArrowMotion(delta) {
+      if (reducedMotion) return;
+      sphereArrowMotion.elapsed += delta;
+      if (sphereArrowMotion.elapsed >= sphereArrowMotion.duration) {
+        sphereArrowMotion.elapsed -= sphereArrowMotion.duration;
+        sphereArrowMotion.start.copy(sphereArrowMotion.target);
+        sphereArrowMotion.target.copy(
+          randomArrowDirection(sphereArrowMotion.start)
+        );
+        sphereArrowMotion.duration = THREE.MathUtils.randFloat(0.9, 1.6);
+      }
+      const progress = smoothstep(
+        sphereArrowMotion.elapsed / sphereArrowMotion.duration
+      );
+      sphereArrowMotion.current
+        .lerpVectors(
+          sphereArrowMotion.start,
+          sphereArrowMotion.target,
+          progress
+        )
+        .normalize();
+      sphereOverlay.arrow.setDirection(sphereArrowMotion.current);
+    }
+
+    function updateSphereOverlay(reveal) {
+      const visibleOpacity = BULLET_SPHERE_OPACITY
+        * THREE.MathUtils.clamp(reveal, 0, 1);
+      sphereOverlay.group.visible = visibleOpacity > 0.001;
+      sphereOverlay.shellMaterial.opacity = visibleOpacity;
+      sphereOverlay.equatorMaterial.opacity = Math.min(
+        1,
+        visibleOpacity * 1.35
+      );
+      sphereOverlay.meridianMaterial.opacity = Math.min(
+        1,
+        visibleOpacity * 1.5
+      );
+      sphereOverlay.arrowLineMaterial.opacity = Math.min(
+        1,
+        visibleOpacity * 1.7
+      );
+      sphereOverlay.arrowConeMaterial.opacity = Math.min(
+        1,
+        visibleOpacity * 1.7
+      );
+      sphereOverlay.originMaterial.opacity = Math.min(1, visibleOpacity * 1.7);
+    }
+
+    function syncSphereOverlayTransform() {
+      sphereOverlay.group.position.set(0, PEAK_Y, 0);
+      sphereOverlay.group.rotation.copy(primaryCoin.rotation);
+      sphereOverlay.group.scale.copy(primaryCoin.scale);
+    }
+
+    const STATE = Object.freeze({
+      READY: "ready",
+      RISING: "rising",
+      BULLET: "bullet",
+      FALLING: "falling",
+      LANDED: "landed"
+    });
+
+    let state = STATE.READY;
+    let velocityY = 0;
+    let flipAngle = 0;
+    let spinVelocity = 0;
+    let alternateAngle = 0;
+    let bulletElapsed = 0;
+    let bulletBlend = 0;
+    let fadeBlend = 0;
+    let selectedResult = "Heads";
+    let targetAngle = 0;
+    let pointerActive = false;
+    let pointerStartY = 0;
+    let pointerCurrentY = 0;
+
+    function easeOutExpo(value) {
+      return value === 1 ? 1 : 1 - Math.pow(2, -10 * value);
+    }
+
+    function smoothstep(value) {
+      const clamped = THREE.MathUtils.clamp(value, 0, 1);
+      return clamped * clamped * (3 - 2 * clamped);
+    }
+
+    function setInstruction(main, sub, showGesture = false) {
+      instructionMain.textContent = main;
+      instructionSub.textContent = sub;
+      gesture.style.display = showGesture ? "" : "none";
+    }
+
+    function setState(nextState) {
+      state = nextState;
+      document.body.classList.toggle("is-bullet-time", state === STATE.BULLET);
+      document.body.classList.toggle("is-landed", state === STATE.LANDED);
+
+      if (state === STATE.READY) {
+        phaseLabel.textContent = "Ready";
+        setInstruction(
+          "Swipe up to flip",
+          "Drag upward anywhere · Space or ↑ also works",
+          true
+        );
+      } else if (state === STATE.RISING) {
+        phaseLabel.textContent = "Rising";
+        setInstruction("Follow the ascent", "The coin slows as it reaches the apex");
+      } else if (state === STATE.BULLET) {
+        phaseLabel.textContent = "Apex";
+        setInstruction("Two outcomes coexist", "Watch the counter-rotation before time resumes");
+      } else if (state === STATE.FALLING) {
+        phaseLabel.textContent = "Resolving";
+        setInstruction("One outcome remains", "Normal gravity restored");
+      } else if (state === STATE.LANDED) {
+        phaseLabel.textContent = selectedResult;
+        setInstruction(`${selectedResult}.`, "The result is fixed; the possibility is gone");
+      }
+    }
+
+    function reset() {
+      velocityY = 0;
+      flipAngle = 0;
+      alternateAngle = 0;
+      spinVelocity = 0;
+      bulletElapsed = 0;
+      bulletBlend = 0;
+      fadeBlend = 0;
+      primaryCoin.position.set(0, START_Y, 0);
+      primaryCoin.rotation.set(0, 0, 0);
+      primaryCoin.scale.setScalar(1);
+      alternateCoin.position.copy(primaryCoin.position);
+      alternateCoin.rotation.copy(primaryCoin.rotation);
+      alternateCoin.scale.setScalar(1);
+      alternateCoin.visible = false;
+      alternateCoin.material.forEach(material => {
+        material.opacity = 0;
+      });
+      syncSphereOverlayTransform();
+      updateSphereOverlay(0);
+      blueLight.intensity = 0;
+      replayButton.classList.remove("is-visible");
+      resultLabel.textContent = "Heads";
+      trajectoryMaterial.opacity = 0.62;
+      contactShadow.material.opacity = 0.1;
+      setState(STATE.READY);
+    }
+
+    function launch(strength = 1) {
+      if (state !== STATE.READY && state !== STATE.LANDED) return;
+      if (state === STATE.LANDED) reset();
+
+      selectedResult = Math.random() > 0.5 ? "Heads" : "Tails";
+      velocityY = LAUNCH_VELOCITY * THREE.MathUtils.clamp(strength, 0.92, 1.12);
+      spinVelocity = 11.5 * THREE.MathUtils.clamp(strength, 0.94, 1.14);
+      flipAngle = 0;
+      alternateAngle = 0;
+      bulletElapsed = 0;
+      bulletBlend = 0;
+      fadeBlend = 0;
+      replayButton.classList.remove("is-visible");
+      resultLabel.textContent = selectedResult;
+      setState(STATE.RISING);
+    }
+
+    function enterBulletTime() {
+      primaryCoin.position.y = PEAK_Y;
+      alternateCoin.position.copy(primaryCoin.position);
+      alternateCoin.rotation.copy(primaryCoin.rotation);
+      alternateAngle = flipAngle;
+      alternateCoin.visible = true;
+      velocityY = 0;
+      bulletElapsed = 0;
+      setState(STATE.BULLET);
+    }
+
+    function resolveOutcome() {
+      const primarySurvives = selectedResult === "Heads";
+      if (!primarySurvives) {
+        flipAngle = alternateAngle;
+        primaryCoin.rotation.copy(alternateCoin.rotation);
+      }
+      const finalPhase = selectedResult === "Heads" ? 0 : Math.PI;
+      const direction = primarySurvives ? 1 : -1;
+      const currentTurn = (flipAngle - finalPhase) / (Math.PI * 2);
+      targetAngle = (
+        direction > 0
+          ? Math.ceil(currentTurn + 1.25)
+          : Math.floor(currentTurn - 1.25)
+      ) * Math.PI * 2 + finalPhase;
+      fadeBlend = 1;
+      velocityY = -0.62;
+      updateSphereOverlay(0);
+      setState(STATE.FALLING);
+    }
+
+    function updateReady(delta) {
+      primaryCoin.rotation.y += delta * 0.16;
+      primaryCoin.position.y = START_Y + Math.sin(performance.now() * 0.0012) * 0.012;
+      contactShadow.material.opacity = 0.1;
+      contactShadow.scale.set(0.82, 0.3, 1);
+    }
+
+    function updateRising(delta) {
+      velocityY += GRAVITY * delta;
+      primaryCoin.position.y += velocityY * delta;
+      flipAngle += spinVelocity * delta;
+      primaryCoin.rotation.x = flipAngle;
+      primaryCoin.rotation.z = Math.sin(flipAngle * 0.24) * 0.08;
+      primaryCoin.position.x = Math.sin(flipAngle * 0.18) * 0.08;
+
+      const heightProgress = THREE.MathUtils.clamp(
+        (primaryCoin.position.y - START_Y) / (PEAK_Y - START_Y),
+        0,
+        1
+      );
+      trajectoryMaterial.opacity = 0.62 * (1 - heightProgress * 0.75);
+      contactShadow.material.opacity = 0.1 * (1 - heightProgress * 0.72);
+      const shadowScale = 0.82 + heightProgress * 0.64;
+      contactShadow.scale.set(shadowScale, 0.3 + heightProgress * 0.18, 1);
+      phaseFill.style.transform = `translateX(${-100 + heightProgress * 100}%)`;
+
+      if (velocityY <= 0.12 || primaryCoin.position.y >= PEAK_Y) {
+        enterBulletTime();
+      }
+    }
+
+    function updateBullet(delta, elapsed) {
+      bulletElapsed += delta;
+      const intro = smoothstep(bulletElapsed / 0.85);
+      const outroStart = BULLET_DURATION - 0.72;
+      const outro = bulletElapsed > outroStart
+        ? 1 - smoothstep((bulletElapsed - outroStart) / 0.72)
+        : 1;
+      bulletBlend = intro * outro;
+
+      const slowDelta = delta * 0.07;
+      flipAngle += spinVelocity * slowDelta;
+      alternateAngle -= spinVelocity * slowDelta;
+      primaryCoin.rotation.x = flipAngle;
+      alternateCoin.rotation.x = alternateAngle;
+      primaryCoin.rotation.z = Math.sin(elapsed * 0.42) * 0.045;
+      alternateCoin.rotation.z = -Math.sin(elapsed * 0.42) * 0.045;
+
+      const separation = 0.11 * bulletBlend;
+      primaryCoin.position.set(-separation, PEAK_Y, 0.025);
+      alternateCoin.position.set(separation, PEAK_Y, -0.025);
+      const pulse = 1 + Math.sin(elapsed * 1.35) * 0.012 * bulletBlend;
+      primaryCoin.scale.setScalar(pulse);
+      alternateCoin.scale.setScalar(2 - pulse);
+      syncSphereOverlayTransform();
+      if (bulletBlend > 0.001) updateSphereArrowMotion(delta);
+      updateSphereOverlay(bulletBlend);
+
+      alternateCoin.material.forEach(material => {
+        material.opacity = bulletBlend * 0.72;
+      });
+
+      blueLight.intensity = bulletBlend * 2.8;
+      trajectoryMaterial.opacity = 0;
+      const remaining = Math.max(0, BULLET_DURATION - bulletElapsed);
+      timeValue.textContent = remaining.toFixed(1);
+      phaseFill.style.transform = `translateX(${-100 + (bulletElapsed / BULLET_DURATION) * 100}%)`;
+
+      if (bulletElapsed >= BULLET_DURATION) {
+        resolveOutcome();
+      }
+    }
+
+    function updateFalling(delta) {
+      velocityY += GRAVITY * delta;
+      primaryCoin.position.y += velocityY * delta;
+
+      const distance = Math.max(0.001, primaryCoin.position.y - START_Y);
+      const totalDistance = PEAK_Y - START_Y;
+      const fallProgress = 1 - THREE.MathUtils.clamp(distance / totalDistance, 0, 1);
+      const easedFall = smoothstep(fallProgress);
+
+      flipAngle = THREE.MathUtils.lerp(flipAngle, targetAngle, Math.min(1, delta * (2.4 + easedFall * 8)));
+      primaryCoin.rotation.x = flipAngle;
+      primaryCoin.rotation.z *= Math.max(0, 1 - delta * 5);
+      primaryCoin.position.x *= Math.max(0, 1 - delta * 5);
+
+      fadeBlend = Math.max(0, fadeBlend - delta * 1.85);
+      alternateCoin.material.forEach(material => {
+        material.opacity = fadeBlend * 0.72;
+      });
+      alternateCoin.position.lerp(primaryCoin.position, Math.min(1, delta * 4));
+      alternateCoin.scale.setScalar(0.98 + fadeBlend * 0.02);
+      blueLight.intensity = fadeBlend * 1.2;
+
+      contactShadow.material.opacity = 0.028 + easedFall * 0.072;
+      const shadowScale = 1.38 - easedFall * 0.56;
+      contactShadow.scale.set(shadowScale, 0.48 - easedFall * 0.18, 1);
+      phaseFill.style.transform = `translateX(${-100 + fallProgress * 100}%)`;
+
+      if (primaryCoin.position.y <= START_Y) {
+        primaryCoin.position.set(0, START_Y, 0);
+        primaryCoin.rotation.set(targetAngle, 0, 0);
+        primaryCoin.scale.setScalar(1);
+        alternateCoin.visible = false;
+        blueLight.intensity = 0;
+        phaseFill.style.transform = "translateX(0)";
+        trajectoryMaterial.opacity = 0;
+        replayButton.classList.add("is-visible");
+        setState(STATE.LANDED);
+        incrementTally(selectedResult);
+      }
+    }
+
+    function updateLanded(delta) {
+      contactShadow.material.opacity = THREE.MathUtils.lerp(
+        contactShadow.material.opacity,
+        0.12,
+        Math.min(1, delta * 3)
+      );
+      contactShadow.scale.x = THREE.MathUtils.lerp(
+        contactShadow.scale.x,
+        0.82,
+        Math.min(1, delta * 3)
+      );
+      contactShadow.scale.y = THREE.MathUtils.lerp(
+        contactShadow.scale.y,
+        0.3,
+        Math.min(1, delta * 3)
+      );
+    }
+
+    function updateSwipeEnergy() {
+      if (!pointerActive) {
+        swipeEnergy.style.height = "0";
+        return;
+      }
+      const distance = Math.max(0, pointerStartY - pointerCurrentY);
+      swipeEnergy.style.height = `${Math.min(innerHeight * 0.55, distance * 1.2)}px`;
+    }
+
+    function onPointerDown(event) {
+      if (state !== STATE.READY && state !== STATE.LANDED) return;
+      pointerActive = true;
+      pointerStartY = event.clientY;
+      pointerCurrentY = event.clientY;
+      renderer.domElement.setPointerCapture(event.pointerId);
+      document.body.classList.add("is-pressing");
+    }
+
+    function onPointerMove(event) {
+      if (!pointerActive) return;
+      pointerCurrentY = event.clientY;
+      updateSwipeEnergy();
+    }
+
+    function finishPointer(event) {
+      if (!pointerActive) return;
+      pointerActive = false;
+      document.body.classList.remove("is-pressing");
+      const distance = pointerStartY - pointerCurrentY;
+      swipeEnergy.style.height = "0";
+      if (renderer.domElement.hasPointerCapture(event.pointerId)) {
+        renderer.domElement.releasePointerCapture(event.pointerId);
+      }
+      if (distance > 52) {
+        launch(0.92 + Math.min(distance, 260) / 1300);
+      }
+    }
+
+    renderer.domElement.addEventListener("pointerdown", onPointerDown);
+    renderer.domElement.addEventListener("pointermove", onPointerMove);
+    renderer.domElement.addEventListener("pointerup", finishPointer);
+    renderer.domElement.addEventListener("pointercancel", finishPointer);
+
+    window.addEventListener("keydown", event => {
+      if (!["ArrowUp", " "].includes(event.key)) return;
+      if (state !== STATE.READY && state !== STATE.LANDED) return;
+      event.preventDefault();
+      launch();
+    });
+
+    replayButton.addEventListener("click", () => {
+      reset();
+      launch();
+    });
+
+    function resize() {
+      const width = document.documentElement.clientWidth;
+      const height = document.documentElement.clientHeight;
+      const portrait = height > width;
+      camera.aspect = width / height;
+      camera.position.z = portrait || width < 700 ? 13.5 : 11.5;
+      camera.position.y = portrait || width < 700 ? 1.95 : 2.15;
+      camera.updateProjectionMatrix();
+      camera.lookAt(0, -0.15, 0);
+      renderer.setSize(width, height, false);
+    }
+
+    window.addEventListener("resize", resize);
+
+    const clock = new THREE.Clock();
+    function animate() {
+      requestAnimationFrame(animate);
+      const delta = Math.min(clock.getDelta(), 0.035);
+      const elapsed = clock.elapsedTime;
+
+      if (state === STATE.READY) updateReady(delta);
+      else if (state === STATE.RISING) updateRising(delta);
+      else if (state === STATE.BULLET) updateBullet(delta, elapsed);
+      else if (state === STATE.FALLING) updateFalling(delta);
+      else if (state === STATE.LANDED) updateLanded(delta);
+
+      renderer.render(scene, camera);
+    }
+
+    resize();
+    reset();
+    animate();
+  </script>
+</body>
+</html>

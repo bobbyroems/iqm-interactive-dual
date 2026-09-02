@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Shader Playground — 25¢ Coin (differences material study)</title>
+<style>
+  html, body {
+    margin: 0;
+    height: 100%;
+    overflow: hidden;
+    background: radial-gradient(circle at 50% 34%, #eef1f4 0%, #d4d9de 62%, #c3c9d0 100%);
+    font-family: "Segoe UI", system-ui, sans-serif;
+  }
+  #app { position: fixed; inset: 0; }
+
+  /* Faint survey-dot grid, same idiom as the ice study. */
+  #dots {
+    position: fixed; inset: 0;
+    background-image: radial-gradient(rgba(70, 80, 92, 0.22) 1.2px, transparent 1.2px);
+    background-size: 64px 64px;
+    background-position: 22px 30px;
+    pointer-events: none;
+    opacity: 0.55;
+  }
+
+  .hud {
+    position: fixed;
+    font-family: Consolas, "IBM Plex Mono", monospace;
+    font-size: 13px;
+    letter-spacing: 0.12em;
+    color: #4a5361;
+    text-transform: uppercase;
+    pointer-events: none;
+    user-select: none;
+    line-height: 1.7;
+  }
+  .hud .rule { border-bottom: 1px solid rgba(74, 83, 97, 0.55); padding-bottom: 3px; }
+  #brand { top: 30px; left: 36px; font-size: 15px; font-weight: 600; letter-spacing: 0.34em; }
+  #study { top: 26%; left: 22%; text-align: left; }
+  #spec  { bottom: 24%; right: 22%; text-align: right; }
+  #loading {
+    top: 50%; left: 50%; transform: translate(-50%, -50%);
+    font-size: 14px; letter-spacing: 0.3em;
+  }
+
+  .lil-gui { --width: 300px; }
+</style>
+</head>
+<body>
+<div id="dots"></div>
+<div id="app"></div>
+
+<div class="hud" id="brand">IQM&#8202;/&#8202;25&#162;</div>
+<div class="hud" id="study"><span class="rule">MATERIAL_STUDY_03</span><br />QUARTER DOLLAR</div>
+<div class="hud" id="spec">CUPRONICKEL CLAD<br /><span class="rule">&#8960; 24.26 MM</span></div>
+<div class="hud" id="loading">LOADING COIN&#8230;</div>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.182.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.182.0/examples/jsm/"
+  }
+}
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { OBJLoader } from 'three/addons/loaders/OBJLoader.js';
+import GUI from 'https://cdn.jsdelivr.net/npm/lil-gui@0.20.0/+esm';
+
+const COIN_DIR = '/assets/modules/differences/coins/';
+const OBJ_URL = COIN_DIR + 'US%20Coins%20OBj.obj';
+const COLOR_URL = COIN_DIR + 'TwentyFive_Cent_Color.png';
+const BUMP_URL = COIN_DIR + 'TwentyFive_Cent_Bump.png';
+
+/* ============================================================
+   Params (wired to GUI)
+============================================================ */
+const params = {
+  // geometry
+  detail: 'MD',          // OBJ ships SD (low) and MD (medium) meshes
+
+  // material
+  tint: '#ffffff',       // multiplies the color map
+  metalness: 1.0,
+  roughness: 0.34,
+  bumpScale: 0.6,
+  clearcoat: 0.0,
+  clearcoatRoughness: 0.25,
+  envIntensity: 1.0,
+  flatShading: false,
+
+  // lights — every light individually controllable
+  keyColor: '#ffffff',
+  keyIntensity: 2.4,
+  keyX: 2.6, keyY: 3.4, keyZ: 2.4,
+  fillColor: '#bcd6ff',
+  fillIntensity: 0.7,
+  fillX: -3.2, fillY: 0.6, fillZ: 2.2,
+  rimColor: '#ffe2b8',
+  rimIntensity: 1.2,
+  rimX: -1.4, rimY: 2.2, rimZ: -3.2,
+  hemiSky: '#f2f5fa',
+  hemiGround: '#c9cdd4',
+  hemiIntensity: 0.35,
+
+  // motion / scene
+  spinSpeed: 0.35,
+  tumble: false,         // slow end-over-end tumble instead of a flat spin
+  exposure: 1.1,
+  shadowOpacity: 0.22
+};
+
+/* ============================================================
+   Renderer / scene / camera
+============================================================ */
+const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = params.exposure;
+document.getElementById('app').append(renderer.domElement);
+
+const scene = new THREE.Scene();
+const pmrem = new THREE.PMREMGenerator(renderer);
+scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+scene.environmentIntensity = params.envIntensity;
+
+const camera = new THREE.PerspectiveCamera(32, window.innerWidth / window.innerHeight, 0.1, 100);
+camera.position.set(0, 1.1, 5.2);
+
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+controls.dampingFactor = 0.08;
+controls.minDistance = 2;
+controls.maxDistance = 14;
+controls.target.set(0, 0, 0);
+
+/* ============================================================
+   Lights
+============================================================ */
+const keyLight = new THREE.DirectionalLight(params.keyColor, params.keyIntensity);
+const fillLight = new THREE.DirectionalLight(params.fillColor, params.fillIntensity);
+const rimLight = new THREE.DirectionalLight(params.rimColor, params.rimIntensity);
+const hemiLight = new THREE.HemisphereLight(params.hemiSky, params.hemiGround, params.hemiIntensity);
+scene.add(keyLight, fillLight, rimLight, hemiLight);
+
+function applyLights() {
+  keyLight.color.set(params.keyColor);
+  keyLight.intensity = params.keyIntensity;
+  keyLight.position.set(params.keyX, params.keyY, params.keyZ);
+  fillLight.color.set(params.fillColor);
+  fillLight.intensity = params.fillIntensity;
+  fillLight.position.set(params.fillX, params.fillY, params.fillZ);
+  rimLight.color.set(params.rimColor);
+  rimLight.intensity = params.rimIntensity;
+  rimLight.position.set(params.rimX, params.rimY, params.rimZ);
+  hemiLight.color.set(params.hemiSky);
+  hemiLight.groundColor.set(params.hemiGround);
+  hemiLight.intensity = params.hemiIntensity;
+}
+applyLights();
+
+/* Soft contact shadow: a blurred dark disk under the coin. */
+const shadowCanvas = document.createElement('canvas');
+shadowCanvas.width = shadowCanvas.height = 256;
+{
+  const context = shadowCanvas.getContext('2d');
+  const gradient = context.createRadialGradient(128, 128, 24, 128, 128, 126);
+  gradient.addColorStop(0, 'rgba(20, 24, 32, 1)');
+  gradient.addColorStop(1, 'rgba(20, 24, 32, 0)');
+  context.fillStyle = gradient;
+  context.fillRect(0, 0, 256, 256);
+}
+const shadowTexture = new THREE.CanvasTexture(shadowCanvas);
+const shadow = new THREE.Mesh(
+  new THREE.PlaneGeometry(3.4, 3.4),
+  new THREE.MeshBasicMaterial({
+    map: shadowTexture,
+    transparent: true,
+    opacity: params.shadowOpacity,
+    depthWrite: false
+  })
+);
+shadow.rotation.x = -Math.PI / 2;
+shadow.position.y = -1.35;
+scene.add(shadow);
+
+/* ============================================================
+   Coin: TwentyFiveCent group from the shared US Coins OBJ,
+   quarter textures bound directly (the shipped MTL mis-points
+   the quarter at the five-cent maps, so no MTLLoader here).
+============================================================ */
+const textureLoader = new THREE.TextureLoader();
+const colorMap = textureLoader.load(COLOR_URL);
+colorMap.colorSpace = THREE.SRGBColorSpace;
+colorMap.anisotropy = 8;
+const bumpMap = textureLoader.load(BUMP_URL);
+bumpMap.anisotropy = 8;
+
+const material = new THREE.MeshPhysicalMaterial({
+  map: colorMap,
+  bumpMap,
+  color: params.tint,
+  metalness: params.metalness,
+  roughness: params.roughness,
+  bumpScale: params.bumpScale,
+  clearcoat: params.clearcoat,
+  clearcoatRoughness: params.clearcoatRoughness
+});
+
+const coinGroup = new THREE.Group();
+scene.add(coinGroup);
+const coinVariants = { SD: null, MD: null };
+
+new OBJLoader().load(OBJ_URL, object => {
+  for (const child of object.children) {
+    if (!child.isMesh || !child.name.includes('TwentyFiveCent')) continue;
+    const variant = /(^|[\s_])(SD)([\s_]|$)/i.test(child.name) ||
+      child.name.includes('US_Coins_SD') ? 'SD' : 'MD';
+    child.geometry.computeVertexNormals();
+    coinVariants[variant] = child.geometry;
+  }
+  if (!coinVariants.MD && !coinVariants.SD) {
+    document.getElementById('loading').textContent = 'NO TWENTYFIVECENT MESH FOUND';
+    return;
+  }
+  document.getElementById('loading').remove();
+  rebuildCoin();
+}, undefined, error => {
+  console.error('Coin OBJ failed to load:', error);
+  document.getElementById('loading').textContent = 'COIN FAILED TO LOAD';
+});
+
+function rebuildCoin() {
+  coinGroup.clear();
+  const geometry = coinVariants[params.detail] ?? coinVariants.MD ?? coinVariants.SD;
+  const mesh = new THREE.Mesh(geometry, material);
+
+  /* Center on origin and normalise so the face spans ~2 world units. */
+  geometry.computeBoundingBox();
+  const box = geometry.boundingBox;
+  const center = box.getCenter(new THREE.Vector3());
+  const size = box.getSize(new THREE.Vector3());
+  mesh.position.copy(center).multiplyScalar(-1);
+  const span = Math.max(size.x, size.y, size.z);
+  coinGroup.scale.setScalar(2.2 / span);
+
+  /* Coins in this OBJ lie flat (heads up); stand the face to the camera. */
+  const holder = new THREE.Group();
+  holder.add(mesh);
+  holder.rotation.x = Math.PI / 2;
+  coinGroup.add(holder);
+}
+
+/* ============================================================
+   GUI
+============================================================ */
+const gui = new GUI({ title: '25¢ material study' });
+
+const fGeometry = gui.addFolder('geometry');
+fGeometry.add(params, 'detail', ['MD', 'SD']).name('mesh detail').onChange(rebuildCoin);
+fGeometry.add(params, 'flatShading').onChange(value => {
+  material.flatShading = value;
+  material.needsUpdate = true;
+});
+
+const fMaterial = gui.addFolder('material');
+fMaterial.addColor(params, 'tint').onChange(value => material.color.set(value));
+fMaterial.add(params, 'metalness', 0, 1, 0.01).onChange(value => { material.metalness = value; });
+fMaterial.add(params, 'roughness', 0, 1, 0.01).onChange(value => { material.roughness = value; });
+fMaterial.add(params, 'bumpScale', -3, 3, 0.01).onChange(value => { material.bumpScale = value; });
+fMaterial.add(params, 'clearcoat', 0, 1, 0.01).onChange(value => { material.clearcoat = value; });
+fMaterial.add(params, 'clearcoatRoughness', 0, 1, 0.01)
+  .onChange(value => { material.clearcoatRoughness = value; });
+fMaterial.add(params, 'envIntensity', 0, 3, 0.01)
+  .onChange(value => { scene.environmentIntensity = value; });
+
+const fKey = gui.addFolder('key light');
+fKey.addColor(params, 'keyColor').onChange(applyLights);
+fKey.add(params, 'keyIntensity', 0, 8, 0.05).onChange(applyLights);
+fKey.add(params, 'keyX', -8, 8, 0.1).onChange(applyLights);
+fKey.add(params, 'keyY', -8, 8, 0.1).onChange(applyLights);
+fKey.add(params, 'keyZ', -8, 8, 0.1).onChange(applyLights);
+
+const fFill = gui.addFolder('fill light');
+fFill.addColor(params, 'fillColor').onChange(applyLights);
+fFill.add(params, 'fillIntensity', 0, 8, 0.05).onChange(applyLights);
+fFill.add(params, 'fillX', -8, 8, 0.1).onChange(applyLights);
+fFill.add(params, 'fillY', -8, 8, 0.1).onChange(applyLights);
+fFill.add(params, 'fillZ', -8, 8, 0.1).onChange(applyLights);
+
+const fRim = gui.addFolder('rim light');
+fRim.addColor(params, 'rimColor').onChange(applyLights);
+fRim.add(params, 'rimIntensity', 0, 8, 0.05).onChange(applyLights);
+fRim.add(params, 'rimX', -8, 8, 0.1).onChange(applyLights);
+fRim.add(params, 'rimY', -8, 8, 0.1).onChange(applyLights);
+fRim.add(params, 'rimZ', -8, 8, 0.1).onChange(applyLights);
+
+const fHemi = gui.addFolder('hemisphere');
+fHemi.addColor(params, 'hemiSky').onChange(applyLights);
+fHemi.addColor(params, 'hemiGround').onChange(applyLights);
+fHemi.add(params, 'hemiIntensity', 0, 2, 0.01).onChange(applyLights);
+fHemi.close();
+
+const fScene = gui.addFolder('scene');
+fScene.add(params, 'spinSpeed', -2, 2, 0.01);
+fScene.add(params, 'tumble');
+fScene.add(params, 'exposure', 0, 2.5, 0.01)
+  .onChange(value => { renderer.toneMappingExposure = value; });
+fScene.add(params, 'shadowOpacity', 0, 1, 0.01)
+  .onChange(value => { shadow.material.opacity = value; });
+fScene.close();
+
+/* ============================================================
+   Frame loop
+============================================================ */
+const clock = new THREE.Clock();
+renderer.setAnimationLoop(() => {
+  const dt = clock.getDelta();
+  coinGroup.rotation.y += params.spinSpeed * dt;
+  if (params.tumble) coinGroup.rotation.x += params.spinSpeed * 0.4 * dt;
+  controls.update();
+  renderer.render(scene, camera);
+});
+
+window.addEventListener('resize', () => {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+});
+</script>
+</body>
+</html>
