@@ -330,8 +330,15 @@ function pointInRect(rect, u, v) {
 const SPLASH_ROOM_SOURCE = frozenRect(-2006, 120, 6172, 3472)
 const CRYOSTAT_ROOM_SOURCE = frozenRect(-1943, 118, 5624, 3164)
 
-/* Production splash inspection: cryostat bounds in the 4521 x 6654 bitmap. */
-const SPLASH_CRYOSTAT_ASSET_RECT = frozenRect(1620, 1538, 1246, 2329)
+/*
+ * Where the stop-01 plate sits inside the splash bitmap, found by matching the
+ * two renders' gold masks across scale and offset (best overlap at 0.37 splash
+ * pixels per plate pixel). This is the whole 1800 x 3114 plate canvas rather
+ * than the object framed inside it, so it registers directly against
+ * `CRYOSTAT_ASSET_RECT` below and the pair no longer carries the extent
+ * mismatch an object-framed rectangle gave the first handoff.
+ */
+const SPLASH_CRYOSTAT_ASSET_RECT = frozenRect(819.2, 1122.3, 666, 1152.18)
 const CRYOSTAT_ASSET_RECT = frozenRect(0, 0, 1800, 3114)
 
 /*
@@ -365,10 +372,24 @@ const QPU_REGISTERED_TARGET = frozenRect(
   2133,
   2326
 )
-const QPU_DARK_BOARD_ASSET_RECT = frozenRect(14, 52, 411, 411)
+/*
+ * The focal cutout is re-cut from the delivered close-up at 1:1 with the stage
+ * rectangle it fills, rather than being the 476 x 519 Figma export drawn at
+ * 4.5x. It frames the same window, so the dark board is the same fraction of it
+ * that (14, 52, 411, 411) was of the export — and because both the rectangle
+ * and the plate it is measured against scale together, `QPU_DARK_BOARD_TARGET`
+ * does not move, which is what holds the 02 -> 03 registration still.
+ */
+const QPU_FOCAL_NATIVE_SIZE = Object.freeze({ width: 2283, height: 2490 })
+const QPU_DARK_BOARD_ASSET_RECT = frozenRect(
+  (14 / 476) * QPU_FOCAL_NATIVE_SIZE.width,
+  (52 / 519) * QPU_FOCAL_NATIVE_SIZE.height,
+  (411 / 476) * QPU_FOCAL_NATIVE_SIZE.width,
+  (411 / 519) * QPU_FOCAL_NATIVE_SIZE.height
+)
 const QPU_DARK_BOARD_TARGET = rectThroughFill(
   QPU_DARK_BOARD_ASSET_RECT,
-  { width: 476, height: 519 },
+  QPU_FOCAL_NATIVE_SIZE,
   QPU_REGISTERED_TARGET
 )
 const QPU_DIE_TARGET = frozenRect(610 + STOP_02_03_ALIGNMENT_X, 1553, 333, 333)
@@ -469,13 +490,17 @@ const FULL_STAGE_ART = Object.freeze({
   assetToScene: IDENTITY
 })
 
+/* The delivered splash is an exact 9:16 recomposition for this panel, so
+   `contain` fills the stage with nothing left over. */
+const SPLASH_ASSET_SIZE = Object.freeze({ width: 2304, height: 4096 })
+
 const SPLASH_ART = Object.freeze({
-  assetSize: Object.freeze({ width: 4521, height: 6654 }),
+  assetSize: SPLASH_ASSET_SIZE,
   artBox: frozenRect(0, 0, 2160, 3840),
   fit: 'contain',
   objectPosition: 'center top',
   assetToScene: nanoscaleArtPlacement({
-    assetSize: { width: 4521, height: 6654 },
+    assetSize: SPLASH_ASSET_SIZE,
     artBox: { x: 0, y: 0, width: 2160, height: 3840 },
     fit: 'contain',
     objectPosition: 'center top'
@@ -495,30 +520,57 @@ const CRYOSTAT_ART = Object.freeze({
   })
 })
 
-/* 105% about its own centre, then 47px up and 18px left. The cryostat arm
-   underneath is deliberately left where it was. */
-const MAJORANA_ART_BOX = frozenRect(153.5, -102.325, 1239, 2323.65)
+/*
+ * This scene used to paint one flat render of the arm and the package together,
+ * placed by a Figma box plus a user-directed nudge. The plate is now the package
+ * alone, cut from the delivered close-up, and the arm it hangs from is the
+ * chandelier underlay painted behind it.
+ *
+ * So the box is fitted to that arm, not to where the retired plate happened to
+ * sit. The chandelier renders its own copy of the package on the end of the
+ * arm, and this plate has to land on it exactly: the underlay is not trimmed,
+ * so wherever the plate falls short the render underneath shows as a second
+ * chip.
+ *
+ * Width and horizontal centre come from that render (910.1 stage px wide,
+ * centre x 778.1, measured on the underlay at the same alpha threshold as the
+ * frame). The two renders agree that the neck sits 14 px inside the frame on
+ * either side, so the arm runs into the package as one object. The vertical
+ * offset is then the one that buries the underlay's package most completely:
+ * the close-up's frame is a little shallower than the chandelier's and their
+ * corner radii differ, so the fit is a search rather than an edge match, and
+ * at this offset the render underneath is never more than 1.3 px outside the
+ * plate anywhere along its outline.
+ *
+ * 0.235980 stage px per plate px; the box carries the plate's own aspect.
+ */
+const MAJORANA_ASSET_SIZE = Object.freeze({ width: 3875, height: 4096 })
+const MAJORANA_ART_BOX = frozenRect(321.07, 1232.85, 914.42, 966.57)
 
 const MAJORANA_ART = Object.freeze({
-  assetSize: Object.freeze({ width: 1300, height: 2466 }),
+  assetSize: MAJORANA_ASSET_SIZE,
   artBox: MAJORANA_ART_BOX,
+  /* The box carries the plate's own aspect, so cover and fill agree here. */
   fit: 'cover',
-  objectPosition: 'center bottom',
+  objectPosition: 'center center',
   assetToScene: nanoscaleArtPlacement({
-    assetSize: { width: 1300, height: 2466 },
+    assetSize: MAJORANA_ASSET_SIZE,
     artBox: MAJORANA_ART_BOX,
     fit: 'cover',
-    objectPosition: 'center bottom'
+    objectPosition: 'center center'
   })
 })
 
 /*
  * The 02 -> 03 zoom enters the dark QPU window inside Majorana 2, not the
- * center of the complete package. This inclusive pixel-cell measurement is
- * mapped through the production art placement so both images track the same
- * physical feature throughout the handoff.
+ * center of the complete package. This is the window on the package plate, in
+ * its own pixels: the inclusive cell (354, 1811, 257, 256) that was measured on
+ * the retired flat plate, carried across through the two renders' shared
+ * circuit-board registration and checked against the window it frames. Mapped
+ * through the placement above it is the landmark the handoff is built on, and
+ * it follows the plate wherever the plate is fitted.
  */
-const MAJORANA_QPU_ASSET_RECT = frozenRect(354, 1811, 257, 256)
+const MAJORANA_QPU_ASSET_RECT = frozenRect(792.359, 1564.671, 994.715, 990.845)
 const MAJORANA_QPU_TARGET = transformNanoscaleRect(
   MAJORANA_ART.assetToScene,
   MAJORANA_QPU_ASSET_RECT
@@ -616,15 +668,26 @@ function freezeCameraGroup(group) {
   if (!coverageLayer) {
     throw new Error(`Camera group ${group.id} needs its coverage layer`)
   }
+  /* A group may state its coverage box independently of the layer that paints
+     it, for the case where the box the handoff timing was built on is not the
+     box the current plate happens to occupy. */
+  const coverageArtBox = group.coverageArtBox
+    ? frozenRect(
+      group.coverageArtBox.x,
+      group.coverageArtBox.y,
+      group.coverageArtBox.width,
+      group.coverageArtBox.height
+    )
+    : coverageLayer.artBox
   return Object.freeze({
     id: group.id,
     coordinateSpace: 'canonical-stage',
     transformOrigin: '0 0',
     coverageLayerId: group.coverageLayerId,
-    coverageArtBox: coverageLayer.artBox,
+    coverageArtBox,
     minimumDimensionScale: Math.max(
-      NANOSCALE_CAMERA_STAGE.width / coverageLayer.artBox.width,
-      NANOSCALE_CAMERA_STAGE.height / coverageLayer.artBox.height
+      NANOSCALE_CAMERA_STAGE.width / coverageArtBox.width,
+      NANOSCALE_CAMERA_STAGE.height / coverageArtBox.height
     ),
     layers
   })
@@ -635,16 +698,45 @@ function freezeCameraGroup(group) {
  * backdrop sits outside this group; every child is positioned in canonical
  * stage coordinates and the single group receives the camera transform.
  */
+/*
+ * Where the stop-02 package lands once the 02 -> 03 zoom has run. The handoff
+ * is built from the same two landmark rectangles, so this is the incoming
+ * scene's own view of the plate the visitor was just looking at.
+ */
+const QPU_RETAINED_PACKAGE_BOX = transformNanoscaleRect(
+  invertNanoscaleSimilarity(
+    nanoscaleSimilarityFromRects(MAJORANA_QPU_TARGET, QPU_DARK_BOARD_TARGET)
+  ),
+  MAJORANA_ART_BOX
+)
+
 const QPU_CAMERA_GROUP = freezeCameraGroup({
   id: 'qpu-chip-group',
   coverageLayerId: 'qpu-chip-background',
+  /*
+   * The retired background was a Figma export on a canvas far larger than
+   * anything it painted -- 28% of it carried the package and the rest was
+   * transparent. That empty canvas is what decided when this scene was allowed
+   * to start fading in, so it is kept here as a timing constant rather than
+   * silently becoming the smaller box of the plate that replaced it. It is not
+   * a claim about painted pixels; what fills the viewport during the handoff is
+   * the retained stack beneath, as it always was.
+   */
+  coverageArtBox: QPU_BACKGROUND_SOURCE,
   layers: [
     {
+      /*
+       * The stop-02 package plate, painted a second time as this scene's own
+       * background. It used to be a separate export of the same object, which
+       * sat about 1% off the plate retained underneath; being literally the
+       * same bitmap, the two are now coincident by construction and the pair
+       * costs one decoded image instead of two.
+       */
       id: 'qpu-chip-background',
-      asset: 'qpu-chip-background.webp',
+      asset: 'majorana-2.webp',
       role: 'background',
-      nativeSize: { width: 4096, height: 2304 },
-      artBox: QPU_BACKGROUND_SOURCE,
+      nativeSize: MAJORANA_ASSET_SIZE,
+      artBox: QPU_RETAINED_PACKAGE_BOX,
       fit: 'fill',
       opacity: 0.60000002384,
       opaque: false
@@ -653,12 +745,11 @@ const QPU_CAMERA_GROUP = freezeCameraGroup({
       id: 'qpu-chip-focal',
       asset: 'qpu-chip-focal.webp',
       role: 'focal',
-      nativeSize: { width: 476, height: 519 },
+      nativeSize: QPU_FOCAL_NATIVE_SIZE,
       artBox: QPU_REGISTERED_TARGET,
-      fit: 'fill',
-      paintTransformBaked: true,
       opacity: 1,
-      opaque: false
+      opaque: false,
+      fit: 'fill'
     }
   ]
 })
@@ -827,22 +918,21 @@ export const NANOSCALE_CAMERA_SCENES = Object.freeze([
     stop: 2,
     id: 'majorana-2',
     /*
-     * The arm and the package are one flat render in majorana-2.webp, so the
-     * package cannot be moved on its own. cryostat.webp shows the same arm from
-     * stop 01 with a bare mounting block where the package sits, and the 01->02
-     * registration places it exactly behind. Painting it underneath changes
-     * nothing today -- the flat plate covers it completely -- but it means the
-     * plate in front can later be trimmed to the package and moved, with real
-     * arm behind it instead of a hole.
+     * The arm and the package used to be one flat render, so the package could
+     * not be moved on its own; the underlay below was painted behind it against
+     * the day the plate in front could be trimmed to the package. That is this
+     * scene now: the plate is the package alone and the arm behind it is real.
      */
     underlays: [
       {
         /*
-         * Cropped out of cryostat.webp rather than placing that whole plate
-         * scaled up: the full asset made this scene's composited layer 10347 x
-         * 17901 CSS px, past the point where Chromium will raster it at full
-         * scale, which softened everything the scene painted. The crop is 4.4%
-         * of that area and carries the same pixels.
+         * The same region of the chandelier master the stop-01 plate is cut
+         * from, so the arm continues into stop 01 exactly as the 01 -> 02
+         * registration places it. Cutting the region rather than placing the
+         * whole plate scaled up is what keeps this layer paintable: the full
+         * asset made this scene's composited layer 10347 x 17901 CSS px, past
+         * the point where Chromium will raster at full scale, which softened
+         * everything the scene painted.
          */
         id: 'majorana-arm',
         asset: 'majorana-arm.webp',
@@ -863,7 +953,7 @@ export const NANOSCALE_CAMERA_SCENES = Object.freeze([
     exitFeature: {
       ...centerOfRect(MAJORANA_QPU_TARGET),
       label: 'QPU window inside Majorana 2',
-      figmaNode: 'production majorana-2.webp measured pixel region'
+      figmaNode: 'window measured on the retired flat plate, carried in stage coordinates'
     }
   }),
   freezeScene({
@@ -877,7 +967,7 @@ export const NANOSCALE_CAMERA_SCENES = Object.freeze([
     entryFeature: {
       ...centerOfRect(QPU_DARK_BOARD_TARGET),
       label: 'Dark QPU board inside the registered object',
-      figmaNode: 'production qpu-chip-focal.webp measured pixel region'
+      figmaNode: 'dark board as a fraction of the re-cut focal plate'
     },
     exitFeature: {
       ...centerOfRect(QPU_DIE_TARGET),

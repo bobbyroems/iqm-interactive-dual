@@ -1,5 +1,5 @@
 /*
- * Geometry and per-stop treatments for the eight-position nanoscale timeline.
+ * Geometry and per-stop treatments for the seven-position nanoscale timeline.
  *
  * Coordinates are audited from the current Feedback / Copy Updates for Makeshift frames
  * (58:4672 and siblings), normalized from their 0.5232527852 canvas scale to the
@@ -13,7 +13,6 @@ export const NANOSCALE_STAGE = Object.freeze({ width: 2160, height: 3840 })
 const BLUE = '#0078D4'
 const BLUE_LIGHT = '#8DC8E8'
 const NAVY = '#2A446F'
-const OFF_WHITE = '#F4F3F5'
 const WHITE = '#FFFFFF'
 /* Light glass for the scrubber plate, in the same family as the card fills. */
 const PANEL_BLUE = '#E3EEF8'
@@ -43,6 +42,15 @@ const IDENTITY_TITLE_TYPE = Object.freeze({
   lineHeight: 80.267131
 })
 
+/* The qualifier under a heading. 36px is the board's value; the leading keeps
+   the title's 1.338 ratio so the two stack on one rhythm. */
+const IDENTITY_SUBTITLE_TYPE = Object.freeze({
+  fontSize: 36,
+  fontWeight: 600,
+  letterSpacing: '-0.02em',
+  lineHeight: 48
+})
+
 const IDENTITY_BODY_TYPE = Object.freeze({
   fontSize: 40,
   fontWeight: 400,
@@ -62,6 +70,8 @@ function identityCard({
   fillValue = null,
   glassBlur = 50,
   height,
+  subtitleHeight = 0,
+  subtitleType = IDENTITY_SUBTITLE_TYPE,
   titleHeight,
   titleType = IDENTITY_TITLE_TYPE
 }) {
@@ -79,6 +89,15 @@ function identityCard({
       box: box(60, 60, 500, titleHeight),
       type: titleType
     }),
+    /* Sits directly under the title with no gap of its own — it reads as the
+       second line of one heading, not as a separate block. Null on the stops
+       that have no qualifier, so nothing is written for them. */
+    subtitle: subtitleHeight
+      ? Object.freeze({
+          box: box(60, 60 + titleHeight, 500, subtitleHeight),
+          type: subtitleType
+        })
+      : null,
     body: Object.freeze({
       box: box(60, bodyTop, 500, bodyHeight),
       type: bodyType
@@ -250,11 +269,23 @@ export const NANOSCALE_SPLASH_LAYOUT = Object.freeze({
   fit: 'contain',
   anchor: 'center top',
   ui: Object.freeze({
+    /*
+     * Figma authored this block at y=2120 against a splash plate that only
+     * reached partway down the frame. The delivered vertical room fills it, so
+     * the cryostat now hangs 280px lower and the panel's top edge cut straight
+     * through the gold tip and the package on the end of it -- the one thing on
+     * this screen the visitor is about to zoom into.
+     *
+     * The whole block moves down 200px, which clears the tip with room to
+     * spare and still stops above the base plinth. Everything below is line
+     * art the glass reads over comfortably; the scroll prompt at y=3250 does
+     * not move and keeps its own space.
+     */
     intro: Object.freeze({
-      box: box(480, 2120, 1200, 774.7781),
-      explainerBox: box(480, 2120, 1200, 649.1137),
+      box: box(480, 2320, 1200, 774.7781),
+      explainerBox: box(480, 2320, 1200, 649.1137),
       title: Object.freeze({
-        box: box(583.1083, 2180, 993.7835, 128.0452),
+        box: box(583.1083, 2380, 993.7835, 128.0452),
         type: Object.freeze({
           fontSize: 96,
           fontWeight: 600,
@@ -263,7 +294,7 @@ export const NANOSCALE_SPLASH_LAYOUT = Object.freeze({
         })
       }),
       body: Object.freeze({
-        box: box(640, 2388.0452, 880, 321.0685),
+        box: box(640, 2588.0452, 880, 321.0685),
         type: Object.freeze({
           fontSize: 60,
           fontWeight: 600,
@@ -332,14 +363,18 @@ export const NANOSCALE_LAYOUT = Object.freeze([
     subject: box(301 + STOP_02_03_ALIGNMENT_X, 0, 1180, 2213),
     fit: 'cover',
     anchor: 'center bottom',
+    /* The span measures the package plate's frame, top edge to bottom edge. It
+       was authored at 1274..2218 against the retired plate; the plate is now
+       fitted onto the package the chandelier renders at the arm's tip (see
+       MAJORANA_ART_BOX) and spans 1264..2199, so the bracket follows it. */
     annotation: annotation({
       axis: 'vertical',
-      from: point(221 + STOP_02_03_ALIGNMENT_X, 1274),
-      to: point(221 + STOP_02_03_ALIGNMENT_X, 2218),
+      from: point(221 + STOP_02_03_ALIGNMENT_X, 1264),
+      to: point(221 + STOP_02_03_ALIGNMENT_X, 2197),
       extend: 223,
       extensions: {
-        from: line(222 + STOP_02_03_ALIGNMENT_X, 1274, 444 + STOP_02_03_ALIGNMENT_X, 1274),
-        to: line(222 + STOP_02_03_ALIGNMENT_X, 2220, 444 + STOP_02_03_ALIGNMENT_X, 2220)
+        from: line(222 + STOP_02_03_ALIGNMENT_X, 1264, 444 + STOP_02_03_ALIGNMENT_X, 1264),
+        to: line(222 + STOP_02_03_ALIGNMENT_X, 2199, 444 + STOP_02_03_ALIGNMENT_X, 2199)
       },
       color: NAVY,
       spanGradient: HARDWARE_SCALE_GRADIENT,
@@ -399,7 +434,8 @@ export const NANOSCALE_LAYOUT = Object.freeze([
         activeIndex: 2,
         trackColor: BLUE,
         activeColor: NAVY,
-        numberBox: box(1033, 3470, 39, 48)
+        numberBox: box(1033, 3470, 39, 48),
+        scrim: SCRUBBER_PHOTO_SCRIM
       })
     })
   }),
@@ -422,23 +458,30 @@ export const NANOSCALE_LAYOUT = Object.freeze([
     }),
     ui: Object.freeze({
       identity: identityCard({
-        /* The tallest of the five by some way: the heading here is a sentence
-           rather than a label, six lines at 60, over seven of body. The
-           comparison card steps down to 1729 to make room. */
-        height: 998,
-        titleHeight: 482,
-        bodyTop: 602,
+        /* The heading is a name plus a qualifier rather than a label: one line
+           at 60 with two at 36 under it, over seven of body. That is 306px less
+           than the six-line-at-60 heading it replaced, so the card and the
+           comparison card below it both come back up. */
+        height: 692,
+        titleHeight: 80,
+        subtitleHeight: 96,
+        bodyTop: 296,
         bodyHeight: 336,
         effectVisible: true,
         fillValue: fill(WHITE, 0.6),
         glassBlur: 80
       }),
-      comparison: comparisonCard({ effectVisible: true, y: 1729 }),
+      comparison: comparisonCard({ effectVisible: true, y: 1423 }),
       scrubber: scrubberTreatment({
         activeIndex: 3,
-        trackColor: OFF_WHITE,
+        /* Was off-white, which was how this stop held its own against dark
+           artwork with nothing behind the track. The plate is the better answer
+           to the same problem, and on light blue the off-white all but
+           disappeared — so this joins 03 and 05 on the deeper blue. */
+        trackColor: BLUE,
         activeColor: NAVY,
-        numberBox: box(1311, 3470, 39, 48)
+        numberBox: box(1311, 3470, 39, 48),
+        scrim: SCRUBBER_PHOTO_SCRIM
       })
     })
   }),
@@ -483,27 +526,19 @@ export const NANOSCALE_LAYOUT = Object.freeze([
   })
 ])
 
-/* Full-stage frames 895:10640 and 921:1312, stacked into one virtual 2160×7680 track. */
+/* Full-stage frame 921:1312, the module's one closing screen. */
 export const NANOSCALE_FINALE_LAYOUT = Object.freeze({
-  timelineIndices: Object.freeze([6, 7]),
-  track: box(0, 0, 2160, 7680),
-  sectionHeight: 3840,
-  exitFadeDistance: 768,
+  timelineIndices: Object.freeze([6]),
+  track: box(0, 0, 2160, 3840),
   pullback: Object.freeze({ scale: 0.34, fade: 1 }),
   sections: Object.freeze([
     Object.freeze({
-      id: 'impact',
-      offsetY: 0,
-      background: '#F2F4F5',
-      copy: box(378.5, 1000, 1403, 828),
-      headingTop: 1080,
-      paragraphTops: Object.freeze([1348, 1588]),
-      prompt: box(836.5, 2000, 487, 92)
-    }),
-    Object.freeze({
       id: 'scale',
-      offsetY: 3840,
+      /* The only section, so it sits at the head of the track and the track's
+         travel alone brings it on. */
+      offsetY: 0,
       background: WHITE,
+      guide: box(1070, 0, 20, 470),
       copy: box(520, 500, 1120, 908),
       headingTop: 580,
       paragraphTops: Object.freeze([848, 1088]),
@@ -532,7 +567,7 @@ export function nanoscaleLayoutAt(contentIndex) {
 
 export function nanoscaleTimelineLayoutAt(timelineIndex) {
   const safeIndex = Number.isFinite(timelineIndex) ? Math.round(timelineIndex) : 0
-  const clamped = Math.min(NANOSCALE_LAYOUT.length + 2, Math.max(0, safeIndex))
+  const clamped = Math.min(NANOSCALE_LAYOUT.length + 1, Math.max(0, safeIndex))
   if (clamped === 0) return NANOSCALE_SPLASH_LAYOUT
   if (clamped > NANOSCALE_LAYOUT.length) return NANOSCALE_FINALE_LAYOUT
   return NANOSCALE_LAYOUT[clamped - 1]
@@ -549,7 +584,7 @@ export function nanoscaleAnnotationLength(annotationValue) {
 export const NANOSCALE_ZOOM_PER_STOP = 2.8
 
 /*
- * Plates retain content indices 0-4, while progress is now on the eight-position timeline.
+ * Plates retain content indices 0-4, while progress is now on the seven-position timeline.
  * Adding one here places content plate 0 at timeline stop 1 without renumbering content data.
  */
 export function nanoscalePlateTransform(contentIndex, timelineProgress) {

@@ -225,6 +225,7 @@ export function createKioskExplainer({
   footerContent,
   headingLevel = 2,
   hidden = false,
+  subtitle = '',
   visible = !hidden,
   ariaHidden = !visible,
   layout = 'stacked',
@@ -261,9 +262,16 @@ export function createKioskExplainer({
   copy.className = 'kiosk-explainer__copy'
   const titleElement = document.createElement(`h${normalizeHeadingLevel(headingLevel)}`)
   titleElement.className = 'kiosk-explainer__title'
+  /* A second, quieter line under the heading, for the qualifier a board sets
+     smaller than the name it qualifies. Its own element rather than part of the
+     title so it can take its own size and be left out entirely: a panel that
+     passes no subtitle renders exactly as it did before this existed. */
+  const subtitleElement = document.createElement('p')
+  subtitleElement.className = 'kiosk-explainer__subtitle'
+  subtitleElement.hidden = true
   const bodyElement = document.createElement('p')
   bodyElement.className = 'kiosk-explainer__body'
-  copy.append(titleElement, bodyElement)
+  copy.append(titleElement, subtitleElement, bodyElement)
 
   const footerElement = document.createElement('footer')
   footerElement.className = 'kiosk-explainer__footer'
@@ -274,6 +282,7 @@ export function createKioskExplainer({
     copy,
     element,
     footer: footerElement,
+    subtitle: subtitleElement,
     media: mediaElement,
     mediaImage,
     mediaVideo,
@@ -290,6 +299,7 @@ export function createKioskExplainer({
     footerContent,
     layout,
     media,
+    subtitle,
     title,
     variant,
     visible
@@ -312,6 +322,10 @@ export function updateKioskExplainer(explainer, options = {}) {
   if (hasOwn(options, 'title')) {
     title.textContent = String(options.title ?? '')
     title.hidden = !title.textContent
+  }
+  if (hasOwn(options, 'subtitle') && explainer.subtitle) {
+    explainer.subtitle.textContent = String(options.subtitle ?? '')
+    explainer.subtitle.hidden = !explainer.subtitle.textContent
   }
   if (hasOwn(options, 'bodyContent') && options.bodyContent !== undefined) {
     replaceElementContent(body, options.bodyContent)

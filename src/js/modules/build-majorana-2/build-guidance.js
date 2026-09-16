@@ -3,7 +3,9 @@ export const BUILD_GUIDANCE_TIMINGS = Object.freeze({
   idleGuidanceDelayMs: 10_000,
   firstPlacementTooltipDurationMs: 10_000,
   partialReentryTooltipDurationMs: 5_000,
-  completionTooltipDelayMs: 3_000
+  /* Long enough to let the second chip finish seating, short enough that the
+     module reads as answering the drop rather than thinking about it. */
+  completionTooltipDelayMs: 300
 })
 
 const PART_IDS = Object.freeze(['qpu-stack', 'cryo-cmos'])
@@ -199,11 +201,14 @@ export function getBuildGuidanceSnapshot(
   let missingSlotId = null
   let bottomTooltip = initialTooltipVisible ? 'initial' : null
 
+  /* Which chip landed first. Falls back to whichever slot is filled, so a
+     re-entry that lost the recorded order still reports a side. */
+  const firstPlacedPartId = state.firstPlacedPartId ??
+    PART_IDS.find(partId => state.placements[partId]) ??
+    null
+
   if (progress === 1) {
-    const effectiveFirstPlacedPartId = state.firstPlacedPartId ??
-      PART_IDS.find(partId => state.placements[partId]) ??
-      null
-    const qpuFirst = effectiveFirstPlacedPartId === 'qpu-stack'
+    const qpuFirst = firstPlacedPartId === 'qpu-stack'
     phase = qpuFirst ? 'qpu-first' : 'cryo-first'
     activePathwayCount = qpuFirst ? 1 : 2
     missingSlotId = qpuFirst ? 'cryo-cmos' : 'qpu-stack'
@@ -214,7 +219,7 @@ export function getBuildGuidanceSnapshot(
     phase = 'complete'
     activePathwayCount = 3
     bottomTooltip = firstTooltipVisible
-      ? (state.firstPlacedPartId === 'qpu-stack' ? 'qpu-first' : 'cryo-first')
+      ? (firstPlacedPartId === 'qpu-stack' ? 'qpu-first' : 'cryo-first')
       : null
   }
 
@@ -247,6 +252,7 @@ export function getBuildGuidanceSnapshot(
       ? PART_IDS.filter(partId => !state.placements[partId])
       : [],
     guidanceVisible,
+    firstPlacedPartId,
     interactionActive: state.interactionActive,
     missingSlotId,
     phase

@@ -1,5 +1,12 @@
+import { waitForTask, taskTimeout } from './core/abortable-task.js'
 import { IdleController } from './core/idle-controller.js'
+import {
+  armIdleController,
+  rearmIdleController,
+  routeIdle
+} from './core/idle-navigation.js'
 import { assetUrl } from './core/asset-url.js'
+import { mountAuroraBackgrounds } from './core/aurora-background.js'
 import { imperfectionParams, setImperfection } from './core/surface-imperfection.js'
 import { getLightRigs, lightRigsVersion } from './core/light-rig-registry.js'
 import { playMajoranaPortalTransition } from './core/experience-portal.js'
@@ -10,9 +17,9 @@ import { initAudio, sound, startAmbient, stopAmbient } from './core/kiosk-audio.
 import { installPressBloom } from './core/press-bloom.js'
 import { installButtonTapSound } from './core/button-tap-sound.js'
 import { createKioskSettings } from './core/kiosk-settings.js'
+import { configureIdleTimeouts } from './core/idle-timeouts.js'
 import { splitTextForReveal } from './core/text-reveal.js'
 import { ModuleHost } from './core/module-host.js'
-import { moduleUnmountDelay } from './core/module-resource-policy.js'
 import { ScreenRouter } from './core/screen-router.js'
 import { StageScaler } from './core/stage-scaler.js'
 import { createMajoranaScene } from './modules/build-majorana-2/majorana-scene.js'
@@ -21,6 +28,7 @@ import { getModule, isPlayable, MODULE_CATEGORIES, MODULES } from './modules/mod
 /* Whether the dev dock was left collapsed, so a reload doesn't drop it back over
    whatever card was being reviewed. */
 const DEVELOPMENT_HUD_COLLAPSED_KEY = 'iqm-kiosk:development-hud-collapsed'
+const SCREEN_UNMOUNT_DELAY_MS = 400
 
 /* Half of the menu's layout crossfade: the menu is dark for this long before
    the new layout is applied, then takes the same time to come back. Matches the
@@ -31,8 +39,12 @@ const MENU_LAYOUT_FADE_MS = 200
    cannot be read, and a visitor-facing timeout should not change because of it. */
 const fallbackConfig = {
   design: { width: 2160, height: 3840 },
-  development: { idleTimeoutMs: 600000, showHud: false },
-  kiosk: { idleTimeoutMs: 120000 }
+  development: {
+    idleReturnToMenuMs: 600000,
+    idleReturnToHomeMs: 600000,
+    showHud: false
+  },
+  kiosk: { idleReturnToMenuMs: 120000, idleReturnToHomeMs: 120000 }
 }
 
 /*
@@ -62,26 +74,37 @@ function createModuleCard(module, moduleCountLabel) {
   /* A slot whose module is still in production carries its FPO mark rather than
      a generated shape: the shape pool would give it an abstract sphere, which is
      the reason the previous placeholder was pulled from the carousel. */
+  const previewImage = module.preview?.kind !== 'video' && module.preview
+    ? `<img class="module-card__preview-image" src="${assetUrl(module.preview.src)}" alt="${module.preview.alt || ''}">`
+    : ''
   const preview = module.placeholder
     ? `<span class="module-card__preview-fpo" aria-hidden="true">FPO</span>`
     : module.preview?.kind === 'video'
-    ? `<span class="module-card__preview-portal" aria-hidden="true">
-        <video class="module-card__preview-video" src="${assetUrl(module.preview.src)}" loop muted playsinline preload="metadata" disablepictureinpicture></video>
-      </span>`
+      ? `<span class="module-card__preview-portal" data-carousel-preview-motion aria-hidden="true">
+          <video class="module-card__preview-video" src="${assetUrl(module.preview.src)}" loop muted playsinline preload="metadata" disablepictureinpicture></video>
+        </span>`
+    : module.preview?.swing
+      ? `<span class="module-card__preview-swing" data-carousel-preview-motion>
+          ${previewImage}
+        </span>`
     : module.preview
-      ? `<img class="module-card__preview-image" src="${assetUrl(module.preview.src)}" alt="${module.preview.alt}">`
+      ? previewImage
     : `
       <span class="module-card__preview-placeholder" aria-hidden="true">
         <span class="module-card__preview-label">Module preview</span>
         <span class="module-card__preview-number">${module.number}</span>
       </span>
     `
+  const navigationGrid = module.preview?.grid
+    ? '<span class="module-card__shape-scene" data-navigation-grid-only aria-hidden="true"></span>'
+    : ''
   const livePreview = module.preview3d?.kind === 'majorana'
     ? '<span class="module-card__3d-host" data-majorana-menu-preview aria-hidden="true"></span>'
     : ''
 
   button.innerHTML = `
     <span class="module-card__visual" data-has-preview="${Boolean(module.preview)}" data-preview-layout="${module.preview?.layout || 'full'}">
+      ${navigationGrid}
       ${preview}
       ${livePreview}
     </span>
@@ -93,7 +116,7 @@ function createModuleCard(module, moduleCountLabel) {
       <span class="module-card__footer">
         <span class="module-card__footer-label">${module.placeholder ? 'Coming soon' : 'Open experience'}</span>
         <span class="action-arrow" aria-hidden="true">
-          <img src="${assetUrl('/assets/ui/chevron-right.svg')}" alt="">
+          <img src="${assetUrl('/assets/ui/principle-chevron.svg')}" alt="">
         </span>
       </span>
     </span>
@@ -120,6 +143,11 @@ export class KioskApp {
       development: { ...fallbackConfig.development, ...this.runtime.config?.development },
       kiosk: { ...fallbackConfig.kiosk, ...this.runtime.config?.kiosk }
     }
+    const idleConfig = this.runtime.isKiosk ? this.config.kiosk : this.config.development
+    configureIdleTimeouts({
+      returnToMenuMs: idleConfig.idleReturnToMenuMs,
+      returnToHomeMs: idleConfig.idleReturnToHomeMs
+    })
 
     this.router = new ScreenRouter(root)
     this.stage = root.getElementById('kiosk-stage')
@@ -151,13 +179,8 @@ export class KioskApp {
       viewport: root.getElementById('module-carousel-viewport')
     })
 
-    const idleTimeoutMs = this.runtime.isKiosk
-      ? this.config.kiosk.idleTimeoutMs
-      : this.config.development.idleTimeoutMs
-
     this.idleController = new IdleController({
-      timeoutMs: idleTimeoutMs,
-      onIdle: () => this.goHome()
+      onIdle: () => this.onIdle()
     })
 
     this.moduleHost = new ModuleHost({
@@ -189,12 +212,15 @@ export class KioskApp {
 
   start() {
     document.body.classList.toggle('is-kiosk', Boolean(this.runtime.isKiosk))
+    this.auroraBackgrounds?.dispose()
+    this.auroraBackgrounds = mountAuroraBackgrounds(this.root)
     this.renderModuleMenu()
     this.bindEvents()
     installPressBloom(this.root)
     installButtonTapSound(this.root)
     this.settings = createKioskSettings({
       root: this.root,
+      onIdleTimeoutChange: () => this.onIdleTimeoutChange(),
       onLayoutChange: layout => this.applyMenuLayout(layout)
     })
     this.applyMenuLayout(this.settings?.layout ?? 'top', { animate: false })
@@ -243,9 +269,10 @@ export class KioskApp {
     const hosts = [...this.moduleGrid.querySelectorAll('.module-card__shape-scene')]
       .map(element => ({
         element,
-        moduleId: element.closest('.module-card')?.dataset.moduleId
+        moduleId: element.closest('.module-card')?.dataset.moduleId,
+        gridOnly: element.hasAttribute('data-navigation-grid-only')
       }))
-      .filter(host => hasShapeScene(host.moduleId))
+      .filter(host => host.gridOnly || hasShapeScene(host.moduleId))
     if (!hosts.length) return Promise.resolve(null)
 
     this.shapeScenePoolPromise = createShapeScenePool({
@@ -325,6 +352,10 @@ export class KioskApp {
 
   openMenu() {
     if (this.isOpeningExperience) return
+    // Following the outro can advance through modules without touching the
+    // carousel. Select the module being left before revealing the menu.
+    const moduleIndex = MODULES.findIndex(module => module.id === this.activeModuleId)
+    if (moduleIndex >= 0) this.moduleCarousel.setIndex(moduleIndex, { animate: false })
     this.activeModuleId = null
     this.majoranaPreviewController?.setSuspended(false)
     Promise.resolve(this.shapeScenePoolPromise).then(pool => pool?.resetDive?.())
@@ -332,7 +363,7 @@ export class KioskApp {
     this.deferModuleUnmount()
     this.moduleCarousel.setActive(true)
     this.rememberDevelopmentView('menu')
-    this.idleController.start()
+    this.armIdle()
     void this.preloadMajoranaModule()
     void this.ensureMajoranaMenuPreview()
   }
@@ -369,7 +400,9 @@ export class KioskApp {
       return waitForPresentationReady ? activation : undefined
     }, {
       commitFrames: waitForPresentationReady ? 2 : 0
-    }).then(() => {
+    }).catch(error => {
+      console.error('Module transition failed.', error)
+    }).finally(() => {
       this.isOpeningExperience = false
     })
   }
@@ -391,13 +424,20 @@ export class KioskApp {
              warmup. Give Chromium covered frames to promote and composite its
              now-visible canvases before moving the wipe away. */
           await new Promise(resolve => {
+            let frame = null
+            const finish = () => {
+              clearTimeout(deadline)
+              if (frame !== null) cancelAnimationFrame(frame)
+              resolve()
+            }
+            const deadline = setTimeout(finish, 250)
             let remaining = commitFrames
             const commit = () => {
               remaining -= 1
-              if (remaining <= 0) resolve()
-              else requestAnimationFrame(commit)
+              if (remaining <= 0) finish()
+              else frame = requestAnimationFrame(commit)
             }
-            requestAnimationFrame(commit)
+            frame = requestAnimationFrame(commit)
           })
         }
         wipe.classList.remove('is-covering')
@@ -424,7 +464,7 @@ export class KioskApp {
     this.activeModuleId = module.id
     this.router.show('module')
     this.rememberDevelopmentView('module', module.id)
-    this.idleController.start()
+    this.armIdle()
     return this.moduleHost.mount({
       ...module,
       categoryLabel: category.label,
@@ -440,20 +480,12 @@ export class KioskApp {
 
   deferModuleUnmount() {
     this.cancelDeferredModuleUnmount()
-    const delay = moduleUnmountDelay(this.runtime)
-    /* Kiosk screen changes are intentionally immediate to keep only one 4K
-       experience resident at a time. Release the outgoing WebGL/video work
-       before menu previews resume; windowed review retains its authored fade. */
-    if (delay === 0) {
-      if (this.router.currentScreen !== 'module') this.moduleHost.unmount()
-      return
-    }
     /* Screens fade for 360 ms. Keep the outgoing module alive through that
        interval so its WebGL surfaces fade as part of the screen, then free it. */
     this.moduleUnmountTimer = window.setTimeout(() => {
       this.moduleUnmountTimer = null
       if (this.router.currentScreen !== 'module') this.moduleHost.unmount()
-    }, delay)
+    }, SCREEN_UNMOUNT_DELAY_MS)
   }
 
   preloadMajoranaModule() {
@@ -516,7 +548,8 @@ export class KioskApp {
     card.classList.add('is-preview-warming')
     card.classList.remove('has-live-preview', 'is-preview-unavailable')
     this.majoranaPreviewAbortController = abortController
-    this.majoranaPreviewPromise = createMajoranaScene({
+    const deadline = setTimeout(() => abortController.abort(taskTimeout('Majorana preview timed out.')), 30000)
+    this.majoranaPreviewPromise = waitForTask(createMajoranaScene({
       host,
       signal: abortController.signal,
       navigationPreview: true,
@@ -526,7 +559,7 @@ export class KioskApp {
         card.classList.remove('is-preview-warming', 'is-preview-unavailable')
         card.classList.add('has-live-preview')
       }
-    }).then(controller => {
+    }), abortController.signal, controller => controller.dispose()).finally(() => clearTimeout(deadline)).then(controller => {
       if (abortController.signal.aborted) {
         controller.dispose()
         return null
@@ -625,13 +658,15 @@ export class KioskApp {
               moduleHost.removeEventListener('majorana:scene-error', handleError)
             }
           })
+          // Observe early scene errors while mount is still preparing the handoff.
+          void sceneReady.catch(() => {})
           const sceneStartPromise = new Promise(resolve => {
             startScene = resolve
           })
           const category = MODULE_CATEGORIES[module.category]
           this.activeModuleId = module.id
-          this.idleController.start()
-          await this.moduleHost.mount({
+          this.armIdle()
+          const mountResult = await this.moduleHost.mount({
             ...module,
             categoryLabel: category.label,
             accent: category.color
@@ -641,6 +676,7 @@ export class KioskApp {
             majoranaSceneController: previewController,
             runtime: this.runtime
           })
+          if (mountResult.status !== 'active') throw mountResult.error || new Error('Majorana preparation was interrupted.')
           prepared = true
           let handoffPromise = null
           handoffScene = () => {
@@ -667,7 +703,9 @@ export class KioskApp {
         this.disposeMajoranaMenuPreview()
         await this.activateModule(module)
       } else {
-        await handoffScene?.().catch(() => undefined)
+        startScene?.()
+        // The preview belongs to this failed portal; retry builds a fresh scene.
+        this.moduleHost.reportError(error, { runtime: this.runtime })
         this.router.show('module')
       }
     } finally {
@@ -705,6 +743,24 @@ export class KioskApp {
 
   onActivity() {
     this.idleController.reset()
+  }
+
+  armIdle() {
+    armIdleController(this.idleController, this.activeModuleId)
+  }
+
+  onIdle() {
+    routeIdle({
+      activeModuleId: this.activeModuleId,
+      goHome: () => this.goHome(),
+      idleController: this.idleController,
+      isOpeningExperience: this.isOpeningExperience,
+      openMenu: () => this.openMenu()
+    })
+  }
+
+  onIdleTimeoutChange() {
+    rearmIdleController(this.idleController, this.activeModuleId)
   }
 
   /* Top and Center move the artwork, the copy, the CTA and the dots all at

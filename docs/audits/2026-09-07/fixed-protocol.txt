@@ -1,0 +1,24 @@
+[
+  {
+    "path": "/assets/modules/differences/Buoy.glb",
+    "minimumBytes": 150000,
+    "bytes": 190736,
+    "ok": true,
+    "status": 200
+  },
+  {
+    "path": "/assets/modules/differences/coins/US Coins OBj.obj",
+    "minimumBytes": 200000,
+    "bytes": 248363,
+    "ok": true,
+    "status": 200
+  },
+  {
+    "path": "/assets/modules/differences/coins/TwentyFive_Cent_Color.bmp",
+    "minimumBytes": 8000000,
+    "bytes": 8553656,
+    "ok": true,
+    "status": 200
+  }
+]
+Packaged protocol smoke test passed.

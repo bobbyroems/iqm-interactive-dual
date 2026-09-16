@@ -8,78 +8,78 @@ const clips = Object.freeze([
     file: 'intro-reveal-alpha.webm',
     label: 'Intro reveal',
     source: 'TPT_Intro-Reveal_SHORT.mp4',
-    title: 'Intro reveal po usunięciu czerni',
-    body: 'Czarne tło zostało zamienione na płynną alfę. Jasne tło aplikacji ujawnia jednak ciemne obwódki wynikające z kompresji H.264.'
+    title: 'Intro reveal after black removal',
+    body: 'The black background was converted to smooth alpha. The light app background still reveals dark edges caused by H.264 compression.'
   },
   {
     file: 'add-on-fx-alpha.webm',
     label: 'Add-on FX',
     source: 'TPT_Add-on-FX.mp4',
-    title: 'Dodatkowa warstwa świetlna',
-    body: 'To materiał najbardziej zbliżony do klasycznej warstwy efektowej. Po kluczowaniu zachowuje niebieskie światło, a czarne pole znika.'
+    title: 'Additional light layer',
+    body: 'This clip is closest to a classic effects layer. Keying preserves the blue light while removing the black field.'
   },
   {
     file: 'electricity-pulses-alpha.webm',
     label: 'Electricity pulses',
     source: 'TPT_Electricicy_Pulses.mp4',
-    title: 'Impulsy elektryczne',
-    body: 'Żółte impulsy pozostają widoczne na jasnym tle, ale część miękkiej poświaty staje się subtelniejsza niż na czerni.'
+    title: 'Electrical pulses',
+    body: 'Yellow pulses remain visible on the light background, but some soft glow is subtler than against black.'
   },
   {
     file: 'particles-a-alpha.webm',
     label: 'Particles A',
     source: 'TPT_PARTICLES-A.mp4',
-    title: 'Cząsteczki — warstwa A',
-    body: 'Cząsteczki dobrze oddzielają się od tła. Najciemniejsze piksele na ich krawędziach pozostają ograniczeniem źródłowego MP4.'
+    title: 'Particles — layer A',
+    body: 'The particles separate well from the background. The darkest edge pixels remain a limitation of the source MP4.'
   },
   {
     file: 'particles-b-alpha.webm',
     label: 'Particles B',
     source: 'TPT_PARTICLES-B.mp4',
-    title: 'Cząsteczki — warstwa B',
-    body: 'Druga warstwa zachowuje niezależny ruch i może być nakładana osobno. Podgląd odtwarza tylko reprezentatywny fragment.'
+    title: 'Particles — layer B',
+    body: 'The second layer retains independent motion and can be composited separately. The preview plays a representative segment.'
   },
   {
     file: 'device-fade-top-alpha.webm',
     label: 'Device fade top',
     source: 'TPT_DeviceFadeTop.mp4',
-    title: 'Górna część urządzenia',
-    body: 'Klucz usuwa czarne pole, ale może naruszać bardzo ciemne detale samego urządzenia. To warstwa wymagająca eksportu z natywną alfą.'
+    title: 'Top of device',
+    body: 'The key removes the black field but can affect very dark device details. This layer needs an export with native alpha.'
   },
   {
     file: 'device-electrons-outro-alpha.webm',
     label: 'Device + electrons outro',
     source: 'Device_wElectrons+Electricity-OUTRO.mp4',
-    title: 'Urządzenie i elektrony — outro',
-    body: 'Pełny obiekt jest czytelny, lecz czarny matte był już wtopiony w krawędzie. Draft pokazuje realną jakość możliwą do odzyskania.'
+    title: 'Device and electrons — outro',
+    body: 'The full object is readable, but the black matte was already baked into the edges. The draft shows the recoverable quality.'
   },
   {
     file: 'full-fx-outro-alpha.webm',
     label: 'Full FX outro',
     source: 'TPT_wFullFX-OUTRO.mp4',
-    title: 'Pełny zestaw efektów — outro',
-    body: 'Kompozycja odzyskuje przezroczyste tło, ale miękkie światło i ciemne elementy konkurują o ten sam zakres luminancji.'
+    title: 'Full effects set — outro',
+    body: 'The composition regains a transparent background, but soft light and dark elements compete in the same luminance range.'
   },
   {
     file: 'outro-dereveal-alpha.webm',
     label: 'Outro de-reveal',
     source: 'TPT_Outro-DeReveal_SHORT.mp4',
     title: 'Outro de-reveal',
-    body: 'Krótka warstwa końcowa po kluczowaniu. Na jasnym tle dobrze widać, gdzie źródłowy H.264 pozostawił ciemny fringe.'
+    body: 'A short keyed outro layer. The light background makes the dark fringe left by the source H.264 easy to see.'
   },
   {
     file: 'nanowire-opaque.mp4',
     label: 'Nanowire inset — bez klucza',
     source: 'TPT_Nanowire_InsetWindow.mp4',
-    title: 'Nanowire inset pozostaje nieprzezroczysty',
-    body: 'Ten plik nie ma czarnego tła do usunięcia. Niebiesko-szare pole jest częścią obrazu, więc pokazujemy je bez kluczowania.'
+    title: 'Nanowire inset remains opaque',
+    body: 'This clip has no black background to remove. The blue-grey field is part of the image, so it is shown without keying.'
   }
 ])
 
 const backgrounds = Object.freeze([
-  { id: 'app', label: 'Tło: aplikacja' },
-  { id: 'checker', label: 'Tło: kontrola alfa' },
-  { id: 'dark', label: 'Tło: ciemne' }
+  { id: 'app', label: 'Background: app' },
+  { id: 'checker', label: 'Background: alpha check' },
+  { id: 'dark', label: 'Background: dark' }
 ])
 
 const stage = document.getElementById('kiosk-stage')
@@ -115,7 +115,7 @@ for (const [index, clip] of clips.entries()) {
 }
 
 function setPlayButton(paused) {
-  playButton.textContent = paused ? 'Odtwórz' : 'Pauza'
+  playButton.textContent = paused ? 'Play' : 'Pause'
   playButton.setAttribute('aria-pressed', String(paused))
 }
 
@@ -128,7 +128,7 @@ async function loadClip(index) {
   media.classList.remove('is-ready')
   loading.hidden = false
   error.hidden = true
-  status.textContent = `Źródło: ${clip.source}`
+  status.textContent = `Source: ${clip.source}`
   updateKioskExplainer(explainer, {
     title: clip.title,
     body: clip.body,
@@ -143,7 +143,7 @@ async function loadClip(index) {
   try {
     await new Promise((resolve, reject) => {
       const onReady = () => resolve()
-      const onError = () => reject(new Error('Nie udało się odczytać lokalnego pliku podglądu.'))
+      const onError = () => reject(new Error('Could not read the local preview file.'))
       video.addEventListener('loadeddata', onReady, { once: true })
       video.addEventListener('error', onError, { once: true })
     })
@@ -155,7 +155,7 @@ async function loadClip(index) {
   } catch (loadError) {
     if (sequence !== loadSequence) return
     loading.hidden = true
-    error.textContent = `${loadError.message} Uruchom ponownie generator draftów i odśwież stronę.`
+    error.textContent = `${loadError.message} Restart the draft generator and refresh the page.`
     error.hidden = false
     setPlayButton(true)
   }

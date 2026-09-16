@@ -16,11 +16,11 @@ import {
   mapLoupePointer,
   nextNanowirePhase,
   resolveLoupeCenteringProgress,
+  resolveLoupeMagneticPull,
   resolveLoupeTarget
 } from './interaction.js'
 import { createNanowireScene } from './nanowire-scene.js'
-import { createUpNextBanner } from '../../core/up-next-banner.js'
-import { nextPlayableModule } from '../module-registry.js'
+import { mountModuleOutro } from '../module-outro.js'
 import {
   acquireNanowireScene,
   createNanowireAbortError
@@ -35,7 +35,8 @@ const LOUPE_LABEL_CLEARANCE = 168
 const SAFE_BOTTOM_Y = 2568
 const INITIAL_LOUPE_POSITION = Object.freeze({ x: 1660, y: 1580 })
 const FINAL_COPY_READING_LEAD_MS = 1_800
-const CORRECTION_CONFIRMATION_HOLD_MS = 2_000
+const FOUND_CONFIRMATION_HOLD_MS = 1_400
+const CORRECTION_CONFIRMATION_HOLD_MS = 2_600
 const REPAIR_EXIT_FADE_MS = 420
 export const NANOWIRE_COPY = Object.freeze({
   intro: Object.freeze({
@@ -45,7 +46,7 @@ export const NANOWIRE_COPY = Object.freeze({
   }),
   ready: Object.freeze({
     title: 'Why so precise?',
-    body: 'In a topological qubit, the quantum information is protected by the structure of the material itself, so the structure must be flawless.',
+    body: 'In a topological qubit, the quantum information is protected by the structure of the material itself. So the structure must be flawless.',
     tooltip: 'Swipe down to snap all layers into place'
   }),
   defect: Object.freeze({
@@ -56,7 +57,7 @@ export const NANOWIRE_COPY = Object.freeze({
   finale: Object.freeze({
     title: 'Every atom in place',
     body: 'In real life, there’s no “Correct” button. In the lab, a qubit with defects is simply unusable. You can’t repair it.',
-    footer: 'Hence, Microsoft has spent years building up expertise to grow near-flawless quantum material on demand, not by luck.'
+    footer: 'Microsoft has spent years building up expertise to grow near-flawless quantum material on demand, not by luck.'
   })
 })
 
@@ -107,17 +108,18 @@ function moduleMarkup() {
           <span class="nw__loupe-visual">
             <span class="nw__loupe-glass">
               <span class="nw__loupe-view" data-nw-loupe-view></span>
-              <span class="nw__loupe-crosshair" aria-hidden="true"></span>
             </span>
             <span class="nw__loupe-frame" aria-hidden="true"></span>
+            <!-- Invisible grip over the handle the frame bitmap draws. The
+                 frame reaches far outside the loupe's own box and cannot take
+                 pointer events, so without this the handle is the one part of a
+                 magnifier a hand reaches for and the only part it cannot. -->
+            <span class="nw__loupe-grip" aria-hidden="true"></span>
           </span>
-          <button class="nw__correct" type="button" data-nw-action="correct" disabled hidden>
-            <span class="nw__action-check" aria-hidden="true"><img src="${correctCheck}" alt=""></span>
-            <span>Correct</span>
-          </button>
+          <span class="nw__found" aria-hidden="true" hidden>Found the defect!</span>
           <span class="nw__corrected" aria-hidden="true" hidden>
+            <span>Defect fixed</span>
             <span class="nw__action-check" aria-hidden="true"><img src="${correctCheck}" alt=""></span>
-            <span>Defect corrected</span>
           </span>
         </div>
 
@@ -173,28 +175,25 @@ export async function mount(container, options = {}) {
   const loupe = root.querySelector('[data-nw-loupe]')
   const loupeView = root.querySelector('[data-nw-loupe-view]')
   const loupeFrame = root.querySelector('.nw__loupe-frame')
-  const correctButton = root.querySelector('[data-nw-action="correct"]')
+  const foundBadge = root.querySelector('.nw__found')
   const startButton = root.querySelector('[data-nw-action="start"]')
   const completion = root.querySelector('[data-nw-completion]')
 
   /* Offered once the wire is finished, so the visitor can carry straight on
      rather than going back out to the carousel. What follows comes from the
      registry, so the run order stays in one place. */
-  const followingModule = module ? nextPlayableModule(module.id) : null
-  const upNextBanner = followingModule
-    ? createUpNextBanner({
-        title: followingModule.title,
-        onContinue: () => {
-          onActivity?.()
-          navigate.module?.(followingModule.id)
-        }
-      })
-    : null
-  if (upNextBanner) root.append(upNextBanner.element)
+  /* The band states where the visitor is, then follows the registry route. */
+  const upNextBanner = mountModuleOutro({
+    module,
+    root,
+    navigate,
+    onActivity,
+    onRestart: () => root.querySelector('[data-nw-action="restart"]')?.click()
+  })
   const correctedBadge = root.querySelector('.nw__corrected')
   loupeFrame.style.setProperty(
-    '--nw-loupe-frame-image',
-    `url("${assetUrl('assets/modules/build-nanowire/loupe-frame.svg')}")`
+    '--nw-loupe-asset-image',
+    `url("${assetUrl('assets/modules/build-nanowire/loupe2.png')}")`
   )
   const listeners = new AbortController()
   const timers = new Map()
@@ -206,6 +205,7 @@ export async function mount(container, options = {}) {
   let loupeDrag = null
   const loupePosition = { ...INITIAL_LOUPE_POSITION }
   const pointerPoint = { x: 0, y: 0, time: 0 }
+  const magneticPoint = { x: 0, y: 0, distance: Infinity, amount: 0 }
   let experienceWidth = Math.max(experience.offsetWidth, 1)
   let experienceHeight = Math.max(experience.offsetHeight, 1)
   let uiRaf = null
@@ -249,6 +249,7 @@ export async function mount(container, options = {}) {
 
   const setExplainer = (copy, options = {}) => {
     const visible = Boolean(copy)
+    explainer.element.classList.toggle('nw__prompt--defect', copy === NANOWIRE_COPY.defect)
     updateKioskExplainer(explainer, {
       title: copy?.title ?? '',
       body: copy?.body ?? '',
@@ -387,7 +388,7 @@ export async function mount(container, options = {}) {
     const moved = await animateLoupeTo(
       experienceWidth + LOUPE_RADIUS,
       loupePosition.y,
-      { duration: 680, allowOffscreen: true }
+      { duration: 820, allowOffscreen: true }
     )
     if (!moved || disposed) return false
     scene?.setMagnifierVisible(false)
@@ -396,32 +397,41 @@ export async function mount(container, options = {}) {
     return true
   }
 
+  const lockLoupeToDefect = async defectPosition => {
+    const pointerId = loupeDrag?.pointerId
+    loupeMoveQueue.cancel()
+    loupeDrag = null
+    loupe.classList.remove('is-dragging')
+    if (pointerId !== undefined) releaseCapturedPointer(loupe, pointerId)
+    loupe.classList.add('is-locking')
+    const centred = await animateLoupeTo(defectPosition.x, defectPosition.y, {
+      duration: NANOWIRE_LOUPE_TARGETING.centeringDuration,
+      easing: 'centering'
+    })
+    loupe.classList.remove('is-locking')
+    if (!centred || disposed || phase !== NANOWIRE_PHASES.targeted) return
+
+    loupe.classList.add('is-locked')
+    scene?.setMagnifierDefectLock(true)
+    foundBadge.hidden = false
+    setInstruction('')
+    setStatus('Defect found. The magnifying glass is locked on the faulty atom while it calibrates.')
+    sound.pop()
+    await wait(reducedMotion ? 80 : FOUND_CONFIRMATION_HOLD_MS)
+    if (disposed || phase !== NANOWIRE_PHASES.targeted) return
+    await correctDefect()
+  }
+
   const updateLoupeAlignment = () => {
-    if (phase !== NANOWIRE_PHASES.inspect && phase !== NANOWIRE_PHASES.targeted) return false
+    if (phase !== NANOWIRE_PHASES.inspect) return false
     const defectPosition = scene?.getDefectScreenPosition()
     if (!defectPosition) return false
-    const wasTargeted = phase === NANOWIRE_PHASES.targeted
     const target = resolveLoupeTarget(loupePosition, defectPosition, {
-      lockRadius: NANOWIRE_LOUPE_TARGETING.lockRadius,
-      releaseRadius: NANOWIRE_LOUPE_TARGETING.releaseRadius,
-      wasTargeted
+      lockRadius: NANOWIRE_LOUPE_TARGETING.lockRadius
     })
     loupe.classList.toggle('is-near-defect', target.distance < LOUPE_RADIUS * 0.72)
-    if (target.targeted === wasTargeted) return target.targeted
-
-    if (!target.targeted) {
-      transition(NANOWIRE_EVENTS.untargeted)
-      correctButton.disabled = true
-      correctButton.hidden = true
-      setStatus('Centre the defective atom precisely in the magnifying glass to repair it.')
-      return false
-    }
-
-    transition(NANOWIRE_EVENTS.targeted)
-    correctButton.hidden = false
-    correctButton.disabled = false
-    setStatus('The defective atom is centred in the magnifying glass. Correct it to continue.')
-    sound.pop()
+    if (!target.targeted || !transition(NANOWIRE_EVENTS.targeted)) return false
+    void lockLoupeToDefect(defectPosition)
     return true
   }
 
@@ -429,7 +439,7 @@ export async function mount(container, options = {}) {
     if (
       disposed
       || !loupeDrag
-      || (phase !== NANOWIRE_PHASES.inspect && phase !== NANOWIRE_PHASES.targeted)
+      || phase !== NANOWIRE_PHASES.inspect
     ) return
     setLoupePosition(x, y)
     updateLoupeAlignment()
@@ -439,10 +449,24 @@ export async function mount(container, options = {}) {
     stageLatest: (x, y) => scene?.setMagnifierPosition(x, y)
   })
 
-  const scheduleLoupeMove = (x, y) => loupeMoveQueue.schedule(
-    clampLoupeX(x),
-    clampLoupeY(y)
-  )
+  const scheduleLoupeMove = (x, y) => {
+    const clampedX = clampLoupeX(x)
+    const clampedY = clampLoupeY(y)
+    const defectPosition = scene?.getDefectScreenPosition()
+    if (!defectPosition || phase !== NANOWIRE_PHASES.inspect) {
+      return loupeMoveQueue.schedule(clampedX, clampedY)
+    }
+    resolveLoupeMagneticPull(
+      { x: clampedX, y: clampedY },
+      defectPosition,
+      NANOWIRE_LOUPE_TARGETING,
+      magneticPoint
+    )
+    return loupeMoveQueue.schedule(
+      clampLoupeX(magneticPoint.x),
+      clampLoupeY(magneticPoint.y)
+    )
+  }
 
   const beginInspection = () => {
     if (!transition(NANOWIRE_EVENTS.scanned)) return
@@ -451,7 +475,9 @@ export async function mount(container, options = {}) {
     setStatus('Drag the magnifying glass across the nanowire to inspect the atoms.')
     loupe.setAttribute('aria-hidden', 'false')
     loupe.tabIndex = 0
-    loupe.classList.remove('has-interacted')
+    loupe.classList.remove('has-interacted', 'is-locking', 'is-locked')
+    foundBadge.hidden = true
+    correctedBadge.hidden = true
     setLoupePosition(INITIAL_LOUPE_POSITION.x, INITIAL_LOUPE_POSITION.y)
     scene?.beginInspection()
     scene?.setMagnifierVisible(true)
@@ -513,31 +539,16 @@ export async function mount(container, options = {}) {
   }
 
   const correctDefect = async () => {
-    const defectPosition = scene?.getDefectScreenPosition()
-    if (!defectPosition || !transition(NANOWIRE_EVENTS.correct)) return
-    correctButton.disabled = true
+    if (!scene || !transition(NANOWIRE_EVENTS.correct)) return
     setInstruction('')
-    setStatus('Correcting the defective atom.')
-    /* Start the repair and its blue confirmation field on the same input frame.
-       Loupe centring is visual continuity, not a reason to delay feedback. */
-    const repair = scene?.repairDefect()
-    loupe.classList.add('is-centering')
-    const centred = await animateLoupeTo(defectPosition.x, defectPosition.y, {
-      duration: NANOWIRE_LOUPE_TARGETING.centeringDuration,
-      easing: 'centering'
-    })
-    loupe.classList.remove('is-centering')
-    if (disposed || !centred) return
-
-    scene?.setMagnifierDefectLock(true)
-    setStatus('Repairing the defective atom.')
-    await repair
+    setStatus('Calibrating the atom positions around the defect.')
+    await scene.repairDefect()
     if (disposed || !transition(NANOWIRE_EVENTS.repaired)) return
 
-    correctButton.hidden = true
+    foundBadge.hidden = true
     correctedBadge.hidden = false
     setExplainer(null)
-    setStatus('The atom has been repaired and the signal is flowing through the nanowire.')
+    setStatus('Defect fixed. The repaired atom is gray and confirmed with a green glow.')
     sound.chime()
     await wait(reducedMotion ? 120 : CORRECTION_CONFIRMATION_HOLD_MS)
     if (disposed) return
@@ -636,10 +647,9 @@ export async function mount(container, options = {}) {
   loupe.addEventListener('pointerdown', event => {
     if (
       loupeDrag
-      || (phase !== NANOWIRE_PHASES.inspect && phase !== NANOWIRE_PHASES.targeted)
+      || phase !== NANOWIRE_PHASES.inspect
       || event.button > 0
     ) return
-    if (event.target.closest('[data-nw-action="correct"]')) return
     event.preventDefault()
     event.stopPropagation()
     noteActivity()
@@ -661,7 +671,7 @@ export async function mount(container, options = {}) {
     if (
       !loupeDrag
       || loupeDrag.pointerId !== event.pointerId
-      || (phase !== NANOWIRE_PHASES.inspect && phase !== NANOWIRE_PHASES.targeted)
+      || phase !== NANOWIRE_PHASES.inspect
     ) return
     event.preventDefault()
     const point = toDesignPoint(getLatestPointerSample(event), loupeDrag.mapping)
@@ -689,7 +699,7 @@ export async function mount(container, options = {}) {
   loupe.addEventListener('pointercancel', finishLoupeDrag, { signal: listeners.signal })
 
   loupe.addEventListener('keydown', event => {
-    if (phase !== NANOWIRE_PHASES.inspect && phase !== NANOWIRE_PHASES.targeted) return
+    if (phase !== NANOWIRE_PHASES.inspect) return
     const movement = reducedMotion ? 64 : 36
     const moves = {
       ArrowLeft: [-movement, 0],
@@ -702,7 +712,14 @@ export async function mount(container, options = {}) {
     event.preventDefault()
     noteActivity()
     loupe.classList.add('has-interacted')
-    setLoupePosition(loupePosition.x + delta[0], loupePosition.y + delta[1])
+    const defectPosition = scene?.getDefectScreenPosition()
+    resolveLoupeMagneticPull(
+      { x: loupePosition.x + delta[0], y: loupePosition.y + delta[1] },
+      defectPosition,
+      NANOWIRE_LOUPE_TARGETING,
+      magneticPoint
+    )
+    setLoupePosition(magneticPoint.x, magneticPoint.y)
     updateLoupeAlignment()
   }, { signal: listeners.signal })
 
@@ -723,10 +740,6 @@ export async function mount(container, options = {}) {
     if (action === 'start') {
       startIntro()
       return
-    }
-    if (action === 'correct') {
-      noteActivity()
-      void correctDefect()
     }
   }, { signal: listeners.signal })
 

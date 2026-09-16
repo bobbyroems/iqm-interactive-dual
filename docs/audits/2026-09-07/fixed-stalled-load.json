@@ -1,0 +1,24 @@
+{
+  "fault": "Simulated image request with no load/error event; cache preheat remains pending.",
+  "before": {
+    "stalledImages": [
+      "http://127.0.0.1:5245/assets/modules/nanoscale/splash-room.webp"
+    ],
+    "opening": false,
+    "screen": "module",
+    "activeModule": "nanoscale",
+    "wipe": "screen-wipe",
+    "moduleState": "error",
+    "hiddenStage": false
+  },
+  "afterRecoveryAttempts": {
+    "stalledImages": [
+      "http://127.0.0.1:5245/assets/modules/nanoscale/splash-room.webp"
+    ],
+    "opening": false,
+    "screen": "attract",
+    "activeModule": null,
+    "wipe": "screen-wipe",
+    "hiddenStage": false
+  }
+}

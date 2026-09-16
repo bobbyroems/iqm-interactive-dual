@@ -1,0 +1,157 @@
+{
+  "environment": {
+    "electron": "39.8.10",
+    "chrome": "142.0.7444.265",
+    "viewport": {
+      "width": 1080,
+      "height": 1920,
+      "dpr": 1
+    }
+  },
+  "majorana": {
+    "completed": true,
+    "frames": 672,
+    "dissolveFrames": 88,
+    "stationaryIntermediateFrames": 0,
+    "fixture": "Real module renderers; state advanced directly to completed build, bypassing the drag gesture."
+  },
+  "nanoscale": {
+    "samples": [
+      {
+        "mode": "before",
+        "refreshes": 0,
+        "matrices": [
+          "none",
+          "none",
+          "none",
+          "translate3d(-1204.64px, -4595.2px, 0px) scale(2.56634)",
+          "matrix(2.51627, 0, 0, 2.51627, -1948.05, -2949.47)"
+        ]
+      },
+      {
+        "mode": "after",
+        "refreshes": 2,
+        "matrices": [
+          "none",
+          "none",
+          "none",
+          "translate3d(-1204.64px, -4595.2px, 0px) scale(2.56634)",
+          "matrix(2.51627, 0, 0, 2.51627, -1948.05, -2949.47)"
+        ]
+      }
+    ],
+    "pixelErrorVsSharp": [
+      {
+        "mode": "before",
+        "meanChannelError": 0.2855097489027988,
+        "rmse": 1.0137304726528533
+      },
+      {
+        "mode": "after",
+        "meanChannelError": 0.22131268436578172,
+        "rmse": 0.7631356827071312
+      }
+    ],
+    "note": "Same progress 1.5, raster updates sampled inside RAF. Final version additionally allows the first refresh without the 180ms wait."
+  },
+  "magnetic": {
+    "fullFramebuffer": {
+      "width": 1060,
+      "height": 2452
+    },
+    "copyRegion": {
+      "x": 86,
+      "y": 58,
+      "width": 974,
+      "height": 1732
+    },
+    "copiedPixelsReduction": 0.3509464741912648,
+    "pixelComparison": [
+      {
+        "time": 0,
+        "strength": 0.021,
+        "maxChannelDifference": 0,
+        "changedChannels": 0,
+        "blurEffectChannels": 2443
+      },
+      {
+        "time": 0,
+        "strength": 0.5,
+        "maxChannelDifference": 0,
+        "changedChannels": 0,
+        "blurEffectChannels": 47645
+      },
+      {
+        "time": 0,
+        "strength": 1.15,
+        "maxChannelDifference": 0,
+        "changedChannels": 0,
+        "blurEffectChannels": 63752
+      },
+      {
+        "time": 0.6,
+        "strength": 0.021,
+        "maxChannelDifference": 0,
+        "changedChannels": 0,
+        "blurEffectChannels": 2875
+      },
+      {
+        "time": 0.6,
+        "strength": 0.5,
+        "maxChannelDifference": 0,
+        "changedChannels": 0,
+        "blurEffectChannels": 53144
+      },
+      {
+        "time": 0.6,
+        "strength": 1.15,
+        "maxChannelDifference": 0,
+        "changedChannels": 0,
+        "blurEffectChannels": 69161
+      },
+      {
+        "time": 3,
+        "strength": 0.021,
+        "maxChannelDifference": 0,
+        "changedChannels": 0,
+        "blurEffectChannels": 2129
+      },
+      {
+        "time": 3,
+        "strength": 0.5,
+        "maxChannelDifference": 0,
+        "changedChannels": 0,
+        "blurEffectChannels": 41804
+      },
+      {
+        "time": 3,
+        "strength": 1.15,
+        "maxChannelDifference": 0,
+        "changedChannels": 0,
+        "blurEffectChannels": 55953
+      },
+      {
+        "time": 8,
+        "strength": 0.021,
+        "maxChannelDifference": 0,
+        "changedChannels": 0,
+        "blurEffectChannels": 2841
+      },
+      {
+        "time": 8,
+        "strength": 0.5,
+        "maxChannelDifference": 0,
+        "changedChannels": 0,
+        "blurEffectChannels": 52893
+      },
+      {
+        "time": 8,
+        "strength": 1.15,
+        "maxChannelDifference": 0,
+        "changedChannels": 0,
+        "blurEffectChannels": 68006
+      }
+    ],
+    "note": "Pixel comparison checks the visible interior of a cropped synthetic fixture on the actual wave geometry/shaders. Full-module local FPS was display-limited before and after; no Windows hardware measurement."
+  }
+}

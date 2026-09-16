@@ -1,27 +1,3 @@
-@property --pqi-temp-base-top-alpha {
-  syntax: "<number>";
-  inherits: true;
-  initial-value: 0;
-}
-
-@property --pqi-temp-base-mid-alpha {
-  syntax: "<number>";
-  inherits: true;
-  initial-value: 0;
-}
-
-@property --pqi-temp-cooling-top-alpha {
-  syntax: "<number>";
-  inherits: true;
-  initial-value: 0;
-}
-
-@property --pqi-temp-cooling-mid-alpha {
-  syntax: "<number>";
-  inherits: true;
-  initial-value: 0;
-}
-
 .pqi,
 .pqi * {
   box-sizing: border-box;
@@ -34,10 +10,7 @@
   --pqi-blue: #168fd0;
   --pqi-green: #aee7a7;
   --pqi-temperature: 0;
-  --pqi-temp-base-top-alpha: 0;
-  --pqi-temp-base-mid-alpha: 0;
-  --pqi-temp-cooling-top-alpha: 0;
-  --pqi-temp-cooling-mid-alpha: 0;
+  --pqi-background-cooling: 0;
   --pqi-rim: 0;
   position: absolute;
   inset: 0;
@@ -71,19 +44,9 @@
   position: absolute;
   inset: 120px 0 0;
   overflow: hidden;
-  /* The board's backdrop for this module: periwinkle overhead falling to near
-     white at the floor, sampled down its Topophase screen. This layer is the
-     one that shows — putting it on .pqi underneath left it washed out through
-     the near-white this used to carry. */
-  background: linear-gradient(
-    180deg,
-    #627df3 0%,
-    #6a85f6 12%,
-    #93a6ec 34%,
-    #c9d3e8 56%,
-    #e8eefb 74%,
-    #fcfcff 100%
-  );
+  background:
+    radial-gradient(ellipse 75% 36% at 95% 43%, rgba(180, 145, 229, 0.45), transparent 100%),
+    linear-gradient(180deg, #eeebf8 0%, #e1daf4 25%, #cec6ed 48%, #e8eefb 74%, #fcfcff 100%);
   isolation: isolate;
 }
 
@@ -93,27 +56,20 @@
   inset: 0;
   content: "";
   pointer-events: none;
-}
-
-.pqi__experience::before {
-  background:
-    linear-gradient(
-      180deg,
-      rgba(43, 79, 239, var(--pqi-temp-cooling-top-alpha)) 0%,
-      rgba(65, 141, 232, var(--pqi-temp-cooling-mid-alpha)) 50%,
-      rgba(90, 190, 243, 0) 100%
-    ),
-    linear-gradient(
-      180deg,
-      rgba(99, 130, 255, var(--pqi-temp-base-top-alpha)) 0%,
-      rgba(142, 191, 236, var(--pqi-temp-base-mid-alpha)) 50%,
-      rgba(142, 191, 236, 0) 100%
-    );
-  transition:
-    --pqi-temp-base-top-alpha 520ms cubic-bezier(0.16, 1, 0.3, 1),
-    --pqi-temp-base-mid-alpha 520ms cubic-bezier(0.16, 1, 0.3, 1),
-    --pqi-temp-cooling-top-alpha 520ms cubic-bezier(0.16, 1, 0.3, 1),
-    --pqi-temp-cooling-mid-alpha 520ms cubic-bezier(0.16, 1, 0.3, 1);
+  /* Temperature crossfades lavender into the reference's cool blue. Keep the
+     top pale for the copy and fade back to the light floor beneath the dials. */
+  background: linear-gradient(
+    180deg,
+    #f2f3fd 0%,
+    #e3e8fb 18%,
+    #b3c2f4 30%,
+    #6a85f6 46%,
+    #93a6ec 56%,
+    #e8eefb 74%,
+    #fcfcff 100%
+  );
+  opacity: var(--pqi-background-cooling);
+  transition: opacity 360ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .pqi__content {
@@ -126,9 +82,9 @@
   flex-direction: column;
   align-items: center;
   gap: 60px;
-  color: var(--pqi-ink);
+  color: #25314f;
   text-align: center;
-  text-shadow: var(--pqi-text-shadow);
+  text-shadow: none;
   transform: translateX(-50%);
 }
 
@@ -177,7 +133,8 @@
   left: calc(13px - var(--pqi-scene-shift));
   width: 2135px;
   height: 1695px;
-  overflow: hidden;
+  /* Both the kiosk scene and video overlay need room for the magnetic crests. */
+  overflow: visible;
   background: transparent;
   pointer-events: none;
 }
@@ -196,7 +153,18 @@
 }
 
 .pqi__scene {
+  /* The kiosk camera sends crests farther down than the video composition.
+     Cover the full stage so no canvas edge can cut through a visible crest. */
+  --pqi-scene-overscan: 1900px;
+  --pqi-scene-overscan-x: 120px;
+
   z-index: 1;
+  right: auto;
+  bottom: auto;
+  left: calc(-1 * var(--pqi-scene-overscan-x));
+  top: calc(-1 * var(--pqi-scene-overscan));
+  width: calc(100% + (var(--pqi-scene-overscan-x) * 2));
+  height: calc(100% + (var(--pqi-scene-overscan) * 2));
   background: transparent;
 }
 
@@ -487,6 +455,36 @@
   object-fit: contain;
 }
 
+/* Temperature's target is one sector driven by the same angles as its tuning
+   logic. The bitmap ended at 354deg; patching it with a farthest-corner radial
+   mask left only a thin outer line instead of filling the gap to 100%. */
+.pqi__dial[data-pqi-dial="temperature"] .pqi__dial-target img {
+  display: none;
+}
+
+.pqi__dial[data-pqi-dial="temperature"] .pqi__dial-target::after {
+  position: absolute;
+  inset: 0;
+  content: "";
+  pointer-events: none;
+  border-radius: 50%;
+  /* Match the bitmap's green and faint radial rim. The dial body covers the
+     sector's centre; the circle clips its outside at exactly the scale radius.
+     No round end cap: it would extend the target past the 360-degree stop. */
+  background:
+    conic-gradient(
+      from 0deg,
+      transparent 0deg var(--pqi-target-start),
+      rgb(132 219 106 / 0.53) var(--pqi-target-start) var(--pqi-target-end),
+      transparent var(--pqi-target-end) 360deg
+    ),
+    radial-gradient(
+      circle closest-side,
+      rgb(0 0 0 / 0.06) 70%,
+      rgb(255 255 255 / 0.06) 100%
+    );
+}
+
 .pqi__dial-ticks {
   z-index: 2;
   background: repeating-conic-gradient(
@@ -596,9 +594,12 @@
   inset: 0;
   border-radius: inherit;
   background:
-    radial-gradient(circle at 42% 36%, rgba(255, 255, 255, 0.22), transparent 48%),
-    linear-gradient(112deg, transparent 25%, rgba(255, 255, 255, 0.2) 47%, transparent 68%);
-  opacity: 0.58;
+    radial-gradient(circle at 35% 22%, rgba(255, 255, 255, 0.72) 0 4%, transparent 27%),
+    radial-gradient(circle at 50% 48%, transparent 0 55%, rgba(35, 91, 49, 0.18) 100%),
+    linear-gradient(138deg, #c6edc8 0%, #83c990 35%, #b2e4b6 63%, #64ac76 100%);
+  /* Crossfade a separate fill: gradient backgrounds cannot transition. */
+  opacity: 0;
+  transition: opacity 360ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .pqi__dial-face::after {
@@ -629,7 +630,7 @@
     brightness(83%)
     contrast(86%)
     drop-shadow(0 1px 0 rgba(255, 255, 255, 0.72));
-  transition: opacity 160ms ease-out;
+  transition: opacity 360ms ease-out, filter 360ms ease-out;
 }
 
 .pqi__dial[data-pqi-dial="temperature"] .pqi__dial-icon {
@@ -678,8 +679,12 @@
   background: linear-gradient(90deg, #357a4b, #a8e2ae 45%, #4e9d62 100%);
 }
 
+.pqi__dial.is-tuned .pqi__dial-face::before {
+  opacity: 1;
+}
+
 .pqi__dial.is-tuned .pqi__dial-icon {
-  opacity: 0.6;
+  opacity: 0.9;
   filter:
     brightness(0)
     saturate(100%)
@@ -867,14 +872,17 @@
   isolation: auto;
 }
 
-/* The shell crops to its own 1695px box, which is the right frame for the
-   three.js scene that fills it but not for the video composition, which is a
-   2160px square deliberately larger than the shell. Cropping it cut the bottom
-   off the device. The stage is pointer-events:none and sits at z-index 3, well
-   under the dials at 14, so letting it overflow costs nothing: the art ends
-   about 160px above the dials and everything below that is transparent. */
-.pqi[data-pqi-visual='video'] .pqi__scene-shell {
-  overflow: visible;
+/* The Add-on FX master still carries alpha at its right frame boundary.
+   Ease out only its final 4% so the glow fades instead of ending at a line. */
+.pqi__video-layer--add-on-fx {
+  mask-image: linear-gradient(
+    to right,
+    #000 96%,
+    rgb(0 0 0 / 0.844) 97%,
+    rgb(0 0 0 / 0.5) 98%,
+    rgb(0 0 0 / 0.156) 99%,
+    transparent 100%
+  );
 }
 
 /* The video replaces the three.js *device*, not the three.js scene. The board
@@ -888,45 +896,11 @@
    the device would mean compensating for that difference in the camera as well
    as for the camera angle. */
 .pqi[data-pqi-visual='video'] .pqi__scene {
-  /* Taller than the video box it is matched to, because the magnetic crests run
-     diagonally and their ends reach past the top and bottom of that square. At
-     the square exactly, a tenth of the opacity the pass emits inside the frame
-     was being lost to the canvas edge; this covers all but half a percent.
-
-     Growing it costs nothing in framing. The resize handler pins the camera's
-     horizontal field, so pixels per world unit works out to width / (2 * d * K)
-     — height is not in it. Changing the height changes what is visible above and
-     below and nothing else, and since it grows symmetrically the canvas centre
-     does not move, so the device stays exactly where the video puts it and the
-     particle passes stay aligned with it.
-
-     Only the height: widening instead would rescale everything.
-
-     Sized for the BOTTOM. The crests run in from the bottom right, so that is
-     the side they overhang: at 440px the top had zero clipping and headroom to
-     spare while the bottom was still losing content. The pad has to stay
-     symmetric — an asymmetric one moves the canvas centre, and the centre is
-     where the projection puts the device — so the top gets the same amount and
-     wastes it on transparent pixels. That is the price of not touching the
-     alignment. Sized to cover everything above about one 8-bit level of
-     contrast, which also keeps the drawing buffer under the blur pass's
-     MAX_MAGNETIC_BLUR_PIXELS ceiling; sizing it for the very faintest sample
-     instead would cross that and silently switch the blur off. */
   --pqi-scene-overscan: 930px;
 
-  /* Sideways overscan, for the same reason as the vertical: the crests arrive
-     from off the right and the composition box stops short of the stage edge —
-     the shell sits 94px left of centre, so the box's right edge lands at 2066
-     of the stage's 2160. Anything the pass drew in that strip was simply not on
-     the canvas. Measured, the canvas was missing 4.5% of the wave that falls
-     inside the stage; this brings it to 0.4%.
-
-     The scene reads this back out to work out which part of its width is the
-     authored composition box and which is overscan — see the resize handler.
-     Grown symmetrically and offset by half, so the box's centre does not move
-     and the device stays aligned with the video. */
-  --pqi-scene-overscan-x: 120px;
-
+  /* Reuse the scene's symmetric overscan around the authored video square.
+     The resize handler subtracts horizontal overscan from the camera's reference
+     width, so widening the canvas reveals more without magnifying the device. */
   z-index: 5;
   right: auto;
   bottom: auto;

@@ -4,7 +4,7 @@ export const MAJORANA_PATHWAYS = Object.freeze(['external', 'control', 'readout'
 export const MAJORANA_PARTS = Object.freeze([
   Object.freeze({
     id: 'qpu-stack',
-    label: 'QPU Stack',
+    label: 'QPU stack',
     description: 'The topological qubits reside here.'
   }),
   Object.freeze({

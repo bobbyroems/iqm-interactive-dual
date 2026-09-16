@@ -1,6 +1,8 @@
 import { assetUrl } from '../../core/asset-url.js'
 import { sound } from '../../core/kiosk-audio.js'
+import { createKioskTooltip } from '../../core/kiosk-tooltip.js'
 import { releaseVideoElement } from '../../core/media-lifecycle.js'
+import { prepareVideoFrame } from '../../core/prepare-video-frame.js'
 import { bindProtectionDial } from './parameter-dial.js'
 import {
   createProtectingParticleData,
@@ -20,8 +22,7 @@ import {
   updateProtectionParameter
 } from './protecting-information-state.js'
 import { cameraDebugRequested, mountCameraDebugPanel } from './protecting-information-camera-debug.js'
-import { createUpNextBanner } from '../../core/up-next-banner.js'
-import { nextPlayableModule } from '../module-registry.js'
+import { mountModuleOutro } from '../module-outro.js'
 import { mountProtectionVideoLayers } from './protecting-information-video-layers.js'
 
 /* The single source of truth for where the loupe sits. The stylesheet used to
@@ -173,10 +174,6 @@ function moduleMarkup() {
           <p data-pqi-content-description>To keep qubits stable, this device uses three precise controls to tame chaotic particles.</p>
         </article>
 
-        <div class="pqi__guidance kiosk-tooltip">
-          <p class="kiosk-tooltip__text" data-pqi-guidance>Turn the dials into their green zones to activate the device</p>
-        </div>
-
         <div class="pqi__scene-shell">
           <div class="pqi__scene" data-pqi-scene></div>
           <div class="pqi__scene-glow" aria-hidden="true"></div>
@@ -194,14 +191,13 @@ function moduleMarkup() {
               data-pqi-loupe-video
               src="${assetUrl('assets/modules/protecting-information/nanowire-inset.mp4')}"
               muted
-              loop
               playsinline
               preload="auto"
             ></video>
           </div>
         </div>
 
-        <div class="pqi__controls" aria-label="Tune all three conditions">
+        <div class="pqi__controls" aria-label="Adjust all three conditions">
           ${PROTECTION_PARAMETER_IDS.map(parameterMarkup).join('')}
         </div>
 
@@ -217,16 +213,17 @@ function createAbortError() {
 }
 
 /**
- * The layered alpha-video treatment is useful for authored review, but it is a
- * large decoder/compositor stack. Production kiosk mode defaults to the lighter
- * existing three.js scene; either visual can still be selected explicitly for
- * comparison with `?visual=video` or `?visual=scene`.
+ * The delivered alpha-video treatment is the module's visual, on the kiosk as
+ * much as in the browser: it is what the board specifies and what the device
+ * is meant to look like. The three.js device stays built underneath as the
+ * fallback for when the masters cannot be decoded, and `?visual=scene` selects
+ * it explicitly for comparison.
+ *
+ * (0.5.3 defaulted the kiosk to the three.js device to save the decoder stack.
+ * That silently shipped the wrong visual to the only build that matters.)
  */
-export function shouldUseProtectionVideoVisual({ search = '', isKiosk = false } = {}) {
-  const requestedVisual = new URLSearchParams(search).get('visual')
-  if (requestedVisual === 'video') return true
-  if (requestedVisual === 'scene') return false
-  return !isKiosk
+export function shouldUseProtectionVideoVisual({ search = '' } = {}) {
+  return new URLSearchParams(search).get('visual') !== 'scene'
 }
 
 function mix(from, to, amount) {
@@ -530,7 +527,6 @@ function createLoupeRenderer(canvas) {
 export async function mount(container, options = {}) {
   if (!container?.replaceChildren) throw new TypeError('Protecting Information requires a DOM container')
   const { signal, navigate = {}, onActivity, module } = options
-  const runtime = options.runtime ?? globalThis.window?.kiosk ?? {}
   if (signal?.aborted) throw createAbortError()
 
   const shell = document.createElement('div')
@@ -539,24 +535,27 @@ export async function mount(container, options = {}) {
 
   /* Offered once all three conditions are tuned, so the visitor can carry
      straight on rather than going back out to the carousel. */
-  const followingModule = module ? nextPlayableModule(module.id) : null
-  const upNextBanner = followingModule
-    ? createUpNextBanner({
-        title: followingModule.title,
-        onContinue: () => {
-          onActivity?.()
-          navigate.module?.(followingModule.id)
-        }
-      })
-    : null
-  if (upNextBanner) root.append(upNextBanner.element)
+  /* The band states where the visitor is, then follows the registry route. */
+  const upNextBanner = mountModuleOutro({
+    module,
+    root,
+    navigate,
+    onActivity,
+    onRestart: () => root.querySelector('[data-pqi-action="restart"]')?.click()
+  })
   container.replaceChildren(root)
 
   const sceneHost = root.querySelector('[data-pqi-scene]')
   const sceneShell = root.querySelector('.pqi__scene-shell')
   const contentTitle = root.querySelector('[data-pqi-content-title]')
   const contentDescription = root.querySelector('[data-pqi-content-description]')
-  const guidance = root.querySelector('[data-pqi-guidance]')
+  const guidanceTooltip = createKioskTooltip({
+    className: 'pqi__guidance',
+    text: 'Turn the dials into their green zones to activate the device'
+  })
+  root.querySelector('.pqi__content').after(guidanceTooltip.element)
+  const guidance = guidanceTooltip.copy
+  guidance.dataset.pqiGuidance = ''
   const progressLabel = root.querySelector('[data-pqi-progress]')
   const status = root.querySelector('[data-pqi-status]')
   const loading = root.querySelector('[data-pqi-loading]')
@@ -596,24 +595,34 @@ export async function mount(container, options = {}) {
     revealed = true
     root.classList.add('is-scene-ready', 'is-revealed')
     loading.setAttribute('aria-hidden', 'true')
+    playLoupeWhenVisible()
   }
 
-  /* Marks the loupe as carrying the clip only once a frame has actually
-     decoded, which is what reveals it over the drawn fallback. Registered here
-     rather than beside the query above, because it needs the abort signal and
-     that does not exist yet at that point. */
-  loupeVideo?.addEventListener('loadeddata', () => {
+  let loupeIsReady = false
+  let loupeHasPlayed = false
+  /* Play once when the inset first appears, then leave its last frame visible.
+     Preloading must not use up the animation while the inset is still hidden. */
+  const playLoupeWhenVisible = () => {
+    if (!loupeIsReady || loupeHasPlayed || !revealed || !root.classList.contains('is-magnetic-visible')) return
+    loupeHasPlayed = true
+    loupeVideo.play().catch(() => { loupeHasPlayed = false })
+  }
+  const loupeFrameReady = prepareVideoFrame(loupeVideo, { signal: listeners.signal }).then(ready => {
+    if (!ready || listeners.signal.aborted) return ready
+    loupeVideo.pause()
+    loupeVideo.currentTime = 0
+    loupeIsReady = true
     root.dataset.loupeVideo = 'ready'
-    loupeVideo.play().catch(() => {})
-  }, { once: true, signal: listeners.signal })
+    playLoupeWhenVisible()
+    return ready
+  })
   const loupeRenderer = createLoupeRenderer(loupeCanvas)
   let state = createProtectingInformationState()
   let sceneController = null
   let videoLayers = null
   let cameraDebug = null
   const useVideoVisual = shouldUseProtectionVideoVisual({
-    search: globalThis.location?.search ?? '',
-    isKiosk: runtime.isKiosk === true
+    search: globalThis.location?.search ?? ''
   })
 
   /* Set before the scene is built, not after the clips arrive. This attribute
@@ -704,24 +713,10 @@ export async function mount(container, options = {}) {
       'is-magnetic-visible',
       state.focusedParameter === 'magnetic' || state.values.magnetic > 0.01 || progress.complete
     )
+    playLoupeWhenVisible()
     const temperatureQuality = clampUnit(progress.qualities.temperature)
     root.style.setProperty('--pqi-temperature', clampUnit(state.values.temperature).toFixed(3))
-    root.style.setProperty(
-      '--pqi-temp-base-top-alpha',
-      backgroundDrives.temperatureBaseTopAlpha.toFixed(4)
-    )
-    root.style.setProperty(
-      '--pqi-temp-base-mid-alpha',
-      backgroundDrives.temperatureBaseMidAlpha.toFixed(4)
-    )
-    root.style.setProperty(
-      '--pqi-temp-cooling-top-alpha',
-      backgroundDrives.temperatureCoolingTopAlpha.toFixed(4)
-    )
-    root.style.setProperty(
-      '--pqi-temp-cooling-mid-alpha',
-      backgroundDrives.temperatureCoolingMidAlpha.toFixed(4)
-    )
+    root.style.setProperty('--pqi-background-cooling', backgroundDrives.cooling.toFixed(3))
     root.style.setProperty('--pqi-rim', temperatureQuality.toFixed(3))
 
     contentTitle.textContent = content.title
@@ -755,7 +750,9 @@ export async function mount(container, options = {}) {
       /* The outro is built and its clips are loaded, but it does not play yet —
          held back deliberately rather than unfinished. Re-enabling it is the one
          call below: videoLayers?.playOutro(). */
-      if (firstCompletion) sound.chime()
+      /* All three dials in target is the module's payoff, so it gets the bonus
+         cue rather than the same chime a single step lands on. */
+      if (firstCompletion) sound.bonus()
       upNextBanner?.offer()
       announcement = 'Topoconductor activated. Quantum information is shielded from errors.'
     } else if (!announcement && changedParameter) {
@@ -812,6 +809,13 @@ export async function mount(container, options = {}) {
     if (!action) return
     noteActivity()
     if (action === 'restart') {
+      /* Back to an untuned device, so the band goes back to naming this module.
+         Left standing, the offer outlived the run that earned it and sat over a
+         module the visitor had just started again. */
+      upNextBanner?.withdraw()
+      loupeHasPlayed = false
+      loupeVideo?.pause()
+      if (loupeVideo?.readyState >= 1) loupeVideo.currentTime = 0
       state = createProtectingInformationState()
       previousProgress = getProtectionProgress(state)
       sound.whoosh()
@@ -950,6 +954,8 @@ export async function mount(container, options = {}) {
     }
   }
 
+  await loupeFrameReady
+  if (disposed || signal?.aborted) throw createAbortError()
   revealExperience()
 
   /* The fade first, so the wipe reads as uncovering the device rather than

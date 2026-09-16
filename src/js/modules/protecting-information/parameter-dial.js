@@ -9,6 +9,13 @@ import {
 
 const KEY_STEP = 0.025
 
+export function accumulateDialTurn(value, previousAngle, nextAngle) {
+  let delta = nextAngle - previousAngle
+  if (delta > 180) delta -= 360
+  else if (delta < -180) delta += 360
+  return clampUnit(value + (delta / 360))
+}
+
 export function getDialAriaValueText(parameterId, value) {
   const parameter = PROTECTION_PARAMETERS[parameterId]
   const normalizedValue = clampUnit(value)
@@ -60,11 +67,11 @@ export function bindProtectionDial(element, {
 
   const updateFromPointer = event => {
     const nextPointerAngle = pointerAngle(event)
-    let delta = nextPointerAngle - previousPointerAngle
-    if (delta > 180) delta -= 360
-    else if (delta < -180) delta += 360
+    // Accumulate travel instead of mapping the pointer directly to the dial.
+    // At the 12:00 minimum, touching the 10–12 sector counter-clockwise must
+    // stay at zero; the visitor reaches that sector only by circling clockwise.
+    const nextValue = accumulateDialTurn(value, previousPointerAngle, nextPointerAngle)
     previousPointerAngle = nextPointerAngle
-    const nextValue = clampUnit(value + (delta / 360))
     if (Math.abs(nextValue - value) < 0.00001) return
     moved = true
     setValue(nextValue)

@@ -41,6 +41,7 @@
  * clear and interactive above it.
  */
 import { assetUrl } from '../../core/asset-url.js'
+import { leaseWebGLRenderer } from '../../core/webgl-renderer-pool.js'
 import {
   calculateStageAwarePixelRatio,
   elementCssScale
@@ -695,16 +696,27 @@ export async function mountStateShader(canvas, { element, video } = {}) {
   sceneCanvas.width = SCENE_SOURCE_WIDTH
   sceneCanvas.height = SCENE_SOURCE_HEIGHT
 
+  let rendererLease = null
   let renderer = null
   try {
-    renderer = new THREE.WebGLRenderer({
-      canvas,
+    rendererLease = leaseWebGLRenderer(THREE, {
       alpha: true,
       antialias: false,
       /* The shader emits straight (non-premultiplied) alpha. */
       premultipliedAlpha: false
     })
+    renderer = rendererLease.renderer
+    const rendererCanvas = renderer.domElement
+    for (const attribute of rendererCanvas.getAttributeNames()) {
+      rendererCanvas.removeAttribute(attribute)
+    }
+    for (const attribute of canvas.attributes) {
+      rendererCanvas.setAttribute(attribute.name, attribute.value)
+    }
+    canvas.replaceWith(rendererCanvas)
+    canvas = rendererCanvas
   } catch {
+    rendererLease?.release()
     /* No WebGL — the module still works, just without the effect layer. */
     return null
   }
@@ -865,8 +877,7 @@ export async function mountStateShader(canvas, { element, video } = {}) {
       frostFineTexture.dispose()
       frostFilmTexture.dispose()
       noiseTexture.dispose()
-      renderer.dispose()
-      renderer.forceContextLoss()
+      rendererLease.release()
     }
   }
 }

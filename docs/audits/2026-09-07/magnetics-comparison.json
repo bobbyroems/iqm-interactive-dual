@@ -1,0 +1,138 @@
+{
+  "rows": [
+    {
+      "time": 0,
+      "strength": 0.021,
+      "maxChannelDifference": 0,
+      "changedChannels": 0,
+      "blurEffectChannels": 5553
+    },
+    {
+      "time": 0,
+      "strength": 0.5,
+      "maxChannelDifference": 0,
+      "changedChannels": 0,
+      "blurEffectChannels": 115900
+    },
+    {
+      "time": 0,
+      "strength": 1.15,
+      "maxChannelDifference": 0,
+      "changedChannels": 0,
+      "blurEffectChannels": 158209
+    },
+    {
+      "time": 0.6,
+      "strength": 0.021,
+      "maxChannelDifference": 0,
+      "changedChannels": 0,
+      "blurEffectChannels": 5660
+    },
+    {
+      "time": 0.6,
+      "strength": 0.5,
+      "maxChannelDifference": 0,
+      "changedChannels": 0,
+      "blurEffectChannels": 120896
+    },
+    {
+      "time": 0.6,
+      "strength": 1.15,
+      "maxChannelDifference": 0,
+      "changedChannels": 0,
+      "blurEffectChannels": 163075
+    },
+    {
+      "time": 3,
+      "strength": 0.021,
+      "maxChannelDifference": 0,
+      "changedChannels": 0,
+      "blurEffectChannels": 5696
+    },
+    {
+      "time": 3,
+      "strength": 0.5,
+      "maxChannelDifference": 0,
+      "changedChannels": 0,
+      "blurEffectChannels": 118491
+    },
+    {
+      "time": 3,
+      "strength": 1.15,
+      "maxChannelDifference": 0,
+      "changedChannels": 0,
+      "blurEffectChannels": 161092
+    },
+    {
+      "time": 8,
+      "strength": 0.021,
+      "maxChannelDifference": 0,
+      "changedChannels": 0,
+      "blurEffectChannels": 5708
+    },
+    {
+      "time": 8,
+      "strength": 0.5,
+      "maxChannelDifference": 0,
+      "changedChannels": 0,
+      "blurEffectChannels": 123123
+    },
+    {
+      "time": 8,
+      "strength": 1.15,
+      "maxChannelDifference": 0,
+      "changedChannels": 0,
+      "blurEffectChannels": 164984
+    }
+  ],
+  "timings": [
+    {
+      "optimized": false,
+      "gpuMsPerFrame": 0.7306708000000001
+    },
+    {
+      "optimized": true,
+      "gpuMsPerFrame": 0.6111
+    },
+    {
+      "optimized": true,
+      "gpuMsPerFrame": 0.49112704999999995
+    },
+    {
+      "optimized": false,
+      "gpuMsPerFrame": 0.50670415
+    },
+    {
+      "optimized": false,
+      "gpuMsPerFrame": 0.23593540000000002
+    },
+    {
+      "optimized": true,
+      "gpuMsPerFrame": 0.3727104
+    },
+    {
+      "optimized": true,
+      "gpuMsPerFrame": 0.3027125
+    },
+    {
+      "optimized": false,
+      "gpuMsPerFrame": 0.5255854
+    },
+    {
+      "optimized": false,
+      "gpuMsPerFrame": 0.52139165
+    },
+    {
+      "optimized": true,
+      "gpuMsPerFrame": 0.38574579999999997
+    },
+    {
+      "optimized": true,
+      "gpuMsPerFrame": 0.40235624999999997
+    },
+    {
+      "optimized": false,
+      "gpuMsPerFrame": 0.2266687
+    }
+  ]
+}

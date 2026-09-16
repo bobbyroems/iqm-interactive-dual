@@ -56,8 +56,8 @@
   background: linear-gradient(
     180deg,
     rgba(102, 102, 102, 0) 0%,
-    rgba(77, 210, 227, 0.2) 43.446%,
-    rgba(77, 174, 227, 0.4) 100%
+    rgba(145, 197, 73, 0.22) 43.446%,
+    rgba(145, 197, 73, 0.6) 100%
   );
   mix-blend-mode: multiply;
 }
@@ -69,9 +69,9 @@
   position: absolute;
   inset: -18% -28%;
   background:
-    radial-gradient(ellipse at 17% 83%, rgba(38, 221, 205, 0.46) 0%, rgba(38, 221, 205, 0) 48%),
-    radial-gradient(ellipse at 58% 92%, rgba(36, 170, 235, 0.52) 0%, rgba(36, 170, 235, 0) 53%),
-    radial-gradient(ellipse at 88% 66%, rgba(46, 113, 232, 0.35) 0%, rgba(46, 113, 232, 0) 46%);
+    radial-gradient(ellipse at 17% 83%, rgba(140, 204, 70, 0.42) 0%, rgba(140, 204, 70, 0) 48%),
+    radial-gradient(ellipse at 58% 92%, rgba(93, 175, 48, 0.48) 0%, rgba(93, 175, 48, 0) 53%),
+    radial-gradient(ellipse at 88% 66%, rgba(184, 223, 118, 0.38) 0%, rgba(184, 223, 118, 0) 46%);
   content: '';
   opacity: 0;
   transform: translate3d(-12%, 8%, 0) scale(1.08);
@@ -90,7 +90,7 @@
 }
 
 .nw[data-phase="repaired"]:not([data-repair-exit="true"]) .nw__backdrop--repair::before {
-  animation: nw-repair-fluid-sweep 1450ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation: nw-repair-fluid-sweep 1900ms cubic-bezier(0.16, 1, 0.3, 1) both;
   will-change: transform, opacity;
 }
 
@@ -203,19 +203,37 @@
   margin-inline: auto;
 }
 
+.nw__prompt--defect .kiosk-explainer__body {
+  width: 1240px;
+  max-width: 100%;
+  text-wrap: pretty;
+}
+
 .nw__prompt[data-kiosk-explainer-layout="split"] {
   --kiosk-explainer-border-radius: 20px;
   --kiosk-explainer-box-shadow: 0 4px 104px rgba(0, 0, 0, 0.1);
-  --kiosk-explainer-content-gap: 56px;
+  /* 2.5 here plus the 53.5 margin on the media below is the 56 this gap used to
+     be, so moving the picture across does not carry the copy with it. */
+  --kiosk-explainer-content-gap: 2.5px;
   --kiosk-explainer-padding: 8px;
   top: 380px;
   width: 1894px;
   height: 672px;
 }
 
+/* Height follows the supplied micrograph's 1764 x 1208 aspect: the shared media
+   image is `object-fit: fill`, so a slot of any other ratio would stretch the
+   lattice out of square. Centred rather than stretched, because the panel is
+   taller than the picture and the split layout would otherwise pin it to the
+   top edge and leave all the slack underneath. */
 .nw__prompt[data-kiosk-explainer-layout="split"] .kiosk-explainer__media {
   width: 712px;
-  height: 656px;
+  height: 488px;
+  align-self: center;
+  /* Centred in the space it has rather than pinned to the panel's padding: the
+     copy starts 835 in, so a 712 picture sits 61.5 from each side of that, and
+     8 of those 61.5 is already the panel's own padding. */
+  margin-left: 53.5px;
   overflow: hidden;
   border-radius: 14px;
 }
@@ -225,8 +243,10 @@
   justify-content: center;
 }
 
+.nw__prompt[data-kiosk-explainer-layout="split"] .kiosk-explainer__title,
 .nw__prompt[data-kiosk-explainer-layout="split"] .kiosk-explainer__body {
   width: 980px;
+  text-align: left;
 }
 
 .nw__instruction {
@@ -277,7 +297,7 @@
   opacity: 0;
   pointer-events: none;
   transform: translate3d(var(--nw-loupe-x), var(--nw-loupe-y), 0) translate(-50%, -50%);
-  transition: opacity 420ms var(--ease-out), filter 220ms var(--ease-out);
+  transition: opacity 180ms var(--ease-out), filter 900ms cubic-bezier(0.16, 1, 0.3, 1);
   will-change: transform;
 }
 
@@ -295,13 +315,14 @@
    It used to be a single slow diagonal lean with about a second of rest, which
    read as the loupe drifting rather than asking to be picked up.
 
-   The delay holds it back until the visitor has had a moment to look at the
-   scene first, and `:not(.has-interacted)` is what stops it the instant a drag
-   begins — that class is set on pointerdown and never comes off, so the loupe
-   asks once, and stops asking for good once it has been used. */
+   The entrance establishes the loupe immediately; the invitation waits until
+   that arrival has settled. `:not(.has-interacted)` stops both the instant a
+   drag begins, and that class never comes off, so the loupe asks once. */
 .nw[data-phase="inspect"] .nw__loupe:not(.is-dragging):not(.has-interacted) .nw__loupe-visual {
-  animation: nw-loupe-invitation 4200ms ease-in-out 1200ms infinite;
-  will-change: transform;
+  animation:
+    nw-loupe-enter 620ms cubic-bezier(0.16, 1, 0.3, 1) both,
+    nw-loupe-invitation 4800ms ease-in-out 1750ms infinite;
+  will-change: filter, transform;
 }
 
 .nw[data-phase="inspect"] .nw__loupe,
@@ -311,8 +332,7 @@
   opacity: 1;
 }
 
-.nw[data-phase="inspect"] .nw__loupe,
-.nw[data-phase="targeted"] .nw__loupe {
+.nw[data-phase="inspect"] .nw__loupe {
   pointer-events: auto;
 }
 
@@ -331,11 +351,13 @@
   overflow: hidden;
   border: 2px solid rgba(70, 79, 89, 0.58);
   border-radius: 50%;
-  background: rgba(248, 250, 252, 0.18);
+  background: rgba(247, 238, 233, 0.32);
   box-shadow:
-    inset 0 0 0 1px rgba(255, 255, 255, 0.86),
-    inset 0 0 42px rgba(255, 255, 255, 0.3);
-  transition: border-color 220ms var(--ease-out), box-shadow 220ms var(--ease-out);
+    inset 0 0 0 1px rgba(255, 246, 240, 0.82),
+    inset 0 0 42px rgba(255, 228, 216, 0.24);
+  transition:
+    border-color 900ms cubic-bezier(0.16, 1, 0.3, 1),
+    box-shadow 900ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .nw__loupe-glass::after {
@@ -349,24 +371,112 @@
   pointer-events: none;
 }
 
+/* Laid over the handle in the frame bitmap's own geometry: the source render is
+   1536 x 1024 drawn into 1593 x 1062 at (-338, -94), and the handle measures
+   502 x 158 centred on (1058, 798) at 44.4 degrees in those source pixels. It
+   inherits the loupe's own pointer-events, so it is grabbable exactly when the
+   lens is. */
+.nw__loupe-grip {
+  position: absolute;
+  z-index: 5;
+  top: 733px;
+  left: 759px;
+  width: 520px;
+  height: 164px;
+  border-radius: 82px;
+  transform: translate(-50%, -50%) rotate(44.4deg);
+}
+
 .nw__loupe-frame {
   position: absolute;
   z-index: 4;
-  inset: 0;
+  /* The supplied image is a 1536 x 1024 render whose lens centre is at
+     (579, 343). Scaling its 434px opening to the existing 450px live viewport
+     keeps the magnification geometry unchanged; these offsets then put the
+     rendered opening over .nw__loupe-glass exactly. The source is intentionally
+     composited with screen because its black field is part of the delivered
+     bitmap. The radial mask makes the lens itself a genuine live viewport. */
+  top: -94px;
+  left: -338px;
   display: block;
-  background: linear-gradient(145deg, #fff 0%, #f3f5f6 20%, #d5dade 56%, #8f99a2 100%);
+  width: 1593px;
+  height: 1062px;
+  background-image: var(--nw-loupe-asset-image);
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: 100% 100%;
   filter:
-    drop-shadow(0 2px 2px rgba(40, 48, 56, 0.78))
-    drop-shadow(0 14px 26px rgba(37, 45, 54, 0.16));
+    hue-rotate(0deg)
+    saturate(1)
+    brightness(1)
+    drop-shadow(0 2px 2px rgba(40, 48, 56, 0.42))
+    drop-shadow(0 14px 26px rgba(37, 45, 54, 0.12));
+  mix-blend-mode: screen;
   pointer-events: none;
-  -webkit-mask-image: var(--nw-loupe-frame-image);
-  mask-image: var(--nw-loupe-frame-image);
-  -webkit-mask-position: center;
-  mask-position: center;
+  transition: filter 900ms cubic-bezier(0.16, 1, 0.3, 1);
+  -webkit-mask-image: radial-gradient(
+    circle 225px at 600px 356px,
+    transparent 0 99%,
+    #000 100%
+  );
+  mask-image: radial-gradient(
+    circle 225px at 600px 356px,
+    transparent 0 99%,
+    #000 100%
+  );
   -webkit-mask-repeat: no-repeat;
   mask-repeat: no-repeat;
-  -webkit-mask-size: 100% 100%;
-  mask-size: 100% 100%;
+}
+
+/* Purple is the supplied start state. Once the visitor begins inspecting, the
+   coloured resin shifts to dark blue; the low-saturation metal connector stays
+   silver under hue rotation. A successful correction resolves the frame green. */
+.nw__loupe.has-interacted .nw__loupe-frame,
+.nw[data-phase="targeted"] .nw__loupe-frame,
+.nw[data-phase="correcting"] .nw__loupe-frame {
+  filter:
+    hue-rotate(-35deg)
+    saturate(1.18)
+    brightness(0.72)
+    drop-shadow(0 2px 2px rgba(17, 35, 74, 0.52))
+    drop-shadow(0 14px 26px rgba(15, 36, 82, 0.18));
+}
+
+/* Keep the supplied purple treatment untouched while the loupe is inviting a
+   grab. The first pointer-down or keyboard move adds has-interacted and starts
+   the resin's transition to inspection blue. */
+.nw[data-phase="inspect"] .nw__loupe.has-interacted .nw__loupe-frame {
+  animation: nw-loupe-purple-to-blue 1100ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes nw-loupe-purple-to-blue {
+  0%,
+  18% {
+    filter:
+      hue-rotate(0deg)
+      saturate(1)
+      brightness(1)
+      drop-shadow(0 2px 2px rgba(40, 48, 56, 0.42))
+      drop-shadow(0 14px 26px rgba(37, 45, 54, 0.12));
+  }
+
+  100% {
+    filter:
+      hue-rotate(-35deg)
+      saturate(1.18)
+      brightness(0.72)
+      drop-shadow(0 2px 2px rgba(17, 35, 74, 0.52))
+      drop-shadow(0 14px 26px rgba(15, 36, 82, 0.18));
+  }
+}
+
+.nw[data-phase="repaired"] .nw__loupe-frame {
+  filter:
+    hue-rotate(-112deg)
+    saturate(1.18)
+    brightness(0.88)
+    drop-shadow(0 2px 2px rgba(15, 77, 49, 0.5))
+    drop-shadow(0 14px 28px rgba(21, 122, 77, 0.2));
 }
 
 .nw__loupe-view,
@@ -378,39 +488,6 @@
   height: 100%;
 }
 
-.nw__loupe-crosshair {
-  position: absolute;
-  z-index: 3;
-  top: 50%;
-  left: 50%;
-  width: 32px;
-  height: 32px;
-  opacity: 0.34;
-  pointer-events: none;
-  transform: translate(-50%, -50%);
-  transition: opacity 160ms ease;
-}
-
-.nw__loupe-crosshair::before,
-.nw__loupe-crosshair::after {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  background: var(--nw-ink);
-  content: "";
-  transform: translate(-50%, -50%);
-}
-
-.nw__loupe-crosshair::before {
-  width: 32px;
-  height: 2px;
-}
-
-.nw__loupe-crosshair::after {
-  width: 2px;
-  height: 32px;
-}
-
 .nw__loupe.is-near-defect .nw__loupe-glass {
   border-color: rgba(70, 79, 89, 0.7);
   box-shadow:
@@ -418,43 +495,44 @@
     inset 0 0 42px rgba(255, 255, 255, 0.34);
 }
 
-.nw[data-phase="targeted"] .nw__loupe-crosshair,
-.nw[data-phase="correcting"] .nw__loupe-crosshair,
-.nw[data-phase="repaired"] .nw__loupe-crosshair {
-  opacity: 0;
-}
-
-.nw .nw__correct,
+.nw .nw__found,
 .nw .nw__corrected {
   position: absolute;
   z-index: 5;
-  top: calc(100% + 28px);
+  top: -168px;
   bottom: auto;
   left: 50%;
   display: flex;
-  min-width: 369px;
+  width: 458px;
   height: 140px;
+  flex: 0 0 458px;
   align-items: center;
   justify-content: center;
   gap: 24px;
-  padding: 0 48px;
+  padding: 0 32px;
   border: 0;
   border-radius: 16px;
-  background: #580fb7;
-  box-shadow: 0 0 6px rgba(0, 0, 0, 0.65);
+  background: #0055d4;
+  box-shadow: 0 10px 28px rgba(0, 44, 116, 0.2);
   color: #fff;
-  font-size: 56px;
-  font-weight: 650;
+  font-family: var(--font-display);
+  font-size: 50px;
+  font-weight: 400;
   line-height: 1;
+  letter-spacing: -0.5px;
   opacity: 0;
   pointer-events: none;
-  transform: translate(-50%, 8px);
-  transition: opacity 180ms ease, transform 220ms var(--ease-out);
+  transform: translate(-50%, 0) scale(0.76);
+  transform-origin: 50% 100%;
+  transition: background-color 420ms var(--ease-out), box-shadow 420ms var(--ease-out);
+  white-space: nowrap;
 }
 
 .nw .nw__corrected {
-  min-width: 568px;
-  background: #1d77ff;
+  width: 499px;
+  flex-basis: 499px;
+  background: #549900;
+  box-shadow: 0 12px 30px rgba(49, 103, 0, 0.22);
 }
 
 .nw__action-check {
@@ -472,59 +550,65 @@
   height: 61px;
 }
 
-.nw[data-phase="targeted"] .nw__correct,
-.nw[data-phase="correcting"] .nw__correct,
+.nw[data-phase="targeted"] .nw__found,
+.nw[data-phase="correcting"] .nw__found,
 .nw[data-phase="repaired"] .nw__corrected {
   opacity: 1;
-  transform: translate(-50%, 0);
 }
 
-/* IQM asked for the correct button to be drawn attention to (25 Aug), by
-   growing, shrinking or sweeping. It grows: the button is small and round and
-   sits below the loupe, where a sweep would be lost, while a size change on a
-   pill reads clearly at a glance.
-
-   Only while it can actually be pressed. The phase becomes "correcting" the
-   moment it is, which drops this rule and stops the animation — the button
-   should not still be asking once it has been answered. */
-.nw[data-phase="targeted"] .nw__correct {
-  pointer-events: auto;
-  cursor: pointer;
-  animation: nw-correct-attention 2600ms ease-in-out 600ms infinite;
+/* These are state labels, not controls. The one-shot pop confirms that the
+   loupe has locked; the restrained breathing loop keeps the automatic
+   calibration legible without suggesting another tap target. */
+.nw[data-phase="targeted"] .nw__found,
+.nw[data-phase="repaired"] .nw__corrected {
+  animation:
+    nw-defect-badge-pop 440ms cubic-bezier(0.175, 0.885, 0.32, 1.275) both,
+    nw-defect-badge-breathe 2300ms ease-in-out 620ms infinite;
+  will-change: transform;
 }
 
-/* Nearly a second and a half of stillness, then one grow and settle. A
-   continuous pulse turns into wallpaper and stops being noticed; a beat of
-   rest is what makes the next one register. */
-@keyframes nw-correct-attention {
-  0%,
-  55% {
+@keyframes nw-defect-badge-pop {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, 12px) scale(0.76);
+  }
+
+  72% {
+    opacity: 1;
+    transform: translate(-50%, 0) scale(1.08);
+  }
+
+  100% {
+    opacity: 1;
     transform: translate(-50%, 0) scale(1);
   }
+}
 
-  67% {
-    transform: translate(-50%, 0) scale(1.055);
-  }
-
-  78% {
-    transform: translate(-50%, 0) scale(0.99);
-  }
-
-  86%,
+@keyframes nw-defect-badge-breathe {
+  0%,
   100% {
     transform: translate(-50%, 0) scale(1);
   }
+
+  50% {
+    transform: translate(-50%, 0) scale(1.045);
+  }
 }
 
-.nw[data-phase="correcting"] .nw__correct {
-  opacity: 0.64;
+.nw[data-phase="correcting"] .nw__found {
+  background: #549900;
+  box-shadow: 0 12px 30px rgba(49, 103, 0, 0.22);
+  animation: none;
+  opacity: 0.9;
+  transform: translate(-50%, 0) scale(1);
 }
 
 .nw[data-phase="repaired"] .nw__loupe-glass {
-  border-color: rgba(29, 119, 255, 0.38);
+  border-color: rgba(84, 153, 0, 0.72);
   box-shadow:
     inset 0 0 0 1px rgba(255, 255, 255, 0.88),
-    inset 0 0 42px rgba(210, 235, 255, 0.34);
+    inset 0 0 52px rgba(140, 215, 74, 0.42),
+    0 0 34px rgba(84, 153, 0, 0.3);
 }
 
 /* The whole shake is over inside the first 525ms of a 4.2s cycle, leaving the
@@ -532,6 +616,26 @@
    last, so it settles rather than stopping dead — snappy, and over before it
    can start to look playful. Sideways only: a vertical component would read as
    a bob, which is a different invitation. */
+@keyframes nw-loupe-enter {
+  0% {
+    filter: blur(8px);
+    opacity: 0;
+    transform: translate3d(96px, -54px, 0) rotate(7deg) scale(0.76);
+  }
+
+  68% {
+    filter: blur(0);
+    opacity: 1;
+    transform: translate3d(-6px, 3px, 0) rotate(-0.6deg) scale(1.025);
+  }
+
+  100% {
+    filter: blur(0);
+    opacity: 1;
+    transform: translate3d(0, 0, 0) rotate(0) scale(1);
+  }
+}
+
 @keyframes nw-loupe-invitation {
   0% {
     transform: translate3d(0, 0, 0);
@@ -620,8 +724,7 @@
   .nw__loupe,
   .nw__loupe-visual,
   .nw__loupe-glass,
-  .nw__loupe-crosshair,
-  .nw__correct,
+  .nw__found,
   .nw__corrected,
   .nw__completion,
   .nw__backdrop {
@@ -633,8 +736,15 @@
     transform: none;
   }
 
-  .nw[data-phase="targeted"] .nw__correct {
+  .nw[data-phase="inspect"] .nw__loupe.has-interacted .nw__loupe-frame {
     animation: none;
+  }
+
+  .nw[data-phase="targeted"] .nw__found,
+  .nw[data-phase="repaired"] .nw__corrected {
+    animation: none;
+    opacity: 1;
+    transform: translate(-50%, 0) scale(1);
   }
 
   .nw[data-phase="repaired"]:not([data-repair-exit="true"]) .nw__backdrop--repair::before {

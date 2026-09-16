@@ -22,7 +22,8 @@ const SCENES = {
   'states-of-matter': [{ ...SPHERE, color: PURPLE, dur: 5.2 }],
   'protecting-information': [{ ...SPHERE, color: BLUE, dur: 6.2 }],
   'build-nanowire': [{ ...SPHERE, color: BLUE, dur: 7 }],
-  'build-majorana-2': [{ ...SPHERE, color: PURPLE, dur: 5.8 }]
+  'build-majorana-2': [{ ...SPHERE, color: PURPLE, dur: 5.8 }],
+  'quantum-platform': [{ ...SPHERE, color: BLUE, dur: 6.6 }]
 }
 
 const DEFAULT_ASPECT = {

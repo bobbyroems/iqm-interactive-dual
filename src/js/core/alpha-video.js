@@ -104,10 +104,15 @@ let manifestPromise = null
 /** Loads and caches the packed-clip manifest. */
 export function loadAlphaVideoManifest(path = DEFAULT_MANIFEST_PATH) {
   if (!manifestPromise) {
-    manifestPromise = fetch(assetUrl(path)).then(response => {
+    const controller = new AbortController()
+    const deadline = setTimeout(() => controller.abort(), 15000)
+    manifestPromise = fetch(assetUrl(path), { signal: controller.signal }).then(response => {
       if (!response.ok) throw new Error(`Alpha video manifest ${path} failed: ${response.status}`)
       return response.json()
-    })
+    }).catch(error => {
+      manifestPromise = null
+      throw error
+    }).finally(() => clearTimeout(deadline))
   }
   return manifestPromise
 }

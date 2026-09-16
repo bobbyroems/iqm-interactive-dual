@@ -8,7 +8,7 @@
     >
     <meta
       http-equiv="Content-Security-Policy"
-      content="default-src 'self'; img-src 'self' data: blob:; style-src 'self'; script-src 'self' 'wasm-unsafe-eval'; connect-src 'self' blob: ws://127.0.0.1:5173; worker-src 'self' blob:"
+      content="default-src 'self'; img-src 'self' data: blob:; style-src 'self'; script-src 'self' 'wasm-unsafe-eval'; connect-src 'self' blob: ws://127.0.0.1:*; worker-src 'self' blob:"
     >
     <title>IQM Interactive Kiosk</title>
     <link rel="stylesheet" href="/styles/tokens.css">
@@ -22,6 +22,8 @@
     <link rel="stylesheet" href="/js/modules/protecting-information/protecting-information.css">
     <link rel="stylesheet" href="/js/modules/build-nanowire/build-nanowire.css">
     <link rel="stylesheet" href="/js/modules/build-majorana-2/majorana.css">
+    <link rel="stylesheet" href="/js/modules/measurement-based/measurement-based.css">
+    <link rel="stylesheet" href="/js/modules/quantum-platform/quantum-platform.css">
   </head>
   <body>
     <div id="viewport-shell">
@@ -48,7 +50,7 @@
                 <span>quantum computing</span>
               </h1>
               <p class="attract-intro">
-                Discover the science and engineering behind a new era of computing
+                Discover the science and engineering behind a new era of computing.
               </p>
             </div>
 
@@ -56,7 +58,7 @@
               <button class="primary-action" id="start-button" type="button">
                 <span>Touch to explore</span>
                 <span class="action-arrow" aria-hidden="true">
-                  <img src="/assets/ui/chevron-right.svg" alt="">
+                  <img src="/assets/ui/principle-chevron.svg" alt="">
                 </span>
               </button>
             </div>
@@ -201,6 +203,48 @@
             </section>
 
             <section class="kiosk-settings__group">
+              <h2 class="kiosk-settings__label">Background music</h2>
+              <!-- The ambient loop only, not the interaction sounds: taps, whooshes
+                   and the per-module foley all stay under the volume slider. -->
+              <div
+                class="kiosk-settings__segments"
+                id="kiosk-settings-music"
+                role="radiogroup"
+                aria-label="Background music"
+              >
+                <span class="kiosk-settings__segment-thumb" aria-hidden="true"></span>
+                <button
+                  class="kiosk-settings__segment"
+                  type="button"
+                  role="radio"
+                  aria-checked="true"
+                  data-music="on"
+                >
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M9 18V6l10-2v12" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+                    <circle cx="6.5" cy="18" r="2.5" fill="none" stroke="currentColor" stroke-width="1.6"/>
+                    <circle cx="16.5" cy="16" r="2.5" fill="none" stroke="currentColor" stroke-width="1.6"/>
+                  </svg>
+                  <span>On</span>
+                </button>
+                <button
+                  class="kiosk-settings__segment"
+                  type="button"
+                  role="radio"
+                  aria-checked="false"
+                  data-music="off"
+                >
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M9 18V6l10-2v12" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+                    <circle cx="6.5" cy="18" r="2.5" fill="none" stroke="currentColor" stroke-width="1.6"/>
+                    <line x1="4" y1="20.5" x2="20" y2="3.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+                  </svg>
+                  <span>Off</span>
+                </button>
+              </div>
+            </section>
+
+            <section class="kiosk-settings__group">
               <h2 class="kiosk-settings__label">Layout</h2>
               <!-- Top packs the module card into the upper two thirds;
                    Center spends the empty lower third on the copy, the CTA
@@ -279,6 +323,48 @@
                   </svg>
                   <span>Hide</span>
                 </button>
+              </div>
+            </section>
+
+            <!-- Idle returns are chained: time in a module returns to the menu,
+                 then a fresh menu countdown returns to the attract screen. -->
+            <section class="kiosk-settings__group">
+              <div class="kiosk-settings__heading">
+                <h2 class="kiosk-settings__label">Return to menu after</h2>
+                <output
+                  class="kiosk-settings__readout"
+                  id="idle-menu-readout"
+                  for="idle-menu-slider"
+                  aria-live="off"
+                ></output>
+              </div>
+              <div class="kiosk-settings__timing">
+                <input
+                  class="kiosk-settings__slider"
+                  id="idle-menu-slider"
+                  type="range"
+                  aria-label="Seconds without a touch inside a module before returning to the menu"
+                >
+              </div>
+            </section>
+
+            <section class="kiosk-settings__group">
+              <div class="kiosk-settings__heading">
+                <h2 class="kiosk-settings__label">Return to home after</h2>
+                <output
+                  class="kiosk-settings__readout"
+                  id="idle-home-readout"
+                  for="idle-home-slider"
+                  aria-live="off"
+                ></output>
+              </div>
+              <div class="kiosk-settings__timing">
+                <input
+                  class="kiosk-settings__slider"
+                  id="idle-home-slider"
+                  type="range"
+                  aria-label="Seconds without a touch on the menu before returning to the home screen"
+                >
               </div>
             </section>
           </div>

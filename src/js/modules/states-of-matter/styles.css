@@ -19,8 +19,8 @@
   --som-copy-liquid-y: -12px;
   --som-copy-gas-y: 12px;
   /* Solid carries copy now, so the block opens at full height. */
-  --som-info-height: 628px;
-  --som-copy-height: 300px;
+  --som-info-height: 648px;
+  --som-copy-height: 320px;
   --som-video-blur: 0px;
   --som-video-scale: 1;
   position: absolute;
@@ -238,9 +238,8 @@
   position: absolute;
   top: 0;
   left: 50%;
-  /* Four lines at the line-height below — the longest paragraph (Solid) needs
-     all four. */
-  height: 300px;
+  /* Four lines plus room for descenders below the final line box. */
+  height: 320px;
   color: #fff;
   font-family: var(--font-display);
   font-size: 60px;
@@ -278,11 +277,6 @@
   width: 1080px;
   opacity: var(--som-copy-topoconductor);
   transform: translate3d(-50%, var(--som-copy-topoconductor-y), 0);
-}
-
-/* The one term the design colours — now "topoconductor", on the liquid step. */
-.som__accent {
-  color: #8dc8e8;
 }
 
 .som__title-group {
@@ -412,6 +406,36 @@
   will-change: transform;
 }
 
+/* Inset to the knob's centre at each endpoint so the marks share its travel. */
+.som__ticks {
+  position: absolute;
+  z-index: 1;
+  top: 54px;
+  left: 60px;
+  right: 60px;
+  height: 36px;
+  pointer-events: none;
+}
+
+.som__tick {
+  position: absolute;
+  left: var(--som-tick-position);
+  width: 5px;
+  height: 100%;
+  border-radius: 3px;
+  background: #555;
+  transform: translateX(-50%);
+}
+
+/* Endpoint marks sit on the rail ends; transition marks follow knob centres. */
+.som__tick:first-child {
+  left: -60px;
+}
+
+.som__tick:last-child {
+  left: calc(100% + 60px);
+}
+
 .som--dragging .som__knob {
   scale: 1.08;
 }
@@ -462,7 +486,7 @@
 .som__hint {
   position: absolute;
   z-index: 8;
-  top: 2920px;
+  top: 1785px;
   left: 723px;
   width: 714px;
   height: 92px;

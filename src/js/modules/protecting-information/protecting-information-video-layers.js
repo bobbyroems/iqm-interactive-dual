@@ -40,8 +40,13 @@ const ADD_ON_FX_HELD_SECONDS = 20
 
 /* What the glow reaches at a fully turned dial. It is a bright pass — a hard
    blue line around the whole die — and at full strength it competes with the
-   device rather than sitting on it. */
-const ADD_ON_FX_PEAK_OPACITY = 0.25
+   device rather than sitting on it.
+
+   Raised a fifth from the 0.25 it was first held to: at that level the line was
+   reading as faded rather than as restraint, and the voltage dial's own effect
+   was easy to miss. Still well short of full, which is where it stops sitting
+   on the device and starts fighting it. */
+const ADD_ON_FX_PEAK_OPACITY = 0.3
 
 /* The intro clip holds a covering state for its first two and a half seconds,
    then wipes away over the next two. Parking just before the wipe skips a dead

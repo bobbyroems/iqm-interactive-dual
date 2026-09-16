@@ -1,12 +1,12 @@
 {
   "name": "iqm-kiosk",
-  "version": "0.5.8",
+  "version": "2.0.1",
   "private": true,
   "description": "IQM interactive touchscreen kiosk",
   "type": "module",
   "main": "electron/main.cjs",
   "scripts": {
-    "dev": "concurrently -k \"vite --host 127.0.0.1\" \"wait-on http://127.0.0.1:5173 && electron . --dev\"",
+    "dev": "node scripts/dev.mjs",
     "generate:som-frost": "node scripts/generate-som-frost-assets.mjs",
     "generate:som-scrub-video": "node scripts/generate-som-scrub-video.mjs",
     "pack:alpha-video": "node scripts/pack-alpha-video.mjs",
@@ -20,15 +20,20 @@
     "smoke:protocol": "npm run build:renderer && electron scripts/smoke-packaged-protocol.cjs",
     "package:win": "npm run build && electron-builder --win nsis --x64",
     "postpackage:win": "node scripts/check-packaged-assets.mjs build",
-    "package:win:kiosk": "npm run package:win",
     "package:win:review": "npm run build && electron-builder --config scripts/electron-builder-review.cjs --win portable --x64",
     "postpackage:win:review": "node scripts/check-packaged-assets.mjs build/review",
+    "package:win:review:fullscreen": "npm run build && electron-builder --config scripts/electron-builder-review-fullscreen.cjs --win portable --x64",
+    "postpackage:win:review:fullscreen": "node scripts/check-packaged-assets.mjs build/review-fullscreen",
     "package:win:dir": "npm run build && electron-builder --win --dir --x64",
     "postpackage:win:dir": "node scripts/check-packaged-assets.mjs build",
-    "check": "node scripts/check-syntax.mjs && npm run check:nanoscale && npm run check:assets",
+    "check": "node scripts/check-syntax.mjs && npm test && npm run check:nanoscale && npm run check:assets",
+    "test": "node --test test/*.test.mjs",
     "check:nanoscale": "node scripts/check-nanoscale-camera.mjs",
     "check:assets": "node scripts/check-media-assets.mjs public",
-    "test": "node --test"
+    "leak:soak": "electron scripts/leak-soak.cjs",
+    "check:recovery": "electron scripts/check-runtime-recovery.cjs && electron scripts/check-stalled-load-recovery.cjs",
+    "check:qvc-warmup": "electron scripts/check-qvc-warmup.cjs",
+    "check:interference-layout": "electron scripts/check-interference-layout.cjs"
   },
   "engines": {
     "node": ">=22.12"
@@ -39,6 +44,7 @@
     "three": "^0.185.1"
   },
   "devDependencies": {
+    "@electron/asar": "3.4.1",
     "@gltf-transform/cli": "^4.4.2",
     "@gltf-transform/core": "^4.4.2",
     "@gltf-transform/extensions": "^4.4.2",

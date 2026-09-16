@@ -41,8 +41,15 @@ export const INTERFERENCE_WAVE_CONFIG = Object.freeze({
    * merging with its neighbours into a labyrinth.
    */
   trailDecay: 0.9,
-  outcomeDelay: 5,
-  fadeDuration: 2.2
+  /*
+   * The gap between the fifth tap and the "One true solution!" card is
+   * outcomeDelay + fadeDuration, and at 7.2 s the visitor had already read the
+   * finished field and started looking for what to do next. Halved to 3.6 s,
+   * with most of the cut taken out of the static hold rather than the camera
+   * move, so the push-in still reads as a move rather than a jump.
+   */
+  outcomeDelay: 2.2,
+  fadeDuration: 1.4
 })
 
 export const INTERFERENCE_PHASES = Object.freeze({

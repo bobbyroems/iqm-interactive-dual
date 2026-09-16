@@ -1,3 +1,5 @@
+import { withSceneSetup } from '../../core/scene-setup.js'
+import { warmSceneVariants } from '../../core/warm-scene-variants.js'
 /*
  * Interference — Current Design V3.
  *
@@ -11,25 +13,20 @@
 import * as THREE from 'three'
 
 import { sound } from '../../core/kiosk-audio.js'
-import {
-  createKioskExplainer,
-  disposeKioskExplainer,
-  updateKioskExplainer
-} from '../../core/kiosk-explainer.js'
-import {
-  createKioskTooltip,
-  updateKioskTooltip
-} from '../../core/kiosk-tooltip.js'
+import { updateKioskExplainer } from '../../core/kiosk-explainer.js'
+import { updateKioskTooltip } from '../../core/kiosk-tooltip.js'
+import { leaseWebGLRenderer } from '../../core/webgl-renderer-pool.js'
+import { disposeObject3DResources } from '../../core/three-resource-disposal.js'
 import {
   BUOY_FLAG_HEIGHT_LIMITS,
   BUOY_SCREEN_EAST_YAW,
   cloneBuoy
 } from './interference-assets.js'
 import {
-  createInterferenceLesson,
   LESSON_COPY,
   setLessonPlayback
 } from './interference-lesson.js'
+import { createInterferenceGuidance } from './interference-guidance.js'
 import {
   INTERFERENCE_BACKGROUND_BUOY_LAYOUT,
   INTERFERENCE_CANDIDATE_LAYOUT,
@@ -37,10 +34,7 @@ import {
   INTERFERENCE_WINNER_CANDIDATE_INDEX,
   sourceIndexForCandidate
 } from './interference-layout.js'
-import {
-  getInterferencePresentation,
-  INTERFERENCE_FINALE
-} from './interference-presentation.js'
+import { getInterferencePresentation } from './interference-presentation.js'
 import {
   createInterferenceStages,
   INTERFERENCE_STAGES
@@ -67,6 +61,7 @@ const BUOY_FIELD_SMOOTHING = 10
 const BUOY_ROTATION_SMOOTHING = 8
 const CUE_SMOOTHING = 8.5
 const SUBMERGED_REVEAL_Y = -2.4
+const INITIAL_BUOY_YAW_OFFSET = THREE.MathUtils.degToRad(25)
 
 /* A step burst is a fraction of the finale, enough to pull the eye back to the
    winning buoy as its flag lifts without spending the ending early. */
@@ -424,31 +419,6 @@ function gameMarkup() {
   `
 }
 
-function lineBreakContent(lines) {
-  const fragment = document.createDocumentFragment()
-  lines.forEach((line, index) => {
-    if (index) fragment.append(document.createElement('br'))
-    fragment.append(document.createTextNode(line))
-  })
-  return fragment
-}
-
-function createInterferenceFinale() {
-  const finale = createKioskExplainer({
-    ariaHidden: true,
-    bodyAriaLabel: INTERFERENCE_FINALE.body,
-    bodyContent: lineBreakContent(INTERFERENCE_FINALE.lines),
-    className: 'qvc-interference__finale',
-    tagName: 'section',
-    title: INTERFERENCE_FINALE.title,
-    visible: false
-  })
-  finale.element.dataset.finale = ''
-  finale.title.classList.add('qvc-interference__tooltip-title')
-  finale.body.classList.add('qvc-interference__tooltip-description')
-  return finale
-}
-
 function createBackdropTexture() {
   const canvas = document.createElement('canvas')
   canvas.width = 32
@@ -611,6 +581,7 @@ export function createConfetti({ random = Math.random } = {}) {
     },
     update,
     dispose() {
+      pieces.dispose()
       geometry.dispose()
       material.dispose()
     }
@@ -628,27 +599,28 @@ function setMaterialVisibility(material, amount) {
   material.depthWrite = safeAmount > 0.96
 }
 
-export async function createInterferenceGame(
+export function createInterferenceGame(host, options) {
+  return withSceneSetup(defer => buildInterferenceGame(host, options, defer))
+}
+
+async function buildInterferenceGame(
   host,
-  { buoyAssets, onActivity, onGameComplete, random = Math.random, RoomEnvironment }
+  { buoyAssets, onActivity, onGameComplete, showUpNext, random = Math.random, RoomEnvironment, signal },
+  defer
 ) {
   const wrapper = document.createElement('div')
   wrapper.innerHTML = gameMarkup().trim()
   const root = wrapper.firstElementChild
-  const finaleExplainer = createInterferenceFinale()
-  const lesson = createInterferenceLesson()
+
+  const guidance = createInterferenceGuidance()
+  defer(() => guidance.dispose())
+  const { lesson, finaleExplainer, interactionTooltip } = guidance
   const targetArrow = root.querySelector('[data-target-arrow]')
   const buoyAnnotation = root.querySelector('[data-buoy-annotation]')
   const announcement = root.querySelector('[data-announce]')
-  targetArrow.before(finaleExplainer.element)
-  announcement.before(lesson)
-  const interactionTooltip = createKioskTooltip({
-    className: 'qvc-interference__interaction-tip',
-    hidden: true
-  })
-  interactionTooltip.element.dataset.interferenceTip = ''
-  root.append(interactionTooltip.element)
+  announcement.before(guidance.element)
   host.replaceChildren(root)
+  defer(() => root.remove())
 
   const sceneHost = root.querySelector('[data-game-scene]')
   const lessonStages = Array.from(root.querySelectorAll('[data-lesson-stage]'))
@@ -666,17 +638,29 @@ export async function createInterferenceGame(
   })
 
   const scene = new THREE.Scene()
+  const borrowed = new Set()
+  buoyAssets.template.traverse(object => {
+    if (object.geometry) borrowed.add(object.geometry)
+    for (const material of [object.material].flat().filter(Boolean)) {
+      borrowed.add(material)
+      for (const value of Object.values(material)) if (value?.isTexture) borrowed.add(value)
+    }
+  })
+  defer(() => disposeObject3DResources(scene, { preserve: borrowed }))
   const backdropTexture = createBackdropTexture()
+  defer(() => backdropTexture.dispose())
   scene.background = backdropTexture
 
   const camera = new THREE.PerspectiveCamera(62, 1, 0.1, 360)
-  const renderer = new THREE.WebGLRenderer({
+  const rendererLease = leaseWebGLRenderer(THREE, {
     alpha: false,
     antialias: true,
     depth: true,
     powerPreference: 'high-performance',
-    stencil: false
+    stencil: true
   })
+  defer(() => rendererLease.release())
+  const { renderer } = rendererLease
   renderer.outputColorSpace = THREE.SRGBColorSpace
   renderer.toneMapping = THREE.ACESFilmicToneMapping
   renderer.toneMappingExposure = 0.82
@@ -691,12 +675,13 @@ export async function createInterferenceGame(
 
   const pmrem = new THREE.PMREMGenerator(renderer)
   let environmentTarget = null
+  defer(() => { environmentTarget?.dispose(); pmrem.dispose() })
   if (RoomEnvironment) {
     const roomEnvironment = new RoomEnvironment()
     environmentTarget = pmrem.fromScene(roomEnvironment, 0.04)
     scene.environment = environmentTarget.texture
     scene.environmentIntensity = 0.72
-    roomEnvironment.dispose?.()
+    disposeObject3DResources(roomEnvironment)
   }
 
   const hemisphere = new THREE.HemisphereLight('#e9f6f4', '#527d80', 0.62)
@@ -731,44 +716,6 @@ export async function createInterferenceGame(
     opacity: 0,
     transparent: true
   })
-  const cueGeometry = new THREE.CircleGeometry(0.95, 72)
-  cueGeometry.rotateX(-Math.PI / 2)
-  const cueMaterial = new THREE.ShaderMaterial({
-    depthWrite: false,
-    side: THREE.DoubleSide,
-    transparent: true,
-    uniforms: {
-      uColor: { value: new THREE.Color('#38d7b8') },
-      uOpacity: { value: 0 }
-    },
-    vertexShader: `
-      varying vec2 vCuePosition;
-      void main() {
-        vCuePosition = position.xz / 0.95;
-        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-      }
-    `,
-    fragmentShader: `
-      uniform vec3 uColor;
-      uniform float uOpacity;
-      varying vec2 vCuePosition;
-      void main() {
-        float radius = length(vCuePosition);
-        float softRing = smoothstep(0.40, 0.62, radius) *
-          (1.0 - smoothstep(0.76, 1.0, radius));
-        float halo = (1.0 - smoothstep(0.08, 1.0, radius)) * 0.32;
-        float alpha = (softRing * 0.26 + halo) * uOpacity;
-        gl_FragColor = vec4(uColor, alpha);
-      }
-    `
-  })
-  const cueRing = new THREE.Mesh(cueGeometry, cueMaterial)
-  cueRing.name = 'InterferenceSourceCue'
-  cueRing.renderOrder = 4
-  cueRing.visible = false
-  scene.add(cueRing)
-  const cueLight = new THREE.PointLight('#7effdf', 0, 5.2, 2)
-  scene.add(cueLight)
 
   const hitProxies = []
   const buoyRigs = INTERFERENCE_CANDIDATE_LAYOUT.map((layout, candidateIndex) => {
@@ -798,7 +745,8 @@ export async function createInterferenceGame(
     const group = new THREE.Group()
     group.name = `InterferenceCandidate-${String(candidateIndex + 1).padStart(2, '0')}`
     group.position.set(layout.x, 0, layout.z)
-    group.rotation.y = layout.heading
+    group.rotation.y = layout.heading +
+      (sourceIndex === 0 ? INITIAL_BUOY_YAW_OFFSET : 0)
     const inner = new THREE.Group()
     inner.add(buoy.root)
     group.add(inner)
@@ -899,17 +847,13 @@ export async function createInterferenceGame(
   const clock = new THREE.Clock()
   const raycaster = new THREE.Raycaster()
   const pointer = new THREE.Vector2()
-  const waterHitPoint = new THREE.Vector3()
-  const waterLocalPoint = new THREE.Vector3()
-  const waterPlanePoint = new THREE.Vector3()
-  const waterPlaneNormal = new THREE.Vector3()
-  const waterPlane = new THREE.Plane()
   const projectedTarget = new THREE.Vector3()
   const stepConfettiOrigin = new THREE.Vector3()
   const cameraPosition = new THREE.Vector3(0, 7, 14)
   const cameraTarget = new THREE.Vector3(0, 0, -0.45)
 
   let animationFrame = 0
+  defer(() => cancelAnimationFrame(animationFrame))
   let disposed = false
   let previousFrameTime = 0
   let solutionBuildProgress = 0
@@ -1141,39 +1085,18 @@ export async function createInterferenceGame(
 
   function updateCue(stageSnapshot, time, delta) {
     const targetCandidateIndex = candidateIndexForSource(stageSnapshot.targetIndex)
-    const targetItem = targetCandidateIndex === null
-      ? null
-      : buoyRigs[targetCandidateIndex]
-    const pulse = 0.86 + (0.14 * Math.sin(time * 3.15))
+    const pulse = 0.9 + (0.1 * Math.sin(time * 3.15))
 
     for (const item of buoyRigs) {
-      /* Keep the opening source recognisably blue. The sphere halo, ring and light
-         carry the full invitation while its material tint stays more restrained. */
-      const identityCue = item.sourceIndex === 0 ? 0.34 : 1
       const targetCue = item.candidateIndex === targetCandidateIndex
         ? pulse * item.revealProgress
         : 0
       item.cue = reducedMotion
         ? targetCue
         : damp(item.cue, targetCue, CUE_SMOOTHING, delta)
-      item.buoy.setCue(item.cue * identityCue, {
-        animate: !reducedMotion,
-        glowAmount: item.cue,
-        time
+      item.buoy.setCue(item.cue, {
+        outlineAmount: item.cue
       })
-    }
-
-    const cueAmount = targetItem?.cue ?? 0
-    cueRing.visible = cueAmount > 0.01
-    if (targetItem) {
-      cueRing.position.set(targetItem.layout.x, 0.035, targetItem.layout.z)
-      cueRing.scale.setScalar(0.94 + (cueAmount * 0.18))
-      cueMaterial.uniforms.uOpacity.value = cueAmount * 0.42
-      cueLight.position.set(targetItem.layout.x, 0.8, targetItem.layout.z)
-      cueLight.intensity = cueAmount * 0.72
-    } else {
-      cueMaterial.uniforms.uOpacity.value = 0
-      cueLight.intensity = 0
     }
   }
 
@@ -1486,7 +1409,10 @@ export async function createInterferenceGame(
     if (!event.isPrimary || event.button > 0) return
     if (outcome) {
       onActivity?.()
-      restart()
+      /* The finale's prompt reads "Tap to finish", and finishing means being
+         shown what is next — not being put back at the start of the game they
+         have just completed, which is what this used to do. */
+      showUpNext?.()
       return
     }
     if (continueLesson()) return
@@ -1508,31 +1434,10 @@ export async function createInterferenceGame(
       return
     }
 
-    const phase = round.snapshot(time).phase
-    const canTouchWater = phase === INTERFERENCE_PHASES.READY ||
-      phase === INTERFERENCE_PHASES.ACTIVATING
-    if (canTouchWater) {
-      /* The visible water contains ~1.8M triangles. Raycasting that mesh on
-         every tap made rapid input queue seconds of CPU work. The interaction
-         only needs an X/Z origin, so intersect its world-space plane in O(1). */
-      water.mesh.updateWorldMatrix(true, false)
-      waterPlanePoint.set(0, 0, 0).applyMatrix4(water.mesh.matrixWorld)
-      waterPlaneNormal.set(0, 1, 0).transformDirection(water.mesh.matrixWorld)
-      waterPlane.setFromNormalAndCoplanarPoint(waterPlaneNormal, waterPlanePoint)
-      const waterHit = raycaster.ray.intersectPlane(waterPlane, waterHitPoint)
-      if (waterHit) {
-        waterLocalPoint.copy(waterHit)
-        water.mesh.worldToLocal(waterLocalPoint)
-        const insideWater = Math.abs(waterLocalPoint.x) <= WATER_WIDTH * 0.5 &&
-          Math.abs(waterLocalPoint.z) <= WATER_DEPTH * 0.5
-        if (
-          insideWater &&
-          round.field.addTouchRipple(waterLocalPoint.x, waterLocalPoint.z, time)
-        ) {
-          sound.waterDunk()
-        }
-      }
-    }
+    /* Bare water no longer answers a tap. Only the highlighted buoy sends a
+       wave, so a ripple raised anywhere else was a second kind of wave with no
+       source and no bearing on the sequence — visitors read it as progress and
+       kept tapping open water instead of the buoy they had been asked for. */
     onActivity?.()
   }
 
@@ -1541,7 +1446,7 @@ export async function createInterferenceGame(
     event.preventDefault()
     if (outcome) {
       onActivity?.()
-      restart()
+      showUpNext?.()
       return
     }
     if (continueLesson()) return
@@ -1552,6 +1457,7 @@ export async function createInterferenceGame(
 
   renderer.domElement.addEventListener('pointerdown', onPointerDown)
   renderer.domElement.addEventListener('keydown', onKeyDown)
+  defer(() => { renderer.domElement.removeEventListener('pointerdown', onPointerDown); renderer.domElement.removeEventListener('keydown', onKeyDown) })
 
   function resize() {
     const rect = sceneHost.getBoundingClientRect()
@@ -1569,6 +1475,7 @@ export async function createInterferenceGame(
   const resizeObserver = new ResizeObserver(resize)
   resizeObserver.observe(sceneHost)
   window.addEventListener('resize', resize)
+  defer(() => { resizeObserver.disconnect(); window.removeEventListener('resize', resize) })
 
   function restart() {
     roundEpoch = clock.getElapsedTime()
@@ -1614,7 +1521,7 @@ export async function createInterferenceGame(
       item.buoy.setFlagAttachment(0)
       item.buoy.setFlagScale(1)
       item.buoy.setOutcome(0)
-      item.buoy.setCue(0, { animate: !reducedMotion, glowAmount: 0, time: 0 })
+      item.buoy.setCue(0, { outlineAmount: 0 })
       updateOutcomePartVisibility(item, 0)
       if (item.hitProxy) {
         item.hitProxy.visible = item.sourceIndex === 0
@@ -1637,9 +1544,6 @@ export async function createInterferenceGame(
       setMaterialVisibility(item.buoy.parts.Flagpole.material, 1)
       setMaterialVisibility(item.buoy.parts.Flag.material, 1)
     }
-    cueRing.visible = false
-    cueMaterial.uniforms.uOpacity.value = 0
-    cueLight.intensity = 0
     crestTintProgress = 0
     sequenceSolutionShown = 0
     fieldRedProgress = 0
@@ -1768,6 +1672,13 @@ export async function createInterferenceGame(
 
   resize()
   restart()
+  // Precompile the opaque and fading buoy variants plus hidden confetti and
+  // background rigs. Finale fading must not introduce its first shader here.
+  const fadeMaterials = [...buoyRigs, ...backgroundBuoyRigs].flatMap(item =>
+    ['Frame', 'Flagpole', 'Flag'].map(name => item.buoy.parts[name].material)
+  )
+  await warmSceneVariants(renderer, scene, camera, { fadeMaterials, signal })
+  restart()
   animationFrame = requestAnimationFrame(animate)
 
   return {
@@ -1778,7 +1689,7 @@ export async function createInterferenceGame(
       cameraWhooshPlayback?.stop()
       cameraWhooshPlayback = null
       cancelLessonTransitionTimer()
-      disposeKioskExplainer(finaleExplainer)
+      guidance.dispose()
       cancelAnimationFrame(animationFrame)
       resizeObserver.disconnect()
       window.removeEventListener('resize', resize)
@@ -1788,18 +1699,13 @@ export async function createInterferenceGame(
       backgroundBuoyRigs.forEach(item => item.buoy.dispose())
       proxyGeometry.dispose()
       proxyMaterial.dispose()
-      cueGeometry.dispose()
-      cueMaterial.dispose()
       confetti.dispose()
       water.dispose()
       backdropTexture.dispose()
       environmentTarget?.dispose()
       pmrem.dispose()
       scene.clear()
-      renderer.renderLists.dispose()
-      renderer.domElement.remove()
-      renderer.dispose()
-      renderer.forceContextLoss?.()
+      rendererLease.release()
       root.remove()
     }
   }

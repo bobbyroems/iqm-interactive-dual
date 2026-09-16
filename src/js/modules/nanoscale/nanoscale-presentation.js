@@ -11,6 +11,39 @@ const LOCAL_TRANSFORM_PRECISION = 1e10
 export const NANOSCALE_PRESENTATION_SEGMENTS = Object.freeze([0, 1, 2, 3, 4])
 const PRESENTATION_SEGMENT_COUNT = NANOSCALE_PRESENTATION_SEGMENTS.length
 const IDENTITY = Object.freeze({ scale: 1, translateX: 0, translateY: 0 })
+
+/** Allow one sharp raster at bounded scale intervals, rather than keeping the
+ * starting bitmap for an entire deep zoom or repainting on every frame. */
+export function createNanoscaleRasterRefresh({ scaleStep = 1.5, minimumIntervalMs = 180 } = {}) {
+  let activeSegment = null
+  let rasterScale = 1
+  let refreshedAt = -Infinity
+  let restoring = false
+  return (segment, scale, now, moving) => {
+    if (!moving || segment !== activeSegment) {
+      activeSegment = segment
+      rasterScale = scale
+      // The first 1.5x enlargement can refresh immediately, including a quick
+      // flick. Only subsequent refreshes are rate-limited.
+      refreshedAt = now - minimumIntervalMs
+      restoring = false
+      return false
+    }
+    if (restoring) {
+      // Reapply the hint on the following frame; keep the layer promoted by its
+      // 3D transform throughout, so its children do not get reparented.
+      restoring = false
+      rasterScale = scale
+      return false
+    }
+    const change = Math.max(scale / rasterScale, rasterScale / scale)
+    if (change < scaleStep || now - refreshedAt < minimumIntervalMs) return false
+    rasterScale = scale
+    refreshedAt = now
+    restoring = true
+    return true
+  }
+}
 const PRESENTATION_SEGMENT_ENDPOINTS = Object.freeze(Array.from(
   { length: PRESENTATION_SEGMENT_COUNT },
   (_, segment) => sampleNanoscalePresentationSegment(segment, 1)

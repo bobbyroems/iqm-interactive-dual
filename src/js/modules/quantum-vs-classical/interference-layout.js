@@ -1,16 +1,40 @@
 /*
  * Current Design V3 separates the five wave sources from the field of possible
- * outcomes. Five of these twenty-five rigs are interactive; the other twenty are
+ * outcomes. Five of these sixteen rigs are interactive; the other eleven are
  * deliberately passive, so they can visualise cancellation without inventing waves.
+ *
+ * The passive count is roughly half the twenty first authored here. The whole
+ * field surfaces at once when the third lesson ends, and at the original pitch
+ * that arrival read as a crowd rather than as a field of possible answers — the
+ * solution had to compete with its own neighbours to be seen. Rows are thinned by
+ * dropping alternate columns rather than by narrowing them, so every row still
+ * reaches the flanks at its own depth and the on-screen scatter stays even; the
+ * five source positions are untouched, since the wave field's cancellation
+ * margins are tuned to exactly where they stand.
  */
 
 const NORMALIZED_ROWS = Object.freeze([
-  Object.freeze({ z: -0.82, xs: Object.freeze([-0.82, -0.4, 0, 0.42, 0.83]) }),
-  Object.freeze({ z: -0.55, xs: Object.freeze([-0.96, -0.63, -0.29, 0.28, 0.62, 0.95]) }),
-  Object.freeze({ z: -0.23, xs: Object.freeze([-0.82, -0.48, 0, 0.43, 0.83]) }),
-  Object.freeze({ z: 0.16, xs: Object.freeze([-0.94, -0.53, -0.12, 0.48, 0.91]) }),
+  Object.freeze({ z: -0.82, xs: Object.freeze([-0.82, 0, 0.83]) }),
+  Object.freeze({ z: -0.55, xs: Object.freeze([-0.63, 0.28]) }),
+  Object.freeze({ z: -0.23, xs: Object.freeze([-0.82, -0.48, 0, 0.83]) }),
+  /* -0.94 was dropped rather than -0.53: this row is close enough to the camera
+     that the portrait frustum cuts its outermost column off screen entirely, so
+     keeping it would have spent a rig on nothing and left the left third of the
+     row visibly empty. */
+  Object.freeze({ z: 0.16, xs: Object.freeze([-0.53, 0.48]) }),
   Object.freeze({ z: 0.54, xs: Object.freeze([-0.65, 0.08, 0.68]) }),
-  Object.freeze({ z: 0.92, xs: Object.freeze([0.02]) })
+  Object.freeze({ z: 0.92, xs: Object.freeze([0.02]) }),
+  /* Three fills for the near water, which read as empty patches once the field
+     surfaced: the z 0.54 row jumps straight from its centre column to its
+     flanks, and z 0.92 carried a single buoy for the whole foreground.
+
+     Appended as their own rows, sharing the depths above rather than joining
+     those rows, so that every existing candidate keeps its index. The source
+     positions are indices 8, 7, 11, 13 and 3 and the winner is 8; growing an
+     earlier row would renumber them, and stableHeading() is index-derived, so
+     it would also re-yaw buoys nobody asked to move. */
+  Object.freeze({ z: 0.54, xs: Object.freeze([-0.3]) }),
+  Object.freeze({ z: 0.92, xs: Object.freeze([0.4]) })
 ])
 
 const WORLD_SCALE = Object.freeze({ x: 5.2, z: 9 })
@@ -22,15 +46,29 @@ const WORLD_SCALE = Object.freeze({ x: 5.2, z: 9 })
  * Column spacing stays proportional to camera distance (~2.8 m at z -11.2, the
  * authored cadence), which keeps the on-screen gaps even from the near flanks to
  * the horizon. The two nearest rows only carry flank columns — the middle of that
- * band belongs to the interaction field.
+ * band belongs to the interaction field. Interiors are thinned to alternate
+ * columns for the same reason the near field is, and the z -9 row keeps only its
+ * inner pair: at that depth the outer one sat past the portrait frustum's edge,
+ * so it cost two rigs and showed nothing. Alternate rows carry three columns
+ * rather than four so the thinned rows land between their neighbours' columns:
+ * at this distance four rows sharing the same three screen columns read as a
+ * picket fence, where a quincunx still reads as an open lattice.
  */
 const BACKGROUND_ROWS = Object.freeze([
   Object.freeze({ z: -6.6, xs: Object.freeze([-6.9, 6.9]) }),
-  Object.freeze({ z: -9, xs: Object.freeze([-8.9, -6.4, 6.4, 8.9]) }),
-  Object.freeze({ z: -11.2, xs: Object.freeze([-8.4, -5.6, -2.8, 0, 2.8, 5.6, 8.4]) }),
-  Object.freeze({ z: -15.8, xs: Object.freeze([-8.4, -5, -1.7, 1.7, 5, 8.4]) }),
-  Object.freeze({ z: -22.5, xs: Object.freeze([-12, -8, -4, 0, 4, 8, 12]) }),
-  Object.freeze({ z: -32.5, xs: Object.freeze([-14.4, -9.6, -4.8, 4.8, 9.6, 14.4]) })
+  Object.freeze({ z: -11.2, xs: Object.freeze([-8.4, -2.8, 2.8, 8.4]) }),
+  Object.freeze({ z: -15.8, xs: Object.freeze([-8.4, 0, 8.4]) }),
+  Object.freeze({ z: -22.5, xs: Object.freeze([-12, -4, 4, 12]) }),
+  Object.freeze({ z: -32.5, xs: Object.freeze([-14.4, 0, 14.4]) }),
+  /* Two fills for the far band, left and right. The z -22.5 row above carries
+     -12, -4, 4 and 12, but at that depth the portrait frustum cuts the outer
+     pair off screen, so the row reads as its inner pair alone with a hole on
+     either side. These sit in those holes.
+
+     Its own row, sharing that depth rather than joining the row, so the
+     background buoys keep their indices: stableHeading() derives yaw from the
+     index, and growing an earlier row would re-yaw every rig after it. */
+  Object.freeze({ z: -22.5, xs: Object.freeze([-8, 8]) })
 ])
 
 function stableHeading(index) {
@@ -75,7 +113,7 @@ export const INTERFERENCE_BACKGROUND_BUOY_LAYOUT = Object.freeze(
 /* The four secondary positions retain the V3 left/right/foreground/far rhythm while
    giving their 1.68 m harmonics a strong cancellation margin everywhere except the
    central solution. */
-export const INTERFERENCE_SOURCE_CANDIDATE_INDICES = Object.freeze([13, 12, 19, 22, 6])
+export const INTERFERENCE_SOURCE_CANDIDATE_INDICES = Object.freeze([7, 6, 10, 12, 3])
 
 export const INTERFERENCE_SOURCE_LAYOUT = Object.freeze(
   INTERFERENCE_SOURCE_CANDIDATE_INDICES.map((candidateIndex, sourceIndex) => {

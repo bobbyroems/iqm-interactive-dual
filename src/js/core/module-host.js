@@ -1,3 +1,5 @@
+import { waitForTask, taskTimeout } from './abortable-task.js'
+
 function noop() {}
 
 function escapeHtml(value = '') {
@@ -76,6 +78,7 @@ export class DomModuleHostView {
     this.root.removeAttribute('data-module-id')
     this.root.removeAttribute('data-module-state')
     this.root.removeAttribute('data-module-category')
+    this.root.removeAttribute('data-module-scheme')
     this.root.replaceChildren()
   }
 
@@ -84,6 +87,8 @@ export class DomModuleHostView {
     this.root.dataset.moduleId = module.id
     this.root.dataset.moduleState = 'concept'
     this.root.dataset.moduleCategory = module.category || ''
+    /* Which of the three band schemes this module runs; see module-host.css. */
+    this.root.dataset.moduleScheme = module.scheme || 'purple'
     this.root.innerHTML = `
       <div class="module-host__scaffold">
         <article class="module-shell">
@@ -132,6 +137,8 @@ export class DomModuleHostView {
     this.root.dataset.moduleId = module.id
     this.root.dataset.moduleState = 'loading'
     this.root.dataset.moduleCategory = module.category || ''
+    /* Which of the three band schemes this module runs; see module-host.css. */
+    this.root.dataset.moduleScheme = module.scheme || 'purple'
     this.root.innerHTML = `
       <div class="module-host__system-view" role="status" aria-live="polite">
         <div class="module-host__system-copy">
@@ -151,6 +158,8 @@ export class DomModuleHostView {
     this.root.dataset.moduleId = module.id
     this.root.dataset.moduleState = 'active'
     this.root.dataset.moduleCategory = module.category || ''
+    /* Which of the three band schemes this module runs; see module-host.css. */
+    this.root.dataset.moduleScheme = module.scheme || 'purple'
     /* Keep the stage measurable but unpainted while its async mount builds
        presentation-ready content. revealStage starts the entrance only once
        that module-owned readiness contract has settled. */
@@ -158,6 +167,7 @@ export class DomModuleHostView {
       <div
         class="module-host__stage${deferReveal ? ' is-awaiting-content' : ''}"
         data-module-stage="${escapeHtml(module.id)}"
+        aria-busy="true"
         aria-label="${escapeHtml(module.title)} interactive module"
       ></div>
     `
@@ -184,6 +194,8 @@ export class DomModuleHostView {
     this.root.dataset.moduleId = module.id
     this.root.dataset.moduleState = 'error'
     this.root.dataset.moduleCategory = module.category || ''
+    /* Which of the three band schemes this module runs; see module-host.css. */
+    this.root.dataset.moduleScheme = module.scheme || 'purple'
     this.root.innerHTML = `
       <div class="module-host__system-view module-host__system-view--error" role="alert">
         <div class="module-host__system-copy">
@@ -216,7 +228,7 @@ export class DomModuleHostView {
  * experience.
  */
 export class ModuleHost {
-  constructor({ root, view, onActivity = noop, navigate = {} }) {
+  constructor({ root, view, onActivity = noop, navigate = {}, mountTimeoutMs = 30000 }) {
     this.view = view || new DomModuleHostView(root)
     this.navigate = Object.freeze({
       home: navigate.home || noop,
@@ -229,6 +241,7 @@ export class ModuleHost {
     this.currentModule = null
     this.abortController = null
     this.disposer = null
+    this.mountTimeoutMs = mountTimeoutMs
     this.requestToken = 0
 
     this.onActivity = this.onActivity.bind(this)
@@ -244,6 +257,7 @@ export class ModuleHost {
     this.#invalidate({ clear: false })
     const token = this.requestToken
     this.currentModule = module
+    this.mountContext = mountContext
 
     if (typeof module.load !== 'function') {
       this.view.showConcept(module)
@@ -253,9 +267,12 @@ export class ModuleHost {
     const abortController = new AbortController()
     this.abortController = abortController
     const cancelLoadingView = this.#scheduleLoadingView(module, token, abortController)
+    const deadline = setTimeout(() => {
+      abortController.abort(taskTimeout('The experience took too long to prepare. Please try again.'))
+    }, this.mountTimeoutMs)
 
     try {
-      const moduleExports = await module.load({ signal: abortController.signal })
+      const moduleExports = await waitForTask(module.load({ signal: abortController.signal }), abortController.signal)
       cancelLoadingView()
       if (!this.#isCurrent(token, abortController)) return { status: 'stale' }
 
@@ -272,13 +289,16 @@ export class ModuleHost {
         this.view.revealStage?.(container, { animate: animateStage })
       }
       const mount = getMountFunction(moduleExports)
-      const mountResult = await mount(container, {
+      const mountResult = await waitForTask(mount(container, {
         ...mountContext,
         module,
         signal: abortController.signal,
         onActivity: this.onActivity,
+        onError: error => {
+          if (this.#isCurrent(token, abortController)) this.reportError(error)
+        },
         navigate: this.navigate
-      })
+      }), abortController.signal, result => runDisposer(getDisposer(result)))
       const disposer = getDisposer(mountResult)
       const presentationReady = getPresentationReady(mountResult)
 
@@ -293,8 +313,9 @@ export class ModuleHost {
       }
       if (presentationReady) {
         try {
-          await presentationReady()
+          await waitForTask(presentationReady(), abortController.signal)
         } catch (error) {
+          if (abortController.signal.aborted) throw error
           /* Compositor warm-up is an enhancement; a failure must not block the module. */
           console.warn(`Module “${module.id}” presentation warm-up failed.`, error)
         }
@@ -303,16 +324,21 @@ export class ModuleHost {
         runDisposer(disposer)
         return { status: 'stale' }
       }
+      container.setAttribute?.('aria-busy', 'false')
       return { status: 'active' }
     } catch (error) {
       cancelLoadingView()
-      if (!this.#isCurrent(token, abortController) || isAbortError(error)) {
+      if (token !== this.requestToken || this.abortController !== abortController ||
+          (abortController.signal.aborted && isAbortError(error))) {
         return { status: 'stale' }
       }
 
       console.error(`Module “${module.id}” failed to mount.`, error)
       abortController.abort()
       this.abortController = null
+      const disposer = this.disposer
+      this.disposer = null
+      runDisposer(disposer)
       const retry = () => {
         if (token !== this.requestToken || this.currentModule !== module) return
         this.onActivity()
@@ -320,11 +346,30 @@ export class ModuleHost {
       }
       this.view.showError(module, error, retry)
       return { status: 'error', error }
+    } finally {
+      clearTimeout(deadline)
+      cancelLoadingView()
     }
   }
 
   unmount() {
     this.#invalidate({ clear: true })
+  }
+
+  /** Post-mount interactions share the same teardown and retry as startup. */
+  reportError(error, retryContext = this.mountContext) {
+    const module = this.currentModule
+    const context = retryContext
+    if (!module) return
+    console.error(`Module “${module.id}” interaction failed.`, error)
+    this.#invalidate({ clear: false })
+    this.currentModule = module
+    const token = this.requestToken
+    this.view.showError(module, error, () => {
+      if (token !== this.requestToken) return
+      this.onActivity()
+      void this.mount(module, context)
+    })
   }
 
   /* Returns a cancel function; call it as soon as the load settles so a fast
@@ -348,6 +393,7 @@ export class ModuleHost {
     if (disposer) runDisposer(disposer)
 
     this.currentModule = null
+    this.mountContext = null
     if (clear) this.view.clear()
   }
 

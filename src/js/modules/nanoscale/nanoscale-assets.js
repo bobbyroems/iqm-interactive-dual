@@ -8,7 +8,10 @@ const NANOSCALE_ASSET_ROOT = 'assets/modules/nanoscale'
 export const NANOSCALE_UI_IMAGE_PATHS = Object.freeze({
   microsoftLogo: 'assets/ui/microsoft-logo.png',
   restartIcon: 'assets/ui/restart.svg',
-  exitIcon: 'assets/ui/exit-x.svg'
+  exitIcon: 'assets/ui/exit-x.svg',
+  /* Named in the splash instruction, so it has to be decoded before the pill
+     is first painted rather than popping in a frame later. */
+  swipeUpArrow: 'assets/modules/nanoscale/swipe-up-arrow.svg'
 })
 
 const cameraImagePaths = NANOSCALE_CAMERA_SCENES.flatMap(scene => {
@@ -49,8 +52,10 @@ function loadAndDecodeImage(path, signal) {
     const image = new Image()
     image.decoding = 'async'
     let settled = false
+    const deadline = setTimeout(() => fail(new Error(`Nanoscale image timed out: ${path}`)), 15000)
 
     const cleanup = () => {
+      clearTimeout(deadline)
       image.removeEventListener('load', onLoad)
       image.removeEventListener('error', onError)
       signal.removeEventListener('abort', onAbort)
@@ -203,13 +208,26 @@ async function decodeElementImage(image) {
   }
 }
 
+/**
+ * Refresh the decoded backing for a focused set of live DOM images.
+ *
+ * The whole Nanoscale runtime is roughly half a gigabyte once decoded, so the
+ * browser is allowed to discard an early image even though its `<img>` remains
+ * complete. Calling decode() again at the preceding stop brings just the next
+ * scene back without competing with the zoom frame that first needs it.
+ */
+export async function decodeNanoscaleElementImages(images, { signal } = {}) {
+  const uniqueImages = [...new Set(images)].filter(image => image?.tagName === 'IMG')
+  for (const image of uniqueImages) {
+    await waitWithoutCancellingSharedPreload(decodeElementImage(image), signal)
+  }
+}
+
 /** Decode the actual detached stage images before ModuleHost reveals or enables it. */
 export async function decodeNanoscaleStageImages(root, { signal } = {}) {
   const images = [...root.querySelectorAll('img[src]')]
   try {
-    for (const image of images) {
-      await waitWithoutCancellingSharedPreload(decodeElementImage(image), signal)
-    }
+    await decodeNanoscaleElementImages(images, { signal })
   } catch (error) {
     /* The detached stage will not be used after a failed/aborted mount. Cancel
        any requests it still owns instead of leaving them alive off-DOM. */

@@ -1,0 +1,10 @@
+{
+  "firstStatus": 200,
+  "bodyError": {
+    "message": "simulated transient file-open lock",
+    "code": "EBUSY"
+  },
+  "openAttemptsBeforeManualRetry": 1,
+  "manualRetryStatus": 200,
+  "manualRetryBody": "test"
+}

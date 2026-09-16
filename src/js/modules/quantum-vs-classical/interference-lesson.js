@@ -1,13 +1,16 @@
 /*
  * Top narrative cards for Interference.
  *
- * Layout, copy, line breaks, emphasis colors, and diagram assets come from the
- * seven authored Interference frames in IQM Makeshift Internal.fig. The three
+ * Layout and diagram assets come from the
+ * authored Interference frames; copy follows the final content document. The three
  * diagrams are the delivered animated clips, prepared by
  * scripts/prepare-panel-video.mjs.
  */
 
-import { createKioskExplainer } from '../../core/kiosk-explainer.js'
+import {
+  createKioskExplainer,
+  disposeKioskExplainer
+} from '../../core/kiosk-explainer.js'
 
 const TOOLTIP_ASSET_ROOT = '/assets/modules/differences/interference-tooltips'
 
@@ -29,15 +32,15 @@ function graphic(filename, width, height, alt) {
 
 export const LESSON_COPY = Object.freeze({
   intro: Object.freeze({
-    body: 'How quantum computers use waves to amplify the more likely answers and cancel out less likely ones.',
-    bodyHtml: 'How quantum computers use waves to<br><strong>amplify</strong> the more likely answers and<br><strong>cancel out</strong> less likely ones.',
+    body: 'Quantum computers use waves to increase the likelihood of some outcomes and reduce the likelihood of others.',
+    bodyHtml: 'Quantum computers use waves to <strong>increase</strong> the likelihood of some outcomes and <strong>reduce</strong> the likelihood of others.',
     continue: false,
     graphic: null,
     title: 'Quantum interference'
   }),
   one: Object.freeze({
-    body: 'Each wave is an instruction that moves through all possible answers at once.',
-    bodyHtml: 'Each wave is an <strong>instruction</strong> that<br>moves through all possible<br>answers at once.',
+    body: 'Each wave is a quantum instruction that affects many possible outcomes at once.',
+    bodyHtml: 'Each wave is a <strong>quantum instruction</strong> that affects many possible outcomes at once.',
     continue: true,
     graphic: graphic(
       'wave-probability.webm',
@@ -45,18 +48,18 @@ export const LESSON_COPY = Object.freeze({
       639,
       'A probability wave rising from a horizontal axis.'
     ),
-    title: 'Sea of Probabilities'
+    title: 'Sea of probabilities'
   }),
   bridge: Object.freeze({
-    body: "But one wave isn't enough to isolate the right answer.",
-    bodyHtml: "But one wave isn't enough to<br>isolate the right answer.",
+    body: 'One wave can change probabilities, but it takes more to make the outcome stand out.',
+    bodyHtml: 'One wave can change probabilities, but it takes more to make the outcome stand out.',
     continue: false,
     graphic: null,
     title: ''
   }),
   constructive: Object.freeze({
-    body: 'Where waves meet, they interfere and their heights combine. Peaks that line up amplify, while peaks and valleys cancel each other out.',
-    bodyHtml: 'Where waves meet, they <strong>interfere</strong><br>and their heights combine. Peaks<br>that line up amplify, while peaks<br>and valleys cancel each other out.',
+    body: 'When waves meet, they combine and will amplify, or cancel each other out. This interference shifts the likelihood of different outcomes.',
+    bodyHtml: 'When waves meet, they combine and will <strong>amplify</strong>, or <strong>cancel</strong> each other out. This interference shifts the likelihood of different outcomes.',
     continue: true,
     graphic: graphic(
       'constructive-interference.webm',
@@ -67,8 +70,8 @@ export const LESSON_COPY = Object.freeze({
     title: 'Interference'
   }),
   destructive: Object.freeze({
-    body: 'Where waves meet, they interfere and their heights combine. Peaks that line up amplify, while peaks and valleys cancel each other out.',
-    bodyHtml: 'Where waves meet, they <strong>interfere</strong><br>and their heights combine. Peaks<br>that line up amplify, while peaks<br>and valleys cancel each other out.',
+    body: 'When waves meet, they combine and will amplify, or cancel each other out. This interference shifts the likelihood of different outcomes.',
+    bodyHtml: 'When waves meet, they combine and will <strong>amplify</strong>, or <strong>cancel</strong> each other out. This interference shifts the likelihood of different outcomes.',
     continue: true,
     graphic: graphic(
       'destructive-interference.webm',
@@ -79,8 +82,8 @@ export const LESSON_COPY = Object.freeze({
     title: 'Interference'
   }),
   add: Object.freeze({
-    body: 'Adding more waves forces the wrong answers to sink so the true solution can rise up and stand out.',
-    bodyHtml: 'Adding more waves forces the<br>wrong answers to sink so the <strong>true<br>solution can rise up</strong> and stand<br>out.',
+    body: 'As more waves interact, interference strengthens promising outcomes while reducing less likely ones.',
+    bodyHtml: 'As more waves interact, interference <strong>strengthens promising outcomes</strong> while reducing less likely ones.',
     continue: false,
     graphic: null,
     title: 'Add more waves'
@@ -114,7 +117,7 @@ function createLessonPanel(key, copy) {
   panel.title.classList.add('qvc-interference__tooltip-title')
   panel.body.classList.add('qvc-interference__tooltip-description')
   panel.media.classList.add('qvc-interference__lesson-visual')
-  return panel.element
+  return panel
 }
 
 /**
@@ -143,6 +146,10 @@ export function setLessonPlayback(lesson, key) {
   }
 }
 
+/* Keyed on the lesson root so the game hands the whole thing back on teardown
+   rather than carrying seven explainer handles through its own state. */
+const lessonPanels = new WeakMap()
+
 export function createInterferenceLesson() {
   const lesson = document.createElement('section')
   lesson.className = 'qvc-interference__lesson'
@@ -151,8 +158,26 @@ export function createInterferenceLesson() {
   lesson.setAttribute('aria-hidden', 'true')
   lesson.toggleAttribute('inert', true)
   lesson.inert = true
-  lesson.append(...Object.entries(LESSON_COPY).map(([key, copy]) => (
+  const panels = Object.entries(LESSON_COPY).map(([key, copy]) => (
     createLessonPanel(key, copy)
-  )))
+  ))
+  lesson.append(...panels.map(panel => panel.element))
+  lessonPanels.set(lesson, panels)
   return lesson
+}
+
+/**
+ * Releases the three panel clips. Taking the lesson out of the DOM does not:
+ * Chromium keeps the decoder alive behind a detached <video> until the element
+ * is collected, so a visitor replaying Interference builds up a backlog of
+ * loaded clips. Every other module in the kiosk releases its media explicitly
+ * (see core/media-lifecycle.js); this is how Interference joins them.
+ *
+ * @param {Element} lesson root returned by createInterferenceLesson
+ */
+export function disposeInterferenceLesson(lesson) {
+  const panels = lessonPanels.get(lesson)
+  if (!panels) return
+  lessonPanels.delete(lesson)
+  panels.forEach(disposeKioskExplainer)
 }

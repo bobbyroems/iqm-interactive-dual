@@ -1,7 +1,18 @@
 const ASSEMBLY_DISTANCE_SCALE = 4
 
+/* The ready-state prompt borrows the real assembly path, but only travels a
+   small fraction of it so the two layers suggest the gesture without looking
+   as if they are completing the interaction themselves. */
+export const ASSEMBLY_IDLE_PULL_MAX_PROGRESS = 0.24
+export const ASSEMBLY_IDLE_PULL_CYCLE_SECONDS = 4.4
+
 function clamp(value, minimum, maximum) {
   return Math.min(maximum, Math.max(minimum, value))
+}
+
+function smoothstep(value) {
+  const t = clamp(value, 0, 1)
+  return t * t * (3 - (2 * t))
 }
 
 export function assemblyProgressFromPoint(origin, target, point) {
@@ -30,6 +41,30 @@ export function assemblyDistanceFromProgress(progress) {
   const numericProgress = Number(progress)
   if (!Number.isFinite(numericProgress)) return ASSEMBLY_DISTANCE_SCALE
   return (1 - clamp(numericProgress, 0, 1)) * ASSEMBLY_DISTANCE_SCALE
+}
+
+/**
+ * A seamless pinch rhythm for the untouched ready state: rest, squeeze, hold,
+ * release, rest. Keeping this in progress space means the prompt follows the
+ * exact same three-dimensional path as the visitor's drag.
+ */
+export function assemblyIdlePullProgress(elapsedSeconds, strength = 1) {
+  const numericSeconds = Number(elapsedSeconds)
+  const numericStrength = Number(strength)
+  if (!Number.isFinite(numericSeconds) || !Number.isFinite(numericStrength)) return 0
+
+  const cycle = ASSEMBLY_IDLE_PULL_CYCLE_SECONDS
+  const wrappedSeconds = ((numericSeconds % cycle) + cycle) % cycle
+  const phase = wrappedSeconds / cycle
+  let pinch = 0
+  if (phase >= 0.12 && phase < 0.42) {
+    pinch = smoothstep((phase - 0.12) / 0.3)
+  } else if (phase >= 0.42 && phase < 0.58) {
+    pinch = 1
+  } else if (phase >= 0.58 && phase < 0.88) {
+    pinch = 1 - smoothstep((phase - 0.58) / 0.3)
+  }
+  return ASSEMBLY_IDLE_PULL_MAX_PROGRESS * pinch * clamp(numericStrength, 0, 1)
 }
 
 /*

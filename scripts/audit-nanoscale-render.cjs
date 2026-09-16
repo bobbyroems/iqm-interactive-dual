@@ -36,8 +36,8 @@ app.whenReady().then(async () => {
     isKiosk: false,
     config: {
       design: { width: 2160, height: 3840 },
-      development: { idleTimeoutMs: 600000 },
-      kiosk: { idleTimeoutMs: 60000 }
+      development: { idleReturnToMenuMs: 600000, idleReturnToHomeMs: 600000 },
+      kiosk: { idleReturnToMenuMs: 120000, idleReturnToHomeMs: 120000 }
     }
   }))
   const win = new BrowserWindow({
@@ -118,7 +118,7 @@ app.whenReady().then(async () => {
           const context = canvas.getContext('2d')
           return ['Segoe Sans', 'Segoe UI Variable Text', 'Segoe UI Variable Display', 'Segoe UI', 'Arial'].map(family => {
             context.font = '600 36px "' + family + '"'
-            const tooltip = context.measureText('Pinch or scroll to zoom').width
+            const tooltip = context.measureText('Scroll to zoom').width
             context.font = '600 96px "' + family + '"'
             const title = context.measureText('Exploring the nanoscale').width
             context.font = '500 60px "' + family + '"'

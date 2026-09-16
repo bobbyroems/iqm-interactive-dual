@@ -1,6 +1,6 @@
 /*
  * Kiosk settings surface: a cog in the bottom-right corner of the stage that
- * springs open a frosted popover holding the sound and layout controls.
+ * springs open a frosted popover holding the sound, layout and timing controls.
  *
  * AGENTS.md sends floating panels to createKioskExplainer. This is the
  * documented interactive-dialog exception — the explainer models a passive
@@ -10,22 +10,27 @@
  * The spring lives in CSS so the panel, the cog and the segment thumb all ride
  * the same curve; this module only owns state and the enter/exit sequencing.
  */
-import { getVolume, setVolume } from './kiosk-audio.js'
+import { getVolume, isMusicEnabled, setMusicEnabled, setVolume } from './kiosk-audio.js'
+import {
+  formatIdleTimeout,
+  getIdleTimeouts,
+  IDLE_TIMEOUT_LIMITS,
+  setIdleTimeout
+} from './idle-timeouts.js'
 
-/* Whether the "Up next" card is allowed to interrupt. It is a card rather than
-   a banner — it covers the result the visitor just produced and waits to be
-   dismissed — so during a testing session there has to be a way to stop it
-   without stripping the offer out of the build. The quiet band it unlocks is
-   unaffected: that one does not interrupt anything.
+/* Whether the "Up next" pop-up is allowed to interrupt, so a testing session
+   can stop it without stripping the offer out of the build.
 
-   Off by default. The card interrupts the result the visitor has just produced
-   and waits to be dismissed, and the quiet band it would have unlocked offers
-   the same way on without stopping anyone — so the offer is not lost by
-   starting here, only the interruption.
+   On by default. It used to be off, because it arrived first and covered the
+   result the visitor had just produced. It arrives last now — the band offers
+   quietly and the pop-up only asks outright five seconds later, if that went
+   unanswered — and IQM asked for that third beat explicitly: on the floor,
+   people finished a module and stood looking at a finished screen. Off by
+   default meant the beat they asked for never ran.
 
    Deliberately not persisted either way. A kiosk that came back from a restart
    in a state nobody chose would be a hard fault to diagnose on a floor. */
-let upNextCardsEnabled = false
+let upNextCardsEnabled = true
 const upNextListeners = new Set()
 
 export function areUpNextCardsEnabled() {
@@ -53,7 +58,11 @@ function prefersReducedMotion() {
   return window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false
 }
 
-export function createKioskSettings({ root = document, onLayoutChange } = {}) {
+export function createKioskSettings({
+  root = document,
+  onIdleTimeoutChange,
+  onLayoutChange
+} = {}) {
   const container = root.getElementById('kiosk-settings')
   const launcher = root.getElementById('kiosk-settings-launcher')
   const panel = root.getElementById('kiosk-settings-panel')
@@ -104,7 +113,9 @@ export function createKioskSettings({ root = document, onLayoutChange } = {}) {
   }, true)
 
   bindVolume(root)
+  bindMusic(root, container)
   bindUpNext(root, container)
+  bindIdleTimeouts(root, onIdleTimeoutChange)
   const layout = bindLayout(root, container, onLayoutChange)
 
   return {
@@ -114,11 +125,65 @@ export function createKioskSettings({ root = document, onLayoutChange } = {}) {
   }
 }
 
+function bindIdleTimeouts(root, onChange) {
+  const timeouts = getIdleTimeouts()
+  const bindings = [
+    ['returnToMenuMs', 'idle-menu-slider', 'idle-menu-readout'],
+    ['returnToHomeMs', 'idle-home-slider', 'idle-home-readout']
+  ]
+
+  for (const [key, sliderId, readoutId] of bindings) {
+    const slider = root.getElementById(sliderId)
+    const readout = root.getElementById(readoutId)
+    if (!slider || !readout) continue
+
+    slider.min = String(IDLE_TIMEOUT_LIMITS.minMs / 1000)
+    slider.max = String(IDLE_TIMEOUT_LIMITS.maxMs / 1000)
+    slider.step = String(IDLE_TIMEOUT_LIMITS.stepMs / 1000)
+    slider.value = String(timeouts[key] / 1000)
+    readout.textContent = formatIdleTimeout(timeouts[key])
+
+    slider.addEventListener('input', () => {
+      const timeoutMs = setIdleTimeout(key, slider.valueAsNumber * 1000)
+      if (timeoutMs === null) return
+      readout.textContent = formatIdleTimeout(timeoutMs)
+      onChange?.()
+    })
+  }
+}
+
 function bindVolume(root) {
   const slider = root.getElementById('volume-slider')
   if (!slider) return
   slider.value = String(getVolume())
   slider.addEventListener('input', () => setVolume(slider.valueAsNumber))
+}
+
+/* Same segmented control again, through data-music. Unlike Up next, this one is
+   persisted: it sits in the same audio group as the volume slider, which is
+   already remembered, and an operator who silenced the floor for a talk should
+   not have a restart undo it. */
+function bindMusic(root, container) {
+  const group = root.getElementById('kiosk-settings-music')
+  if (!group) return
+  const segments = [...group.querySelectorAll('.kiosk-settings__segment')]
+  const current = isMusicEnabled() ? 'on' : 'off'
+  container.dataset.music = current
+  for (const option of segments) {
+    option.setAttribute('aria-checked', String(option.dataset.music === current))
+  }
+
+  group.addEventListener('click', event => {
+    const segment = event.target.closest('.kiosk-settings__segment')
+    if (!segment || !group.contains(segment)) return
+    const next = segment.dataset.music
+    if (next === container.dataset.music) return
+    container.dataset.music = next
+    for (const option of segments) {
+      option.setAttribute('aria-checked', String(option === segment))
+    }
+    setMusicEnabled(next === 'on')
+  })
 }
 
 /* Same segmented control as the layout one, marking itself through data-upnext

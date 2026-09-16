@@ -1,4 +1,12 @@
 import {
+  createGaussianGlow,
+  disposeGaussianGlow,
+  updateGaussianGlow
+} from '../../core/gaussian-glow.js'
+import { leaseWebGLRenderer } from '../../core/webgl-renderer-pool.js'
+import { warmSceneVariants } from '../../core/warm-scene-variants.js'
+import { calculateStageAwarePixelRatio, elementCssScale } from '../../core/three-render-budget.js'
+import {
   NANOWIRE_FLOW_DEBUG_MODES,
   NANOWIRE_FLOW_DEFAULT_SEED,
   NANOWIRE_CORRECTION_COLOR_TRANSITION,
@@ -13,7 +21,6 @@ import {
   resolveGradientSpan,
   resolveNanowireIntroSequence,
   resolveNanowireIntroGridOpacity,
-  resolveNanowireCorrectionColorTransition,
   resolveNanowireFinalRise,
   resolveNanowireFinalFlowElapsed,
   resolveNanowireFinalHandoff,
@@ -77,6 +84,14 @@ const SCAN_VIBRATION_AMPLITUDE = ATOM_RADIUS * 0.055
 const SCAN_VIBRATION_ANGULAR_SPEED = (Math.PI * 2 * 8.2) / 1_000
 const DEFECT_CORE_COLOR = NANOWIRE_COLORS.defectCore
 const DEFECT_CORE_EMISSIVE = NANOWIRE_COLORS.defectCoreEmissive
+const DEFECT_GLOW_COLOR = NANOWIRE_COLORS.defectHalo
+const DEFECT_GLOW_FALLOFF = 5.4
+const REPAIRED_GLOW_FALLOFF = 3.6
+const REPAIRED_DEFECT_COLOR = NANOWIRE_COLORS.repairedDefect
+/* The repaired core itself remains neutral gray. Green belongs exclusively to
+   the additive shell around it, otherwise emissive light tints the sphere. */
+const REPAIRED_DEFECT_EMISSIVE = 0x000000
+const LOUPE_BACKGROUND_COLOR = 0xf7eee9
 const ACTIVE_SCAN_VIBRATION = Object.freeze({ ...NANOWIRE_SCAN_VIBRATION, sustain: true })
 export const NANOWIRE_EXPERIENCE_WIRE_ROTATION_Z = 0.16
 export const NANOWIRE_EXPERIENCE_STAGE_Y = 0.2
@@ -99,27 +114,6 @@ const clamp = (value, min = 0, max = 1) => Math.min(max, Math.max(min, value))
 const smoothstep = (minimum, maximum, value) => {
   const t = clamp((value - minimum) / (maximum - minimum))
   return t * t * (3 - 2 * t)
-}
-
-/**
- * Release the drawing buffer before losing the context. Chromium can retain a
- * lightweight wrapper for an explicitly-lost WebGL context until the document
- * is destroyed; collapsing the canvas first prevents that wrapper from keeping
- * a kiosk-sized backing surface alive between repeated module visits.
- */
-export function disposeNanowireRenderer(renderer) {
-  if (!renderer) return
-  const canvas = renderer.domElement
-  renderer.setAnimationLoop?.(null)
-  renderer.setRenderTarget?.(null)
-  renderer.setSize?.(1, 1, false)
-  renderer.dispose?.()
-  renderer.forceContextLoss?.()
-  if (canvas) {
-    canvas.width = 1
-    canvas.height = 1
-    canvas.remove?.()
-  }
 }
 
 export function resolveNanowireIntroAtomState(coordinates, timeline, options = {}, out = {}) {
@@ -238,7 +232,11 @@ function createDefectSeed() {
 function createAtomMaterial(THREE) {
   return new THREE.MeshPhysicalMaterial({
     color: 0xffffff,
-    ...NANOWIRE_ATOM_SURFACE
+    ...NANOWIRE_ATOM_SURFACE,
+    /* Use the light-facing surface of each solid atom. Back-face shadow depth
+       can fall below the normal-biased ground sample near contact, leaving
+       hollow centres in the single-atom and foundation-sheet shadows. */
+    shadowSide: THREE.FrontSide
   })
 }
 
@@ -285,7 +283,7 @@ export function createNanowireLoupeOpticsMaterial(THREE) {
         vec3 refractedColor = vec3(red, greenBlue.x, blue);
 
         float edge = smoothstep(1.0 - uEdgeSoftness, 1.0, length(centred));
-        vec3 glassColor = mix(refractedColor, vec3(0.985, 0.992, 1.0), edge * 0.12);
+        vec3 glassColor = mix(refractedColor, vec3(0.969, 0.933, 0.914), edge * 0.12);
         if (uDebugMode > 1.5) glassColor = vec3(radialWeight);
 
         gl_FragColor = vec4(glassColor, 1.0);
@@ -398,13 +396,17 @@ export async function createNanowireScene(host, loupeHost, options = {}) {
   const defect = resolveNanowireDefect(defectSeed)
   const defectIndex = defect.index
   const THREE = await import('three')
-  const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'high-performance' })
+  const rendererLease = leaseWebGLRenderer(THREE, {
+    antialias: true,
+    alpha: true,
+    powerPreference: 'high-performance'
+  })
+  const { renderer } = rendererLease
   renderer.outputColorSpace = THREE.SRGBColorSpace
   renderer.toneMapping = THREE.ACESFilmicToneMapping
   renderer.toneMappingExposure = 1.08
   renderer.shadowMap.enabled = true
   renderer.shadowMap.type = THREE.PCFShadowMap
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.4))
   renderer.domElement.className = 'nw__canvas'
   renderer.domElement.setAttribute('aria-hidden', 'true')
   host.append(renderer.domElement)
@@ -444,15 +446,19 @@ export async function createNanowireScene(host, loupeHost, options = {}) {
 
   const magnifierCamera = camera.clone()
   magnifierCamera.layers.set(2)
-  const magnifierRenderer = loupeHost
-    ? new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'high-performance' })
+  const magnifierRendererLease = loupeHost
+    ? leaseWebGLRenderer(THREE, {
+        antialias: true,
+        alpha: true,
+        powerPreference: 'high-performance'
+      })
     : null
+  const magnifierRenderer = magnifierRendererLease?.renderer ?? null
   if (magnifierRenderer) {
     magnifierRenderer.outputColorSpace = THREE.SRGBColorSpace
     magnifierRenderer.toneMapping = THREE.ACESFilmicToneMapping
     magnifierRenderer.toneMappingExposure = 1.08
-    magnifierRenderer.setClearColor(0xfbfcfe, 1)
-    magnifierRenderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.2))
+    magnifierRenderer.setClearColor(LOUPE_BACKGROUND_COLOR, 1)
     magnifierRenderer.domElement.className = 'nw__loupe-canvas'
     magnifierRenderer.domElement.setAttribute('aria-hidden', 'true')
     loupeHost.append(magnifierRenderer.domElement)
@@ -537,12 +543,11 @@ export async function createNanowireScene(host, loupeHost, options = {}) {
   magnifierAtoms.layers.set(2)
   wire.add(magnifierAtoms)
 
-  const defectMaterial = new THREE.MeshStandardMaterial({
+  const defectMaterial = new THREE.MeshPhysicalMaterial({
     color: DEFECT_CORE_COLOR,
     emissive: DEFECT_CORE_EMISSIVE,
-    emissiveIntensity: 0.12,
-    roughness: 0.82,
-    metalness: 0,
+    emissiveIntensity: 0.72,
+    ...NANOWIRE_ATOM_SURFACE,
     transparent: true,
     opacity: 0,
     depthWrite: false
@@ -552,6 +557,19 @@ export async function createNanowireScene(host, loupeHost, options = {}) {
   defectAtom.renderOrder = 4
   defectAtom.visible = false
   wire.add(defectAtom)
+
+  /* One screen-facing Gaussian shader supplies both semantic states. This is a
+     bounded bloom-like spread: smooth at every pixel and independent of the
+     sphere tessellation, while the solid defect renders over its centre. */
+  const defectGlowAtom = createGaussianGlow(THREE, {
+    color: DEFECT_GLOW_COLOR,
+    intensity: 1.55,
+    falloff: DEFECT_GLOW_FALLOFF
+  })
+  defectGlowAtom.name = 'NanowireDefectGlow'
+  defectGlowAtom.layers.set(2)
+  defectGlowAtom.renderOrder = 3
+  wire.add(defectGlowAtom)
 
   const matrix = new THREE.Matrix4()
   const vector = new THREE.Vector3()
@@ -568,12 +586,13 @@ export async function createNanowireScene(host, loupeHost, options = {}) {
   const workingColor = new THREE.Color()
   const magnifierWorkingColor = new THREE.Color()
   const magnifierCorrectedColor = new THREE.Color()
-  const correctionBlueTarget = new THREE.Color()
   const finalFlowTarget = new THREE.Color()
   const neutralColor = new THREE.Color(NANOWIRE_COLORS.neutral)
   const airborneColor = new THREE.Color(NANOWIRE_COLORS.airborne)
-  const repairedDefectColor = new THREE.Color(NANOWIRE_FINAL_FLOW_BASE)
-  const repairedDefectEmissive = new THREE.Color(0x164f9e)
+  const repairedDefectColor = new THREE.Color(REPAIRED_DEFECT_COLOR)
+  const repairedDefectEmissive = new THREE.Color(REPAIRED_DEFECT_EMISSIVE)
+  const defectGlowColor = new THREE.Color(DEFECT_GLOW_COLOR)
+  const repairedGlowColor = new THREE.Color(NANOWIRE_COLORS.repairHalo)
   const perturbedFlowColors = NANOWIRE_PERTURBED_FLOW_GRADIENT.map(color => new THREE.Color(color))
   const loupeErrorColors = NANOWIRE_LOUPE_ERROR_GRADIENT.map(color => new THREE.Color(color))
   const loupeCorrectedColors = NANOWIRE_LOUPE_CORRECTED_GRADIENT.map(color => new THREE.Color(color))
@@ -632,6 +651,7 @@ export async function createNanowireScene(host, loupeHost, options = {}) {
     (position.y - defectPosition.y) / LOUPE_FIELD_RADII.vertical,
     (position.z - defectPosition.z) / LOUPE_FIELD_RADII.lateral
   ))
+  const firstSheetSourceOffset = resolveRigidSheetDrop(0).offsetY
   const introTiming = reducedMotion ? NANOWIRE_INTRO_REDUCED_TIMING : NANOWIRE_INTRO_TIMING
   const introTimelineOptions = { timing: introTiming }
   const introTimelineState = {
@@ -649,11 +669,16 @@ export async function createNanowireScene(host, loupeHost, options = {}) {
   const sheetStagger = reducedMotion ? 52 : 270
   const atomFallDuration = reducedMotion ? 145 : 760
   const buildDuration = ((SHEET_COUNT - 1) * sheetStagger) + atomFallDuration + 120
-  const scanDuration = reducedMotion ? 420 : 2_200
-  const scanSettleDuration = reducedMotion ? 40 : 180
+  /* The loupe is the actual interaction, so the automatic scan should establish
+     the perturbation quickly and hand control over without a dead wait. */
+  const scanDuration = reducedMotion ? 180 : 700
+  const scanSettleDuration = reducedMotion ? 20 : 80
   const errorRevealDuration = reducedMotion ? 180 : 760
-  const defectRepairDuration = reducedMotion ? 160 : 620
-  const repairFieldDuration = reducedMotion ? 180 : 720
+  /* Let the red-to-gray core resolve before the surrounding field finishes.
+     The slightly longer calibration keeps both changes readable at kiosk
+     scale without turning the handoff into a separate scene. */
+  const defectRepairDuration = reducedMotion ? 150 : 600
+  const repairFieldDuration = reducedMotion ? 170 : 700
   const repairDuration = defectRepairDuration + repairFieldDuration
   const sheetDropOptions = { stagger: sheetStagger, duration: atomFallDuration }
   const errorRevealOptions = { duration: errorRevealDuration }
@@ -817,6 +842,10 @@ export async function createNanowireScene(host, loupeHost, options = {}) {
           )
           vector.set(introAtomState.x, introAtomState.y, introAtomState.z)
           scale = introAtomState.scale
+        } else if (atomicLayer === FOUNDATION_LAYER_COUNT) {
+          const handoff = introTimeline.handoffProgress
+          vector.y += firstSheetSourceOffset + (reducedMotion ? 0 : (1 - handoff) * 0.28)
+          scale = handoff
         }
 
         setAtom(atoms, index, vector, scale)
@@ -916,35 +945,15 @@ export async function createNanowireScene(host, loupeHost, options = {}) {
   }
 
   function setCorrectionBeatColor(normalizedPosition, now, target) {
-    if (repairStartedAt === null) return target.copy(finalFlowBase)
-    if (reducedMotion) return target.copy(finalFlowBase)
-
-    const repairElapsed = Math.max(0, now - repairStartedAt)
-    const transition = resolveNanowireCorrectionColorTransition(repairElapsed, {
-      durationMs: NANOWIRE_CORRECTION_COLOR_TRANSITION.durationMs
-    })
-
-    /* Freeze the exact perturbation field present on the Correct frame, then
-       dissolve that colour state into blue. Freezing removes all post-repair
-       flow, while the per-instance interpolation preserves visual continuity. */
-    setPerturbedFlowColor(normalizedPosition, repairStartedAt, target)
-    correctionBlueTarget.copy(finalFlowBase)
-
-    /* The directional flash begins only once the material has settled into
-       blue, so it reads as the result rather than fighting the colour change. */
-    const pulseElapsed = Math.max(
-      0,
-      repairElapsed - NANOWIRE_CORRECTION_COLOR_TRANSITION.durationMs
+    /* Keep the device on the exact perturbation frame the visitor found while
+       the loupe calibrates. The blue finale begins only after the loupe leaves;
+       this matches the two annotated Figma states and avoids competing with
+       the gray atom / green-glow repair signal inside the lens. */
+    return setPerturbedFlowColor(
+      normalizedPosition,
+      repairStartedAt ?? now,
+      target
     )
-    if (pulseElapsed > 0) {
-      const pulse = resolveCorrectedPulse(
-        normalizedPosition,
-        pulseElapsed,
-        correctedPulseOptions
-      )
-      if (pulse > 0) correctionBlueTarget.lerp(finalFlowPulse, pulse)
-    }
-    return target.lerp(correctionBlueTarget, transition)
   }
 
   function setCorrectedFlowColor(normalizedPosition, now, target) {
@@ -1018,6 +1027,7 @@ export async function createNanowireScene(host, loupeHost, options = {}) {
   function updateDefect(now) {
     if (!defectRevealed) {
       defectAtom.visible = false
+      defectGlowAtom.visible = false
       return
     }
     const errorReveal = inspectionStartedAt === null || reducedMotion
@@ -1025,27 +1035,56 @@ export async function createNanowireScene(host, loupeHost, options = {}) {
       : resolveErrorReveal(0, now - inspectionStartedAt, errorRevealOptions)
     if (errorReveal <= 0) {
       defectAtom.visible = false
+      defectGlowAtom.visible = false
       return
     }
     defectAtom.visible = true
+    defectGlowAtom.visible = true
     defectAtom.position.copy(defectPosition)
+    defectGlowAtom.position.copy(defectPosition)
     defectMaterial.opacity = errorReveal
     if (repairStartedAt === null) {
       defectMaterial.color.set(DEFECT_CORE_COLOR)
       defectMaterial.emissive.set(DEFECT_CORE_EMISSIVE)
-      defectMaterial.emissiveIntensity = 0.12
-      defectAtom.scale.setScalar(0.9 + (errorReveal * 0.25) + (Math.sin(now * 0.005) * 0.018 * errorReveal))
+      defectMaterial.emissiveIntensity = 1.12
+      const pulse = (Math.sin(now * 0.005) + 1) * 0.5
+      const defectScale = 0.9 + (errorReveal * 0.25) + (pulse * 0.026 * errorReveal)
+      defectAtom.scale.setScalar(defectScale)
+      defectGlowColor.set(DEFECT_GLOW_COLOR)
+      updateGaussianGlow(defectGlowAtom, {
+        color: defectGlowColor,
+        cue: errorReveal * (0.78 + (pulse * 0.22)),
+        intensity: 1.55,
+        falloff: DEFECT_GLOW_FALLOFF,
+        motion: !reducedMotion,
+        time: now / 1_000
+      })
+      defectGlowAtom.scale.setScalar(defectScale * (0.88 + (pulse * 0.025)))
       return
     }
     const repairElapsed = now - repairStartedAt
     const repairSequence = resolveRepairSequence(repairElapsed, repairSequenceOptions)
     defectMaterial.color.set(DEFECT_CORE_COLOR).lerp(repairedDefectColor, repairSequence.atomProgress)
     defectMaterial.emissive.set(DEFECT_CORE_EMISSIVE).lerp(repairedDefectEmissive, repairSequence.atomProgress)
-    defectMaterial.emissiveIntensity = 0.12
-    defectMaterial.roughness = 0.82
+    defectMaterial.emissiveIntensity = 1.12 - (repairSequence.atomProgress * 1.02)
+    defectGlowColor
+      .set(DEFECT_GLOW_COLOR)
+      .lerp(repairedGlowColor, repairSequence.atomProgress)
+    updateGaussianGlow(defectGlowAtom, {
+      color: defectGlowColor,
+      cue: 0.84 + (repairSequence.atomProgress * 0.16),
+      intensity: 1.55 + (repairSequence.atomProgress * 0.05),
+      falloff: DEFECT_GLOW_FALLOFF + (
+        (REPAIRED_GLOW_FALLOFF - DEFECT_GLOW_FALLOFF) * repairSequence.atomProgress
+      ),
+      motion: !reducedMotion,
+      time: now / 1_000
+    })
     /* Settle monotonically to the normal atom size. There is no celebratory
        bounce here: the travelling light supplies the confirmation motion. */
-    defectAtom.scale.setScalar(1.15 - (repairSequence.atomProgress * 0.15))
+    const repairedScale = 1.15 - (repairSequence.atomProgress * 0.15)
+    defectAtom.scale.setScalar(repairedScale)
+    defectGlowAtom.scale.setScalar(repairedScale * (0.9 + (repairSequence.atomProgress * 0.035)))
     if (repairSequence.complete && repairCompleteAt === null) {
       repairCompleteAt = now
       colorDirty = true
@@ -1089,8 +1128,8 @@ export async function createNanowireScene(host, loupeHost, options = {}) {
     return out
   }
 
-  function renderMagnifier() {
-    if (!magnifierRenderer || !magnifierVisible || !magnifierHasCenter) return
+  function renderMagnifier(preparing = false) {
+    if (!magnifierRenderer || (!preparing && (!magnifierVisible || !magnifierHasCenter))) return
     const width = Math.max(loupeWidth, 1)
     const height = Math.max(loupeHeight, 1)
     if (width !== magnifierRenderWidth || height !== magnifierRenderHeight) {
@@ -1215,6 +1254,12 @@ export async function createNanowireScene(host, loupeHost, options = {}) {
   const resize = () => {
     const nextHostWidth = Math.max(host.clientWidth, 1)
     const nextHostHeight = Math.max(host.clientHeight, 1)
+    const pixelRatio = calculateStageAwarePixelRatio({
+      width: nextHostWidth, height: nextHostHeight,
+      cssScale: elementCssScale(host), devicePixelRatio: window.devicePixelRatio || 1,
+      maxRenderPixels: 4_500_000, minPixelRatio: 0.1, maxPixelRatio: 1
+    })
+    if (renderer.getPixelRatio() !== pixelRatio) renderer.setPixelRatio(pixelRatio)
     if (nextHostWidth !== hostWidth || nextHostHeight !== hostHeight) {
       hostWidth = nextHostWidth
       hostHeight = nextHostHeight
@@ -1227,6 +1272,16 @@ export async function createNanowireScene(host, loupeHost, options = {}) {
     if (!loupeHost) return
     const nextLoupeWidth = Math.max(loupeHost.clientWidth, 1)
     const nextLoupeHeight = Math.max(loupeHost.clientHeight, 1)
+    const loupePixelRatio = calculateStageAwarePixelRatio({
+      width: nextLoupeWidth, height: nextLoupeHeight,
+      cssScale: elementCssScale(loupeHost), devicePixelRatio: window.devicePixelRatio || 1,
+      maxRenderPixels: NANOWIRE_LOUPE_OPTICS.maximumRenderSize ** 2,
+      minPixelRatio: 0.1, maxPixelRatio: 1.2
+    })
+    if (magnifierRenderer.getPixelRatio() !== loupePixelRatio) {
+      magnifierRenderer.setPixelRatio(loupePixelRatio)
+      magnifierRenderWidth = 0
+    }
     if (nextLoupeWidth === loupeWidth && nextLoupeHeight === loupeHeight) return
     loupeWidth = nextLoupeWidth
     loupeHeight = nextLoupeHeight
@@ -1234,11 +1289,10 @@ export async function createNanowireScene(host, loupeHost, options = {}) {
   }
   const observer = new ResizeObserver(resize)
   observer.observe(host)
+  observer.observe(host.closest('#kiosk-stage') || host)
+  window.addEventListener('resize', resize)
   if (loupeHost) observer.observe(loupeHost)
-  resize()
-  raf = requestAnimationFrame(render)
-
-  return {
+  const controller = {
     playIntro(options = {}) {
       if (introPromise) return introPromise
       introStageCallback = typeof options.onStage === 'function' ? options.onStage : null
@@ -1337,14 +1391,20 @@ export async function createNanowireScene(host, loupeHost, options = {}) {
       disposed = true
       if (raf !== null) cancelAnimationFrame(raf)
       observer.disconnect()
+      window.removeEventListener('resize', resize)
       for (const [timer, resolve] of pendingDelays) {
         window.clearTimeout(timer)
         resolve()
       }
       pendingDelays.clear()
+      atoms.dispose()
+      magnifierAtoms.dispose()
       geometry.dispose()
       material.dispose()
       defectMaterial.dispose()
+      disposeGaussianGlow(defectGlowAtom)
+      key.shadow.map?.dispose()
+      key.shadow.map = null
       shadowCatcher.geometry.dispose()
       shadowCatcher.material.dispose()
       grid.geometry.dispose()
@@ -1356,8 +1416,28 @@ export async function createNanowireScene(host, loupeHost, options = {}) {
       loupeRenderTarget?.dispose()
       loupeOpticsGeometry?.dispose()
       loupeOpticsMaterial?.dispose()
-      disposeNanowireRenderer(renderer)
-      disposeNanowireRenderer(magnifierRenderer)
+      loupeOpticsScene?.clear()
+      scene.clear()
+      rendererLease.release()
+      magnifierRendererLease?.release()
     }
+  }
+  try {
+    resize()
+    if (magnifierRenderer) {
+      // Allocate the lens at its real size while the module is still covered.
+      // This renderer has its own GPU programs and cannot reuse the main view's.
+      renderMagnifier(true)
+      magnifierRenderer.setRenderTarget(loupeRenderTarget)
+      await warmSceneVariants(magnifierRenderer, scene, magnifierCamera)
+      magnifierRenderer.setRenderTarget(null)
+      await magnifierRenderer.compileAsync(loupeOpticsScene, loupeOpticsCamera)
+      renderMagnifier(true)
+    }
+    raf = requestAnimationFrame(render)
+    return controller
+  } catch (error) {
+    controller.dispose()
+    throw error
   }
 }

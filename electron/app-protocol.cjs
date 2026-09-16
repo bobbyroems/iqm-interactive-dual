@@ -1,4 +1,3 @@
-const fs = require('node:fs')
 const fsp = require('node:fs/promises')
 const path = require('node:path')
 const { Readable } = require('node:stream')
@@ -180,15 +179,32 @@ function parseRangeHeader(headerValue, size) {
   return { start, end }
 }
 
-function bodyFor(filePath, method, range) {
+async function bodyFor(filePath, method, range, signal) {
   if (method === 'HEAD') return null
-
-  /* Streaming rather than reading into a buffer keeps the 42 MB ice-cube master
-     out of the main process's heap, and matters more now that seeking works:
-     the renderer opens a fresh short-lived range request per scrub. Cancelling
-     the web stream destroys the fs stream under it, so an abandoned seek closes
-     its descriptor instead of leaking one. */
-  return Readable.toWeb(fs.createReadStream(filePath, range ? { start: range.start, end: range.end } : {}))
+  let handle
+  for (let attempt = 0; ; attempt += 1) {
+    signal?.throwIfAborted()
+    try {
+      handle = await fsp.open(filePath, 'r')
+      break
+    } catch (error) {
+      if (!TRANSIENT_ERROR_CODES.has(error.code) || attempt >= RETRY_DELAYS_MS.length) throw error
+      await wait(RETRY_DELAYS_MS[attempt])
+    }
+  }
+  try {
+    signal?.throwIfAborted()
+    // Opening succeeded before we send headers. Auto-close also handles cancelled seeks.
+    const stream = handle.createReadStream(range ? { start: range.start, end: range.end } : {})
+    const body = Readable.toWeb(stream)
+    const abort = () => stream.destroy(signal.reason)
+    signal?.addEventListener('abort', abort, { once: true })
+    stream.once('close', () => signal?.removeEventListener('abort', abort))
+    return body
+  } catch (error) {
+    await handle.close()
+    throw error
+  }
 }
 
 function createAppProtocolHandler({ rendererRoot }) {
@@ -236,7 +252,7 @@ function createAppProtocolHandler({ rendererRoot }) {
 
     try {
       if (range) {
-        return new Response(bodyFor(filePath, method, range), {
+        return new Response(await bodyFor(filePath, method, range, request.signal), {
           status: 206,
           headers: {
             ...headers,
@@ -246,7 +262,7 @@ function createAppProtocolHandler({ rendererRoot }) {
         })
       }
 
-      return new Response(bodyFor(filePath, method, null), {
+      return new Response(await bodyFor(filePath, method, null, request.signal), {
         status: 200,
         headers: { ...headers, 'content-length': String(size) }
       })

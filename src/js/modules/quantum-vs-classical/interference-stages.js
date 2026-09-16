@@ -148,9 +148,9 @@ export function createInterferenceStages({
   }
 
   /*
-   * Only the highlighted buoy scores. A tap anywhere else is not an error — the game
-   * still rings the water for it — it simply does not advance the sequence, which is
-   * what makes "complete the sequence" literal.
+   * Only the highlighted buoy scores. A tap anywhere else is not an error, it simply
+   * does nothing at all — the scene no longer ripples under it — which is what makes
+   * "complete the sequence" literal.
    */
   function tap(index, time = 0) {
     if (index !== targetIndex) return false

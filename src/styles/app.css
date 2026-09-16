@@ -167,18 +167,18 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 40px;
-  min-height: 160px;
-  padding: 0 110px;
+  gap: 32px;
+  min-height: 140px;
+  padding: 0 48px;
   border: 0;
-  border-radius: 27px;
-  background: var(--gradient-brand);
+  border-radius: 16px;
+  background: var(--color-cta);
   color: #fff;
   box-shadow: 0 10px 28px rgba(42, 68, 111, 0.22);
   font-family: var(--font-text);
-  font-size: 60px;
-  font-weight: 600;
-  letter-spacing: -0.02em;
+  font-size: 50px;
+  font-weight: 400;
+  letter-spacing: -0.5px;
   transition:
     box-shadow 180ms ease,
     transform 220ms ease;
@@ -189,82 +189,57 @@
   transform: scale(0.992);
 }
 
+/* The chevron rides a lightened disc of the button's own fill rather than
+   sitting bare on it (Figma Button > Icon, node 416:759). The disc and the glyph
+   inside it are both authored sizes: 10.131px of padding around a 60.786px
+   chevron comes to the 81.047px circle. */
 .action-arrow {
   display: grid;
-  width: 48px;
-  height: 48px;
+  width: 81.047px;
+  height: 81.047px;
   place-items: center;
+  border-radius: 50%;
+  background: rgb(255 255 255 / 0.2);
 }
 
+/* principle-chevron.svg is the stroked chevron the Figma Button draws, and the
+   same one module 01 sets on its principle cards. Authored white, so unlike the
+   filled chevron-right.svg the carousel arrows and header back control use, it
+   needs no filter to invert. */
 .action-arrow img {
-  width: 26px;
-  height: 46px;
-  filter: brightness(0) invert(1);
+  width: 60.786px;
+  height: 60.786px;
 }
 
 /* ---------------------------------------------------------------------------
  * Attract screen (Figma "Home -1")
  * ------------------------------------------------------------------------- */
 
-/* Soft light aurora drifting behind the white stage. */
-.screen--attract::before,
-.screen--attract::after,
-.screen--menu::before,
-.screen--menu::after {
+/* Aurora motion is painted into a fixed 360 × 640 bitmap by
+   aurora-background.js. Keep the element within the screen and let the stage
+   scale it: no oversized pseudo-elements, CSS rotation or will-change hints.
+   The static colour field also covers startup and unavailable Canvas 2D. */
+.screen--attract,
+.screen--menu {
+  background:
+    radial-gradient(ellipse 62% 30% at 76% 24%, rgba(0, 120, 212, 0.1), transparent 72%),
+    radial-gradient(ellipse 58% 30% at 22% 38%, rgba(186, 28, 118, 0.05), transparent 72%),
+    radial-gradient(ellipse 48% 24% at 50% 30%, rgba(122, 95, 212, 0.07), transparent 76%),
+    var(--color-background);
+}
+
+.screen.has-aurora-background {
+  background: var(--color-background);
+}
+
+.aurora-background {
   position: absolute;
   z-index: 0;
-  inset: -35%;
-  content: "";
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
   pointer-events: none;
-  will-change: transform;
-}
-
-.screen--attract::before,
-.screen--menu::before {
-  background:
-    radial-gradient(44% 30% at 76% 28%, rgba(0, 120, 212, 0.14), transparent 68%),
-    radial-gradient(46% 36% at 22% 42%, rgba(186, 28, 118, 0.08), transparent 66%);
-  animation: attract-aurora-a 12s ease-in-out infinite alternate;
-}
-
-.screen--attract::after,
-.screen--menu::after {
-  background: radial-gradient(34% 26% at 50% 30%, rgba(122, 95, 212, 0.1), transparent 72%);
-  animation: attract-aurora-orbit 30s linear infinite;
-}
-
-.screen--menu::before {
-  animation-duration: 14s;
-}
-
-.screen--menu::after {
-  animation-duration: 34s;
-}
-
-@keyframes attract-aurora-a {
-  from {
-    opacity: 0.85;
-    transform: translate3d(calc(-11% + var(--aurora-parallax, 0px)), -7%, 0) scale(1.04);
-  }
-
-  to {
-    opacity: 1;
-    transform: translate3d(calc(11% + var(--aurora-parallax, 0px)), 8%, 0) scale(1.24);
-  }
-}
-
-@keyframes attract-aurora-orbit {
-  from {
-    transform: rotate(0deg) scale(1.05);
-  }
-
-  50% {
-    transform: rotate(180deg) scale(1.3);
-  }
-
-  to {
-    transform: rotate(360deg) scale(1.05);
-  }
 }
 
 /* Kiosk ergonomics: primary content + CTA live in the eye-level band
@@ -483,8 +458,43 @@
     inset -18px -24px 46px rgba(35, 100, 190, 0.14),
     0 40px 70px rgba(42, 68, 111, 0.2);
   pointer-events: none;
-  transform: translate(-50%, -50%);
+  transform:
+    translate(-50%, -50%)
+    translate3d(var(--carousel-preview-motion-x, 0px), 0, 0)
+    rotate(var(--carousel-preview-motion-rotation, 0rad));
   will-change: transform;
+}
+
+.module-card__preview-swing {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  display: block;
+  pointer-events: none;
+  transform:
+    translate3d(var(--carousel-preview-motion-x, 0px), 0, 0)
+    rotate(var(--carousel-preview-motion-rotation, 0rad));
+  will-change: transform;
+}
+
+.module-card__preview-swing .module-card__preview-image {
+  width: 100%;
+  height: 100%;
+}
+
+/* Preview cards can reuse only the floor pass from the shared navigation
+   renderer. Media stays above it and keeps the carousel gesture surface. */
+.module-card__shape-scene[data-navigation-grid-only] {
+  z-index: 0;
+  pointer-events: none;
+}
+
+.module-card__shape-scene[data-navigation-grid-only] .module-card__scene-canvas {
+  pointer-events: none;
+}
+
+.module-card__preview-portal {
+  z-index: 1;
 }
 
 .module-card__preview-video {
@@ -507,6 +517,28 @@
 .module-card[data-module-id="build-majorana-2"] .module-card__preview-image {
   object-fit: contain;
   transform: translateY(-100px) scale(0.76);
+  transform-origin: center;
+}
+
+/* Module 07 is a wide, opaque still rather than a cutout model. This keeps its
+   ratio while placing its silhouette in the same band as Majorana 2's live
+   navigation model; everything below remains the shared card layout. */
+.module-card[data-module-id="measurement-based"] .module-card__preview-image {
+  position: relative;
+  object-fit: contain;
+  filter: drop-shadow(0 26px 22px rgba(42, 68, 111, 0.2));
+  transform: translateY(-260px) scale(0.34);
+  transform-origin: center;
+}
+
+/* Module 09's preview is a tall cutout rather than a plate that fills its box,
+   so it is contained rather than cropped, and lifted: the card's copy is set to
+   overlap the lower third of the visual, which a column filling the box would
+   run straight into. It ends up the same height as the Majorana model beside
+   it, which is what keeps the two reading as one set. */
+.module-card[data-module-id="quantum-platform"] .module-card__preview-image {
+  object-fit: contain;
+  transform: translateY(-114px) scale(0.79);
   transform-origin: center;
 }
 
@@ -1123,6 +1155,10 @@
   --kiosk-tooltip-text-peak: color-mix(in srgb, currentColor 44%, transparent);
   --kiosk-tooltip-sheen-duration: 2.2s;
   --kiosk-tooltip-breathe-duration: 3s;
+  /* How far down the breath goes. A variable rather than a number in the
+     keyframe so a module whose pill sits on a busier background can hold it
+     higher without a second set of keyframes. */
+  --kiosk-tooltip-breathe-floor: 0.72;
 
   display: grid;
   min-height: 92px;
@@ -1143,6 +1179,14 @@
   background-position: 130% 50%;
   background-repeat: no-repeat;
   background-size: 260% 100%;
+  /* A pill may be given a width — nanoscale writes the authored Figma box
+     onto its instruction inline, and the finale prompt is a fixed 487px — and
+     the text inside never wraps. So any content that outgrows that width has
+     nowhere to go and spills, which is what the info mark did to every pill
+     sized that way. min-width wins over width, including an inline one, so
+     the authored figure becomes a floor and the pill grows when it has to.
+     Both of those are centred by a translate, so growing stays put. */
+  min-width: max-content;
   /* Dark tooltip: keep a small dark contact shadow plus the authored light halo. */
   box-shadow:
     0 3px 12px rgba(0, 0, 0, 0.18),
@@ -1160,6 +1204,13 @@
 }
 
 .kiosk-tooltip__text {
+  /* Flex so the badge and the words are centred against each other rather
+     than against the font metrics. vertical-align put the badge a fixed
+     distance off the baseline, which only stayed centred at the size it was
+     tuned for and drifted the moment the badge was resized. */
+  display: flex;
+  align-items: center;
+  justify-content: center;
   margin: 0;
   color: #fff;
   font-family: var(--font-text);
@@ -1174,6 +1225,34 @@
   line-height: 1.3;
   text-align: center;
   white-space: nowrap;
+}
+
+/* The badge before the words.
+
+   currentColor and em throughout, so it takes each module type colour and
+   type size without a single per-module rule: against the usual 36px type the
+   mark lands at about 44px, and it tracks the pill wherever that size differs.
+
+   The mark is drawn as SVG in kiosk-tooltip.js rather than set as the letter
+   i — see the note there. It sits inside .kiosk-tooltip__text, which is the
+   element modules colour, so currentColor resolves to the words colour rather
+   than the pill background. */
+.kiosk-tooltip__icon {
+  display: inline-block;
+  width: 1.22em;
+  height: 1.22em;
+  margin-right: 0.42em;
+  /* Higher than the 0.55 it started at: the mark has far less ink than the
+     words beside it, so matching their weight numerically left it fainter. */
+  opacity: 0.72;
+  /* Never squeezed when the words are long — the pill grows instead. */
+  flex: 0 0 auto;
+}
+
+.kiosk-tooltip__icon svg {
+  display: block;
+  width: 100%;
+  height: 100%;
 }
 
 /* The same band passes through the glyphs, so the pill and its text read as one
@@ -1222,7 +1301,7 @@
   }
 
   50% {
-    filter: opacity(0.5);
+    filter: opacity(var(--kiosk-tooltip-breathe-floor, 0.72));
   }
 }
 
@@ -1270,155 +1349,626 @@
   color: #b1b3b3;
 }
 
-/* Blue educational action cue from the Build a qubit flow. Kept central so
-   compositor fallbacks and motion semantics stay consistent across modules. */
+/* The educational action cue from the Build a qubit flow. Kept central so
+   compositor fallbacks and motion semantics stay consistent across modules.
+
+   It used to be the blue pill the class is named for; it now takes the same
+   light grey surface as the Nanoscale splash callout, which is the treatment
+   every instruction pill in the kiosk shares. The name is left alone so the
+   four modules that ask for it by string keep working.
+
+   Two things go with the blue: the tinted band stops, so the type sheen falls
+   back to the currentColor-derived one on .kiosk-tooltip, and the pill's own
+   wipe, which the `background` shorthand drops. On an opaque light surface
+   that band read as a smear rather than a sweep, which is why the Nanoscale
+   pill never carried one. The sheen through the type stays. */
 .kiosk-tooltip.kiosk-tooltip--blue {
-  --kiosk-tooltip-text-mid: rgba(0, 120, 212, 0.72);
-  --kiosk-tooltip-text-peak: rgba(0, 120, 212, 0.44);
-  border: 2px solid rgba(141, 200, 232, 0.7);
-  background-color: rgba(141, 200, 232, 0.5);
-  box-shadow: 0 0 50px rgba(185, 210, 229, 0.5);
-  backdrop-filter: blur(60px);
+  border: 0;
+  background: #f2f4f5;
+  /* Light pill on a light module: a dark contact shadow rather than the halo,
+     which needs something dark behind it to register. */
+  box-shadow: 0 4px 20px rgb(31 55 80 / 0.22);
+  backdrop-filter: none;
 }
 
 .kiosk-tooltip.kiosk-tooltip--blue .kiosk-tooltip__text {
-  color: #0078d4;
+  color: #7c8282;
 }
 
-/* The band a finished module shows to offer the next one (IQM, 25 Aug).
+/* ---------------------------------------------------------------------------
+ * The band under a module's header, and the two surfaces that share its colour
+ * (Figma "Module Specific": direction 255:1719, pagination 255:3555, pop-up
+ * 255:1843 over overlay 255:1842).
  *
- * Module 01 has carried a band like this between its three principles for a
- * while. This is the shared one for module-to-module hops, and it deliberately
- * does not share that band's colour: the teal one moves between the three
- * principles inside module 01, and the blue below is what the 25 Aug board
- * draws for leaving a module — sampled from the band above the finished
- * nanowire. Same shape, same light, different errand.
- *
- * It sits at the very top of the stage, under the header, so it never covers
- * what the visitor has just finished making. */
-.kiosk-up-next {
+ * This replaces the blue "Up next" band of 25 Aug. That band only ever
+ * appeared at the end of a module; the 27 Aug board runs the same surface for
+ * the whole visit, stating where the visitor is and then what is next, so the
+ * band is no longer a thing that arrives — it is there from the start and
+ * changes. The per-module blue and purple went with it: every direction bar on
+ * the board draws the same teal, so the colour is a token now rather than
+ * something each module overrides.
+ * ------------------------------------------------------------------------- */
+
+.kiosk-module-band {
   position: absolute;
-  /* Module roots include their own 120px header. Start exactly at its lower
-     edge so the header and shared handoff read as one continuous surface. */
-  top: 120px;
+  top: var(--band-top);
   right: 0;
   left: 0;
   z-index: 40;
   display: flex;
-  width: 100%;
+  min-height: var(--band-height);
   align-items: center;
   justify-content: space-between;
   padding: 60px;
-  border: 0;
-  /* Two layers rather than the `background` shorthand: the light rides over
-     the band's own gradient and only its position moves. */
-  background-image:
-    linear-gradient(
-      101deg,
-      transparent 38%,
-      rgba(255, 255, 255, 0.05) 44%,
-      rgba(255, 255, 255, 0.2) 50%,
-      rgba(255, 255, 255, 0.05) 56%,
-      transparent 62%
-    ),
-    linear-gradient(
-      155.022deg,
-      #2a446f 18.186%,
-      #185998 50.348%,
-      #1163ab 64.132%,
-      #0078d4 92.465%
-    );
-  background-repeat: no-repeat, no-repeat;
-  background-position: 130% 50%, 0 0;
-  background-size: 240% 100%, 100% 100%;
-  opacity: 0;
-  transform: translateY(-100%);
-  transition:
-    opacity 320ms ease,
-    transform 460ms cubic-bezier(0.16, 1, 0.3, 1);
-  pointer-events: none;
+  background-image: var(--band-gradient);
   touch-action: manipulation;
 }
 
-.kiosk-up-next[hidden] {
-  display: none;
+/* Every state is the same bar at the same height — one chrome, not one that
+   resizes under the visitor. The 1-2-3 is 151 tall against a title line’s 85,
+   so it takes the difference out of its own padding: 27 + 151 + 27 is the same
+   205. (The board draws this one at 271 with the full 60; the bar holding still
+   is worth more here than matching that number.) */
+.kiosk-module-band[data-state='pagination'] {
+  padding-top: 27px;
+  padding-bottom: 27px;
 }
 
-/* The light only runs while the band is actually on screen: it spends most of
-   a module translated out of view, and a bar nobody can see should not be
-   repainting every frame behind a WebGL scene. */
-.kiosk-up-next[data-showing='true'] {
-  opacity: 1;
-  transform: translateY(0);
-  animation: kiosk-up-next-sweep 3.8s ease-in-out infinite;
-  pointer-events: auto;
-}
-
-.kiosk-up-next:active {
-  filter: brightness(1.06);
-}
-
-/* Stops at 15% and 70% rather than 0 and 100 so the light crosses and then the
-   band rests before it comes round again. */
-@keyframes kiosk-up-next-sweep {
-  0%,
-  15% {
-    background-position: 130% 50%, 0 0;
-  }
-
-  70%,
-  100% {
-    background-position: -30% 50%, 0 0;
-  }
-}
-
-.kiosk-up-next__chip {
-  margin-right: 60px;
-  padding: 6px 24px;
-  border-radius: 12px;
-  /* Light chip, dark text drawn from the band it sits on — the same
-     relationship module 01's teal chip has with its teal band. */
-  background: #7aceef;
-  color: #091f2c;
-  font-family: var(--font-text);
-  font-size: 32px;
-  font-weight: 600;
-  line-height: 1.4;
-}
-
-.kiosk-up-next__title {
-  margin-right: auto;
-  color: #f4f3f5;
+.kiosk-module-band__where {
+  margin: 0;
+  color: #fff;
   font-family: var(--font-display);
   font-size: 64px;
   font-weight: 600;
   letter-spacing: -0.02em;
-  line-height: 1;
+  line-height: 1.33;
+}
+
+.kiosk-module-band__where[hidden],
+.kiosk-module-band__pagination[hidden],
+.kiosk-module-band__offer[hidden] {
+  display: none;
+}
+
+.kiosk-module-band__pagination {
+  width: 100%;
+}
+
+/* The whole offer is the target — on a touchscreen the forgiving hit area is
+   the point — so the chevron is decoration inside the button, not a control
+   beside it. It simply replaces the title: no fade, because the bar is not
+   arriving, it is already there and saying something else. */
+.kiosk-module-band__offer {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0;
+  border: 0;
+  background: none;
+  gap: 40px;
+}
+
+/* A row here, unlike the pop-up's stacked version: the bar keeps the height of
+   a single title line, and chip-above-title needs twice that. */
+.kiosk-module-band__label {
+  display: flex;
+  align-items: center;
+  gap: 32px;
   text-align: left;
 }
 
-.kiosk-up-next__icon {
-  display: flex;
-  width: 70px;
-  height: 70px;
-  align-items: center;
-  justify-content: center;
+/* Was a line of accent-coloured text above the title on the blue band; the
+   board draws it as a filled chip again — the band's pale tint carrying its
+   deepest stop as ink, the same pairing the restart action uses. */
+.kiosk-module-band__chip,
+.kiosk-up-next-popup__chip {
+  padding: 6px 24px;
+  border-radius: 12px;
+  background: var(--band-bright);
+  color: var(--band-deep);
+  font-family: var(--font-text);
+  font-size: 32px;
+  font-weight: 600;
+  line-height: 1.34;
+  white-space: nowrap;
 }
 
-.kiosk-up-next__icon img {
+.kiosk-module-band__title,
+.kiosk-up-next-popup__title {
+  color: var(--band-offwhite);
+  font-family: var(--font-display);
+  font-size: 64px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.33;
+}
+
+/* The bar is 2160 wide and one line tall, so its title must never wrap — there
+   is no second line to wrap into. */
+.kiosk-module-band__title {
+  white-space: nowrap;
+}
+
+/* The panel is 1000 wide, and the board wraps the longer titles across two
+   lines there (255:2321 is drawn 796 x 170). The panel has no fixed height, so
+   it grows with them — which is why Figma draws that pop-up at 1241 rather than
+   1156. */
+.kiosk-up-next-popup__title {
+  align-self: stretch;
+}
+
+/* The popup's chevron rides a lightened disc of the panel's own fill, the same
+   way the home CTA's does. The band's does not — see .kiosk-continue-action. */
+.kiosk-up-next-popup__action {
+  display: grid;
+  width: 84px;
+  height: 84px;
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.2);
+  color: #fff;
+}
+
+.kiosk-up-next-popup__glyph {
   display: block;
-  width: 26px;
-  height: 47px;
+  width: 60px;
+  height: 60px;
+}
+
+/* The offer's own control, on the band and on every next-principle banner.
+   Nothing here is a target — the whole row is the button — so it is a mark
+   saying which way this goes, and the lightest one that still reads as
+   pressable: the band's own ink on a hairline capsule. It replaces the opaque
+   white pill, which landed on the gradient like a sticker and outshouted the
+   title it was meant to sit beside.
+
+   105px tall, against the title line's 85. The bar does not grow to fit it —
+   the up-next state gives the difference back out of its own padding, the same
+   trade the pagination state makes — so this can be sized for a 4K panel seen
+   across a room without the chrome moving when the offer arrives.
+
+   The capsule is padded 6px tighter on the chevron's side. The word ends on a
+   stem and the chevron ends on a point, so equal numbers leave the right side
+   looking the roomier of the two.
+
+   The corner is the kiosk's button corner rather than a capsule: the same 16px
+   the home CTA is drawn with, which is what the header's actions are drawn
+   with too at their own smaller size. A pill read as a different kind of
+   control from every other button on the screen. */
+.kiosk-continue-action {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  gap: 34px;
+  padding: 0 48px 0 54px;
+  border: 2px solid rgb(255 255 255 / 0.45);
+  border-radius: 16px;
+  /* background-color rather than the shorthand: the shine lives in
+     background-image, and anything re-declaring `background` would drop it. */
+  background-color: rgb(255 255 255 / 0.08);
+  background-image: linear-gradient(
+    105deg,
+    transparent 42%,
+    rgb(255 255 255 / 0.05) 46%,
+    rgb(255 255 255 / 0.3) 50%,
+    rgb(255 255 255 / 0.05) 54%,
+    transparent 58%
+  );
+  /* Parked where the band is off the left edge, so at rest — and under reduced
+     motion, which never runs the sweep — the capsule is simply a capsule. */
+  background-position: 130% 50%;
+  background-repeat: no-repeat;
+  background-size: 260% 100%;
+  color: var(--band-offwhite);
+  font-family: var(--font-text);
+  font-size: 56px;
+  font-weight: 400;
+  line-height: 101px;
+  letter-spacing: -0.5px;
+  white-space: nowrap;
+}
+
+/* The bar is 205 in every state and this one holds it: 50 + 105 + 50. Growing
+   the button is not worth a chrome that jumps the moment a module finishes. */
+.kiosk-module-band[data-state='up-next'] {
+  padding-top: 50px;
+  padding-bottom: 50px;
+}
+
+/* Centring the chevron on the capsule centres it on the line box, which is not
+   where the word is: the font reserves more room above the caps than it does
+   below the baseline, so the line box's middle sits high of the word's. The
+   2.7px is that difference, measured on "Continue" at this size — the chevron
+   is centred on the cap height of the writing rather than on the space the
+   writing is set in. */
+.kiosk-continue-action__arrow {
+  display: grid;
+  place-items: center;
+  transform: translateY(2.7px);
+}
+
+.kiosk-continue-action__glyph {
+  display: block;
+  width: 24px;
+  height: 40px;
+}
+
+/* Three passes of the band the tooltips already carry — same angle, same
+   travel, same hold at each end — so the two cues in the kiosk that say "this
+   one, now" say it the same way. Left to right, with the chevron.
+
+   The bar itself does not move; it was on screen before the offer and stays
+   put. Done at 4.8s, just inside the five the band waits before escalating to
+   the popup. Leaving the offer state resets it for the replay. */
+@media (prefers-reduced-motion: no-preference) {
+  .kiosk-module-band[data-state='up-next'] .kiosk-continue-action {
+    animation: kiosk-continue-shine 1600ms ease-in-out 3;
+  }
+}
+
+@keyframes kiosk-continue-shine {
+  0%,
+  20% {
+    background-position: 130% 50%;
+  }
+
+  62%,
+  100% {
+    background-position: -30% 50%;
+  }
+}
+
+/* The press reads on the capsule rather than the whole row: brightening a
+   gradient the width of the screen is not a button being pressed. */
+.kiosk-module-band__offer:active .kiosk-continue-action {
+  border-color: rgb(255 255 255 / 0.7);
+  background-color: rgb(255 255 255 / 0.2);
+}
+
+/* ---------------------------------------------------------------------------
+ * The 1-2-3, on the band while a module runs sub-modules and on the sub-menu
+ * screen that lists them (Figma 255:3555 and 255:3786).
+ *
+ * One drawing, two inks. On the band it is white on teal; on the sub-menu it is
+ * teal on white, with the labels off and the circles further apart. Everything
+ * else — the 100px circles, the 4px dashed rail at half opacity, the 8px gap
+ * under each circle — is identical, so the difference is a set of tokens rather
+ * than a second component.
+ * ------------------------------------------------------------------------- */
+
+.kiosk-submodule-nav {
+  --nav-ink: #fff;
+  --nav-on-ink: var(--band-deep);
+  --nav-soft: rgba(255, 255, 255, 0.2);
+  --nav-rail: rgba(255, 255, 255, 0.5);
+  --nav-locked: rgba(255, 255, 255, 0.7);
+  --nav-gap: 460px;
+
+  width: 100%;
+}
+
+.kiosk-submodule-nav[data-tone='on-light'] {
+  --nav-ink: #225b62;
+  --nav-on-ink: #fff;
+  --nav-soft: rgba(34, 91, 98, 0.2);
+  --nav-rail: rgba(34, 91, 98, 0.5);
+  --nav-locked: rgba(34, 91, 98, 0.7);
+  --nav-gap: 560px;
+}
+
+/* 100 circle + 8 gap + 43 label. The label is positioned, so without this the
+   track measures as the circle alone. */
+.kiosk-submodule-nav[data-labels='true'] .kiosk-submodule-nav__track {
+  min-height: 151px;
+}
+
+.kiosk-submodule-nav__track {
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* The step is the circle and nothing else. The label is taken out of flow
+   underneath it, because a label wider than the circle would push the rails
+   apart and leave the dashes stopping short of the numbers — the board runs
+   them edge to edge. */
+.kiosk-submodule-nav__step {
+  position: relative;
+  display: flex;
+  width: 100px;
+  flex-direction: column;
+  align-items: center;
+}
+
+.kiosk-submodule-nav__index {
+  display: grid;
+  width: 100px;
+  height: 100px;
+  place-items: center;
+  /* Transparent on the steps that carry no ring, so taking the ring on and off
+     never changes the circle's size. */
+  border: 4px solid transparent;
+  border-radius: 50%;
+  background: var(--nav-soft);
+  color: var(--nav-ink);
+  font-family: var(--font-text);
+  font-size: 40px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  line-height: 1;
+  transition:
+    background 220ms ease,
+    border-color 220ms ease,
+    color 220ms ease;
+}
+
+/* The number and the tick occupy the same cell, so swapping them cannot move
+   the disc or change its size. */
+.kiosk-submodule-nav__number,
+.kiosk-submodule-nav__check {
+  grid-area: 1 / 1;
+}
+
+.kiosk-submodule-nav__check {
+  display: block;
+  width: 60px;
+  height: 60px;
+}
+
+.kiosk-submodule-nav__step:not([data-state='done']) .kiosk-submodule-nav__check,
+.kiosk-submodule-nav__step[data-state='done'] .kiosk-submodule-nav__number {
+  display: none;
+}
+
+.kiosk-submodule-nav__step[data-state='current'] .kiosk-submodule-nav__index {
+  border-color: var(--nav-ink);
+  background: var(--nav-ink);
+  color: var(--nav-on-ink);
+}
+
+/* Been there: the same filled disc as the current step, carrying a tick instead
+   of its number, and no ring (255:1828). Without this a finished step was
+   indistinguishable from one never started, so a completed module read as
+   untouched. */
+.kiosk-submodule-nav__step[data-state='done'] .kiosk-submodule-nav__index {
+  background: var(--nav-ink);
+  color: var(--nav-on-ink);
+}
+
+.kiosk-submodule-nav__label {
+  position: absolute;
+  top: 108px;
+  left: 50%;
+  color: var(--nav-ink);
+  transform: translateX(-50%);
+  font-family: var(--font-text);
+  font-size: 32px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  line-height: 1.34;
+  white-space: nowrap;
+  transition: color 220ms ease;
+}
+
+/* Only what the visitor cannot open yet fades. A step they have finished, and
+   the one waiting for them next, both read at full strength — which is what the
+   board draws on the Superposition screen: 1 lit, 2 lit, 3 held back. */
+.kiosk-submodule-nav__step[data-locked='true'] .kiosk-submodule-nav__label {
+  color: var(--nav-locked);
+}
+
+/* The rail is the gap itself, which keeps the dashes clear of the circles.
+   Dashed at half strength while the route ahead is untravelled, and solid at
+   full once the step behind it is done — 255:4301 draws both on one control. */
+.kiosk-submodule-nav__rail {
+  width: var(--nav-gap);
+  height: 4px;
+  /* Half the 100px circle, less half the rail, so it meets the numbers. */
+  margin-top: 48px;
+  background-image: repeating-linear-gradient(
+    to right,
+    var(--nav-rail) 0 8px,
+    transparent 8px 16px
+  );
+}
+
+.kiosk-submodule-nav__rail[data-travelled='true'] {
+  background-image: linear-gradient(to right, var(--nav-ink) 0 100%);
+}
+
+/* ---------------------------------------------------------------------------
+ * The pop-up the band escalates to (Figma 255:1843 over overlay 255:1842).
+ * ------------------------------------------------------------------------- */
+
+.kiosk-up-next-popup {
+  position: absolute;
+  inset: 0;
+  z-index: 60;
+  display: grid;
+  place-items: center;
+}
+
+.kiosk-up-next-popup[hidden] {
+  display: none;
+}
+
+.kiosk-up-next-popup__scrim {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.3);
+  opacity: 0;
+  backdrop-filter: blur(15px);
+  transition: opacity 320ms ease;
+}
+
+.kiosk-up-next-popup[data-showing='true'] .kiosk-up-next-popup__scrim {
+  opacity: 1;
+}
+
+.kiosk-up-next-popup__panel {
+  position: relative;
+  display: flex;
+  width: 1000px;
+  flex-direction: column;
+  overflow: clip;
+  border-radius: 24px;
+  background-image: var(--band-gradient);
+  box-shadow: 0 4px 30px rgba(0, 0, 0, 0.25);
+  opacity: 0;
+  transform: scale(0.96) translateY(24px);
+  transition:
+    opacity 260ms ease,
+    transform 420ms var(--ease-out);
+}
+
+.kiosk-up-next-popup[data-showing='true'] .kiosk-up-next-popup__panel {
+  opacity: 1;
+  transform: none;
+}
+
+.kiosk-up-next-popup__visual {
+  position: relative;
+  width: 1000px;
+  height: 700px;
+  background-image:
+    linear-gradient(180deg, rgba(0, 0, 0, 0.06) 0%, rgba(255, 255, 255, 0.06) 57.097%),
+    linear-gradient(90deg, #fff 0%, #fff 100%);
+}
+
+/* One box for every offer's artwork, contained.
+
+   The board sizes each cutout to its own subject — the ice cube wide and short,
+   the Majorana assembly 705px tall. That works on the board and not in the
+   build: the tallest is taller than the 700px area it sits in, so it overflowed
+   the panel, and the rest landed at visibly different sizes popup to popup.
+   Contained in one box, every offer reads the same and nothing escapes.
+
+   142 top and 142 bottom of the 700px area, so the artwork sits centred in what
+   the close control leaves. */
+.kiosk-up-next-popup__art {
+  position: absolute;
+  top: 142px;
+  left: 50%;
+  width: 700px;
+  height: 416px;
+  object-fit: contain;
+  transform: translateX(-50%);
+}
+
+/* Full-bleed plates rather than cutouts: they are the whole picture, so they
+   fill the area instead of floating inside it. */
+.kiosk-up-next-popup__art[data-fit='cover'] {
+  top: 0;
+  width: 100%;
+  height: 700px;
+  object-fit: cover;
+}
+
+/* The current chip render is tall; give its circuitry more of the visual well
+   while preserving clearance around the close control. */
+.kiosk-up-next-popup__art[data-layout='majorana'] {
+  top: 90px;
+  width: 760px;
+  height: 520px;
+}
+
+/* Module 09's plate is a tall column of spheres rather than a wide object.
+   Contained in the shared landscape box it would render a fifth of the panel
+   wide; a portrait box lets the column stand at the height it was drawn. */
+.kiosk-up-next-popup__art[data-layout='stack'] {
+  top: 50px;
+  width: 700px;
+  height: 600px;
+}
+
+/* Keep the same muted, bare cross in every offer. Scope beats module-wide
+   button colours, including the white ink inherited from .pqi button. */
+.kiosk-up-next-popup .kiosk-up-next-popup__close {
+  position: absolute;
+  top: 32px;
+  right: 32px;
+  display: grid;
+  width: 70px;
+  height: 70px;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--color-navy);
+  opacity: 0.5;
+}
+
+.kiosk-up-next-popup__close .kiosk-up-next-popup__glyph {
+  width: 70px;
+  height: 70px;
+}
+
+.kiosk-up-next-popup__go {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 60px;
+  border: 0;
+  background: none;
+  gap: 40px;
+}
+
+.kiosk-up-next-popup__go:active {
+  filter: brightness(1.06);
+}
+
+.kiosk-up-next-popup__label {
+  display: flex;
+  min-width: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 32px;
+  text-align: left;
+}
+
+/* The restart row sits on white rather than the gradient: it is the quieter of
+   the two offers, and the board separates them by surface instead of by size. */
+.kiosk-up-next-popup__restart {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 40px 60px;
+  border: 0;
+  background: rgba(255, 255, 255, 0.8);
+  gap: 40px;
+}
+
+.kiosk-up-next-popup__restart:active {
+  background: rgba(255, 255, 255, 0.92);
+}
+
+.kiosk-up-next-popup__restart-label {
+  color: var(--band-ink);
+  font-family: var(--font-display);
+  font-size: 40px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.33;
+  text-align: left;
+}
+
+.kiosk-up-next-popup__action--restart {
+  background: var(--band-pale);
+  color: var(--band-deep);
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .kiosk-up-next {
+  .kiosk-up-next-popup__panel,
+  .kiosk-up-next-popup__scrim {
     transition: opacity 320ms ease;
     transform: none;
-  }
-
-  .kiosk-up-next[data-showing='true'] {
-    animation: none;
   }
 }
 
@@ -1499,6 +2049,7 @@
 .kiosk-explainer[hidden],
 .kiosk-explainer__media[hidden],
 .kiosk-explainer__title[hidden],
+.kiosk-explainer__subtitle[hidden],
 .kiosk-explainer__body[hidden],
 .kiosk-explainer__footer[hidden] {
   display: none;
@@ -1532,6 +2083,7 @@
 }
 
 .kiosk-explainer__title,
+.kiosk-explainer__subtitle,
 .kiosk-explainer__body,
 .kiosk-explainer__footer {
   margin: 0;
@@ -1544,6 +2096,15 @@
 .kiosk-explainer__title {
   color: var(--kiosk-explainer-ink);
   font-size: var(--kiosk-explainer-title-size);
+  font-weight: 600;
+}
+
+/* Qualifies the heading, so it keeps the heading's ink and weight and gives up
+   only size. Defaults to three-fifths of the title, which is the ratio the
+   boards set it at; panels that need an exact value set the property. */
+.kiosk-explainer__subtitle {
+  color: var(--kiosk-explainer-ink);
+  font-size: var(--kiosk-explainer-subtitle-size, calc(var(--kiosk-explainer-title-size) * 0.6));
   font-weight: 600;
 }
 
@@ -2254,6 +2815,25 @@
   transition-delay: 130ms;
 }
 
+.kiosk-settings[data-open="true"] .kiosk-settings__group:nth-of-type(3) {
+  transition-delay: 190ms;
+}
+
+.kiosk-settings[data-open="true"] .kiosk-settings__group:nth-of-type(4) {
+  transition-delay: 250ms;
+}
+
+.kiosk-settings[data-open="true"] .kiosk-settings__group:nth-of-type(5) {
+  transition-delay: 310ms;
+}
+
+.kiosk-settings__heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 32px;
+}
+
 .kiosk-settings__label {
   color: var(--color-subtle);
   font-family: var(--font-text);
@@ -2262,7 +2842,18 @@
   letter-spacing: 0.02em;
 }
 
-.kiosk-settings__volume {
+.kiosk-settings__readout {
+  min-width: 230px;
+  color: var(--color-navy);
+  font-family: var(--font-text);
+  font-size: 38px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  text-align: right;
+}
+
+.kiosk-settings__volume,
+.kiosk-settings__timing {
   display: flex;
   align-items: center;
   gap: 28px;
@@ -2330,6 +2921,7 @@
 /* Scoped to its own group: there are two segmented controls in the panel now,
    and an unscoped rule slid both thumbs whenever either changed. */
 .kiosk-settings[data-layout="center"] #kiosk-settings-layout .kiosk-settings__segment-thumb,
+.kiosk-settings[data-music="off"] #kiosk-settings-music .kiosk-settings__segment-thumb,
 .kiosk-settings[data-upnext="off"] #kiosk-settings-upnext .kiosk-settings__segment-thumb {
   transform: translateX(calc(100% + 8px));
 }
@@ -2369,6 +2961,9 @@
   .kiosk-settings__group,
   .kiosk-settings[data-open="true"] .kiosk-settings__group,
   .kiosk-settings[data-open="true"] .kiosk-settings__group:nth-of-type(2),
+  .kiosk-settings[data-open="true"] .kiosk-settings__group:nth-of-type(3),
+  .kiosk-settings[data-open="true"] .kiosk-settings__group:nth-of-type(4),
+  .kiosk-settings[data-open="true"] .kiosk-settings__group:nth-of-type(5),
   .kiosk-settings__cog,
   .kiosk-settings__launcher,
   .kiosk-settings__segment-thumb {
@@ -2598,204 +3193,4 @@
     scroll-behavior: auto !important;
     transition-duration: 1ms !important;
   }
-}
-
-/* ---------------------------------------------------------------------------
- * Production kiosk compositor budget
- *
- * The 2160 × 3840 stage is already a large raster surface. In shell-hosted
- * kiosk mode, do not also retain oversized animated backgrounds, the entire
- * 7-card track, blurred full-screen transitions and translucent backdrops as
- * independent compositor layers. Windowed review and development deliberately
- * keep the authored motion above; these overrides only apply after app.js has
- * confirmed the real kiosk runtime on <body>.
- * ------------------------------------------------------------------------- */
-
-/* Paint the same quiet colour atmosphere directly into the screen's existing
-   surface. The authored pseudo-elements extend 35% beyond every edge and move
-   forever, producing two 7344 × 13056 backing layers at native kiosk scale. */
-body.is-kiosk .screen--attract,
-body.is-kiosk .screen--menu {
-  background:
-    radial-gradient(ellipse 62% 30% at 76% 24%, rgba(0, 120, 212, 0.1), transparent 72%),
-    radial-gradient(ellipse 58% 30% at 22% 38%, rgba(186, 28, 118, 0.05), transparent 72%),
-    radial-gradient(ellipse 48% 24% at 50% 30%, rgba(122, 95, 212, 0.07), transparent 76%),
-    var(--color-background);
-}
-
-body.is-kiosk .screen--attract::before,
-body.is-kiosk .screen--attract::after,
-body.is-kiosk .screen--menu::before,
-body.is-kiosk .screen--menu::after {
-  display: none;
-  content: none;
-  animation: none;
-  will-change: auto;
-}
-
-/* Screen changes are already covered by the module wipe or are simple menu
-   navigation. Keeping the outgoing and incoming 4K screens in an opacity
-   crossfade duplicated the most expensive surface for no functional benefit. */
-body.is-kiosk .screen {
-  opacity: 1;
-  transition: none;
-}
-
-body.is-kiosk .menu-body {
-  transition: none;
-}
-
-body.is-kiosk .screen--attract.is-active .attract-footer,
-body.is-kiosk .screen--attract.is-active .attract-intro,
-body.is-kiosk .screen--attract.is-active .attract-chip,
-body.is-kiosk .screen--attract.is-leaving .attract-footer,
-body.is-kiosk .screen--attract.is-leaving .attract-intro,
-body.is-kiosk .screen--attract.is-leaving .attract-chip,
-body.is-kiosk .screen--menu.is-active .module-carousel,
-body.is-kiosk .screen--menu.is-active .module-carousel__pagination,
-body.is-kiosk .screen--menu.is-leaving .module-carousel,
-body.is-kiosk .screen--menu.is-leaving .module-carousel__pagination,
-body.is-kiosk .screen.is-active .reveal-word__inner,
-body.is-kiosk .screen.is-leaving .reveal-word__inner,
-body.is-kiosk .module-host__stage.is-arriving,
-body.is-kiosk .module-host__system-view {
-  animation: none;
-}
-
-/* The hero remains fully visible but no longer owns a continuously animated,
-   filtered 1500 × 1205 layer while the attract screen is idle. */
-body.is-kiosk .attract-chip img {
-  animation: none;
-  filter: none;
-}
-
-/* Module 03 otherwise promotes and re-filters its full 2160 × 3840 video on
-   every fog update (up to a 16px blur). Its procedural gas overlay still
-   communicates the phase without duplicating the video as a filtered layer. */
-body.is-kiosk .som__video {
-  filter: none;
-  will-change: auto;
-}
-
-body.is-kiosk .som__info,
-body.is-kiosk .som__info-copy p {
-  will-change: auto;
-}
-
-/* Do not promote the 31,008px-wide carousel track at all. Production navigation
-   commits the new track position in one frame, then module-carousel.js applies
-   a temporary FLIP animation to at most three bounded cards. */
-body.is-kiosk .module-carousel__viewport {
-  contain: paint;
-}
-
-body.is-kiosk .module-carousel__track {
-  transform: translateX(
-    calc((var(--carousel-card-width) / -2) - var(--carousel-offset) + var(--carousel-drag))
-  );
-  transition: none;
-  will-change: auto;
-}
-
-body.is-kiosk .module-card {
-  transform: none;
-  transition: none;
-}
-
-body.is-kiosk .module-card.is-active:active {
-  transform: none;
-}
-
-/* With the track landing synchronously, index state and position are committed
-   before the next paint, including the two wrap-around paths. This lets the
-   renderer skip every card outside the active card and its two neighbours. */
-body.is-kiosk .module-card.is-distant {
-  visibility: hidden;
-}
-
-/* A wrap or pagination jump briefly keeps only its outgoing card paintable.
-   The class is removed as soon as the bounded WAAPI animation finishes. */
-body.is-kiosk .module-card.is-distant.is-carousel-transition-card {
-  visibility: visible;
-  pointer-events: none;
-}
-
-body.is-kiosk .module-card__preview-portal,
-body.is-kiosk .reveal-word__inner {
-  will-change: auto;
-}
-
-/* Backdrop blur allocates an additional copy of whatever is behind each panel.
-   The kiosk favours opaque equivalents so labels remain readable without those
-   copies. `!important` is intentional: module styles load after app.css. */
-body.is-kiosk #kiosk-stage * {
-  -webkit-backdrop-filter: none !important;
-  backdrop-filter: none !important;
-}
-
-body.is-kiosk .kiosk-explainer {
-  --kiosk-explainer-backdrop-filter: none;
-  --kiosk-explainer-background: rgba(255, 255, 255, 0.96);
-}
-
-body.is-kiosk .kiosk-explainer[data-kiosk-explainer-variant='plain'] {
-  --kiosk-explainer-background: transparent;
-}
-
-body.is-kiosk .kiosk-settings__panel {
-  background: rgba(255, 255, 255, 0.98);
-  transform: none;
-  transition: opacity 140ms ease-out;
-}
-
-body.is-kiosk .kiosk-settings[data-open="true"] .kiosk-settings__panel {
-  transform: none;
-  transition: opacity 140ms ease-out;
-}
-
-body.is-kiosk .kiosk-settings__group,
-body.is-kiosk .kiosk-settings[data-open="true"] .kiosk-settings__group {
-  transform: none;
-  transition: opacity 140ms ease-out;
-}
-
-body.is-kiosk .kiosk-tooltip {
-  background-color: rgba(9, 31, 44, 0.86) !important;
-}
-
-body.is-kiosk .kiosk-tooltip.kiosk-tooltip--light,
-body.is-kiosk .qvc__menu-hint,
-body.is-kiosk .qvc-pair__hint,
-body.is-kiosk .nz__instruction.kiosk-tooltip,
-body.is-kiosk .qe__tuning-hint {
-  background-color: rgba(255, 255, 255, 0.96) !important;
-}
-
-body.is-kiosk .kiosk-tooltip.kiosk-tooltip--blue {
-  background-color: rgb(198, 226, 242) !important;
-}
-
-body.is-kiosk .module-card__ball-status {
-  background: rgba(255, 255, 255, 0.94);
-}
-
-body.is-kiosk .pqi__header,
-body.is-kiosk .nw__header {
-  background: #fff;
-}
-
-body.is-kiosk .qvc-up-next-card__scrim {
-  background: rgba(244, 243, 245, 0.94);
-}
-
-/* The moving sheen repaints both the tooltip surface and its glyphs every
-   frame. A static surface carries the same instruction more reliably. */
-body.is-kiosk .kiosk-tooltip:not([hidden]),
-body.is-kiosk .kiosk-tooltip:not([hidden]) .kiosk-tooltip__text {
-  animation: none !important;
-  background-image: none;
-}
-
-body.is-kiosk .kiosk-tooltip:not([hidden]) .kiosk-tooltip__text {
-  -webkit-text-fill-color: currentColor;
 }

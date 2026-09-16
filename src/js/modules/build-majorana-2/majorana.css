@@ -22,7 +22,13 @@
   isolation: isolate;
 }
 
-.majorana-module button:not(.kiosk-up-next) {
+.majorana-module button:not(
+  :where(
+    .microsoft-header__action,
+    .kiosk-module-band__offer,
+    [class^='kiosk-up-next-popup__']
+  )
+) {
   border: 0;
   background: none;
   color: inherit;
@@ -43,8 +49,6 @@
 }
 
 .majorana-brand,
-.majorana-module__actions,
-.majorana-utility-action,
 .majorana-primary-action,
 .majorana-next-action {
   display: flex;
@@ -90,45 +94,6 @@
   letter-spacing: -0.64px;
   line-height: 18.35px;
   white-space: nowrap;
-}
-
-.majorana-module__actions {
-  justify-content: flex-end;
-  gap: var(--header-actions-gap);
-}
-
-/* Doubled to outrank `.majorana-module button { border: 0 }` above. */
-.majorana-utility-action.majorana-utility-action {
-  min-height: var(--header-action-min-height);
-  min-width: var(--header-action-min-height);
-  justify-content: center;
-  gap: var(--header-action-gap);
-  padding: var(--header-action-padding);
-  border: var(--header-action-border);
-  border-radius: var(--header-action-radius);
-  background: var(--header-action-bg);
-  color: var(--header-action-color);
-  font-family: var(--font-display);
-  font-size: var(--header-action-font-size);
-  font-weight: var(--header-action-font-weight);
-  letter-spacing: var(--header-action-tracking);
-}
-
-.majorana-utility-action img {
-  width: var(--header-action-icon-size);
-  height: var(--header-action-icon-size);
-  filter: var(--header-action-icon-filter);
-  opacity: 0.95;
-}
-
-.majorana-utility-action:active {
-  background: var(--header-action-bg-active);
-}
-
-.majorana-utility-action > img {
-  width: 36px;
-  height: 36px;
-  flex: 0 0 36px;
 }
 
 .majorana-module.is-entering-components .majorana-module__header {
@@ -219,9 +184,13 @@
   white-space: nowrap;
 }
 
+/* The band overlays the top of the stage, so the views start below it rather
+   than underneath it: every authored offset in this module is measured from
+   the first row the visitor can actually see. */
 .majorana-module__views {
   position: relative;
   min-height: 0;
+  margin-top: var(--band-height);
   flex: 1;
 }
 
@@ -2569,11 +2538,19 @@
   pointer-events: none;
 }
 
+.majorana-build-path .majorana-pathway__track--active,
+.majorana-build-path .majorana-pathway__arrow {
+  opacity: 1;
+  transition: opacity 520ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
 .majorana-build-path .majorana-pathway__track--active {
   filter: none;
   mix-blend-mode: normal;
-  opacity: 0;
-  transition: opacity 520ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.majorana-build-path .majorana-pathway__track--neutral {
+  opacity: 0.18;
 }
 
 .majorana-build-path .majorana-pathway__track--active::before {
@@ -2582,7 +2559,11 @@
   height: auto;
   border-radius: 0;
   background:
-    linear-gradient(180deg, #01c6db 0%, #49c5b1 100%),
+    linear-gradient(
+      180deg,
+      var(--mj-guide-from, #39beff) 0%,
+      var(--mj-guide-to, #0074d4) 100%
+    ),
     linear-gradient(
       180deg,
       rgba(254, 254, 254, 0.02) 0%,
@@ -2598,7 +2579,11 @@
 .majorana-build-path.majorana-pathway--control
   .majorana-pathway__track--active::before {
   background:
-    linear-gradient(90deg, #49c5b1 0%, #01c6db 100%),
+    linear-gradient(
+      90deg,
+      var(--mj-guide-to, #0074d4) 0%,
+      var(--mj-guide-from, #39beff) 100%
+    ),
     linear-gradient(
       90deg,
       rgba(28, 120, 196, 0.2) 0%,
@@ -2615,15 +2600,6 @@
 .majorana-build-path.majorana-pathway--control
   .majorana-pathway__track--active img {
   opacity: 0;
-}
-
-.majorana-build-path.is-active .majorana-pathway__track--active,
-.majorana-build-path.is-active .majorana-pathway__arrow {
-  opacity: 1;
-}
-
-.majorana-build-path.is-active .majorana-pathway__track--neutral {
-  opacity: 0.18;
 }
 
 .majorana-build__board {
@@ -3268,7 +3244,10 @@
   --kiosk-explainer-title-size: 96px;
 }
 
-.majorana-shared-explainer--build {
+/* The closing line is the same panel as the statements below it, so the two
+   share this rule rather than keeping copies that can drift apart. */
+.majorana-shared-explainer--build,
+.majorana-shared-explainer--build-summary {
   --kiosk-explainer-background: rgba(255, 255, 255, 0.6);
   --kiosk-explainer-body-color: #091f2c;
   --kiosk-explainer-body-size: 60px;
@@ -3278,19 +3257,11 @@
   --kiosk-explainer-padding: 80px;
 }
 
-/* Kiosk mode removes backdrop filters globally. Keep the Figma-authored white
-   translucent fills instead of allowing the global opaque fallback to tint them. */
-body.is-kiosk .majorana-module .majorana-shared-explainer--components-summary {
-  --kiosk-explainer-background: rgba(255, 255, 255, 0.24);
-}
-
-body.is-kiosk .majorana-module .majorana-shared-explainer--component {
-  --kiosk-explainer-background: transparent;
-}
-
-body.is-kiosk .majorana-module .majorana-shared-explainer--pathways,
-body.is-kiosk .majorana-module .majorana-shared-explainer--build {
-  --kiosk-explainer-background: rgba(255, 255, 255, 0.6);
+/* The board sets the two per-chip statements a size down from the closing line
+   above them. They sit beside each other over the chips rather than alone
+   across the stage, so they are read at a shorter measure and take 48px. */
+.majorana-shared-explainer--build {
+  --kiosk-explainer-body-size: 48px;
 }
 
 /* The older local h2/h3 rules have element specificity, so explicitly anchor
@@ -3304,8 +3275,7 @@ body.is-kiosk .majorana-module .majorana-shared-explainer--build {
 
 .majorana-components-focus__intro .kiosk-explainer__body,
 .majorana-components-focus__card .kiosk-explainer__body,
-.majorana-pathways__copy .kiosk-explainer__body,
-.majorana-build__explanation .kiosk-explainer__body {
+.majorana-pathways__copy .kiosk-explainer__body {
   font-size: 60px;
   line-height: 1.330078;
 }
@@ -3458,19 +3428,21 @@ body.is-kiosk .majorana-module .majorana-shared-explainer--build {
   top: 1399px;
 }
 
+/* These tooltips are re-parented between stages. Keep their shared light-grey
+   treatment stable across each stage's local styles. */
 .majorana-module .majorana-shared-tooltip {
   min-height: 92px;
   padding: 20px 30px;
-  border: 2px solid rgba(141, 200, 232, 0.7);
+  border: 0;
   border-radius: 12px;
-  background-color: rgba(141, 200, 232, 0.5) !important;
-  box-shadow: 0 0 50px rgba(185, 210, 229, 0.5);
-  -webkit-backdrop-filter: blur(60px);
-  backdrop-filter: blur(60px);
+  background-color: #f2f4f5 !important;
+  box-shadow: 0 4px 20px rgb(31 55 80 / 0.22);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
 }
 
 .majorana-module .majorana-shared-tooltip .kiosk-tooltip__text {
-  color: #0078d4;
+  color: #7c8282;
   font-size: 36px;
   line-height: normal;
 }
@@ -3484,12 +3456,6 @@ body.is-kiosk .majorana-module .majorana-shared-explainer--build {
 
 .majorana-module .majorana-shared-tooltip .kiosk-tooltip__text {
   -webkit-text-fill-color: currentColor;
-}
-
-body.is-kiosk #kiosk-stage .majorana-module .majorana-shared-tooltip {
-  background-color: rgba(141, 200, 232, 0.5) !important;
-  -webkit-backdrop-filter: blur(60px) !important;
-  backdrop-filter: blur(60px) !important;
 }
 
 .majorana-pathways__component-holder,
@@ -3526,12 +3492,6 @@ body.is-kiosk #kiosk-stage .majorana-module .majorana-shared-tooltip {
   stroke-dasharray: 34px 26px;
   stroke-linecap: butt;
   transition: stroke 520ms ease;
-}
-
-body.is-kiosk #kiosk-stage .majorana-pathways__component-holder,
-body.is-kiosk #kiosk-stage .majorana-build__tray {
-  -webkit-backdrop-filter: blur(30px) !important;
-  backdrop-filter: blur(30px) !important;
 }
 
 .majorana-component-holder__title {
@@ -3642,7 +3602,6 @@ body.is-kiosk #kiosk-stage .majorana-build__tray {
   opacity: 1;
 }
 
-.majorana-pathways__component-holder .majorana-component-holder__title,
 .majorana-pathways__component-holder .majorana-pathways__component {
   opacity: 0.5;
 }
@@ -3656,6 +3615,19 @@ body.is-kiosk #kiosk-stage .majorana-build__tray {
 .majorana-pathways__diagram,
 .majorana-build__pathways {
   transform: translateY(609px);
+}
+
+/* The guides run into the chips rather than stopping at them, so a seated chip
+   reads as connected rather than as something the line disappears behind.
+ *
+ * The chips are children of the tray, and the tray is a stacking context at 8,
+ * so the only way over a chip is over the tray. That is why this waits for the
+ * finished board: until then the tray still holds the chip that has not been
+ * placed, and a layer above the tray would draw these lines straight across
+ * it. 9 clears the tray and stays under the statements at 11, which keep the
+ * copy over the lines. */
+.majorana-module.is-build-complete .majorana-build__pathways {
+  z-index: 9;
 }
 
 .majorana-pathway-connector--external,
@@ -3729,7 +3701,6 @@ body.is-kiosk #kiosk-stage .majorana-build__tray {
   --majorana-finale-camera-scale: 1;
   --majorana-finale-camera-x: 0px;
   --majorana-finale-camera-y: 0px;
-  --majorana-finale-live-blur: 0px;
   --majorana-finale-live-opacity: 1;
 }
 
@@ -3752,10 +3723,67 @@ body.is-kiosk #kiosk-stage .majorana-build__tray {
   top: 2348.5px;
 }
 
+/*
+ * One statement per chip, each sized to sit above the component it describes so
+ * both can be read at once.
+ *
+ * The slots sit at board-relative left 321.1 / 965.2 inside a board at stage
+ * left 130, so the two columns are stage x 451.1 and 1095.2 at the slots' own
+ * widths.
+ *
+ * This is the region the two boxes live in, not the boxes themselves: each box
+ * is only as tall as its own words, and hangs from the region's bottom edge so
+ * the pair lines up along the bottom the way the board draws them. The region
+ * ends at stage y 1630, short of the slots, which begin at stage y 1667.5
+ * (board top 993 + slot top 674.5). Its height only has to clear the taller
+ * copy, which sets five 63.8 lines over 80 top and bottom, or 479.
+ */
 .majorana-build__explanation {
   position: absolute;
   z-index: 11;
-  top: 1095px;
+  top: 1070px;
+  display: flex;
+  height: 560px;
+  flex-direction: column;
+  justify-content: flex-end;
+  pointer-events: none;
+  transform: none;
+}
+
+/* Set on the explainer itself, not on this slot: the variant declares the
+   padding on that element, and a value declared there beats one inherited from
+   a parent however specific the parent's selector is.
+ *
+ * Sides come in from the variant's 80 to 40. At a column's width rather than
+ * the board's, 80 each side leaves under 500 for the copy and pushes both
+ * statements a line longer than the board draws them. Top and bottom keep the
+ * 80, which is the space the board leaves around these words. */
+.majorana-build__explanation .majorana-shared-explainer {
+  --kiosk-explainer-padding: 80px 40px;
+  height: auto;
+}
+
+.majorana-build__explanation--qpu {
+  left: 451.1px;
+  width: 630.8px;
+}
+
+.majorana-build__explanation--cryo {
+  left: 1095.2px;
+  width: 659.3px;
+}
+
+.majorana-build__explanation .kiosk-explainer__body {
+  max-width: 100%;
+}
+
+/* The closing line above the pair, in the space the tray leaves behind. The
+   tray is stage y 80 to 910.76, so a 400-tall box centred in it starts at 295 —
+   clear of the two statements, which begin at 1020. */
+.majorana-build__summary {
+  position: absolute;
+  z-index: 11;
+  top: 295px;
   left: 480px;
   width: 1200px;
   height: 400px;
@@ -3763,8 +3791,10 @@ body.is-kiosk #kiosk-stage .majorana-build__tray {
   transform: none;
 }
 
-.majorana-build__explanation .kiosk-explainer__body {
+.majorana-build__summary .kiosk-explainer__body {
   max-width: 880px;
+  font-size: 60px;
+  line-height: 1.330078;
 }
 
 .majorana-build__instruction {
@@ -3802,15 +3832,6 @@ body.is-kiosk #kiosk-stage .majorana-build__tray {
   color: #cf3919;
 }
 
-body.is-kiosk .majorana-module .majorana-build__instruction
-  .kiosk-tooltip[data-build-prompt="initial"],
-body.is-kiosk .majorana-module .majorana-build__instruction
-  .kiosk-tooltip[data-build-prompt="qpu-first"],
-body.is-kiosk .majorana-module .majorana-build__instruction
-  .kiosk-tooltip[data-build-prompt="cryo-first"] {
-  background-color: rgba(255, 179, 187, 0.5) !important;
-}
-
 .majorana-module.is-build-missing .majorana-build {
   background:
     linear-gradient(
@@ -3828,9 +3849,87 @@ body.is-kiosk .majorana-module .majorana-build__instruction
   opacity: 0.5;
 }
 
+/* The two vertical channels double as drop guides: readout over the QPU stack,
+   external over the cryo-CMOS, and control spanning the pair. They used to
+   leave with the chip that landed on them; the board keeps them, running into
+   the seated chip and reading as the connection that chip just made, so what
+   changes on a drop is the colour rather than whether the line is there. */
+
+.majorana-build-path {
+  transition: opacity 520ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .majorana-build-path {
+    transition-duration: 1ms;
+  }
+}
+
+/*
+ * Each guide carries its own chip's state in its colour: the authored blue
+ * while the build is only waiting, the drop slots' own #ff5c39 once the module
+ * is asking for a chip that is still missing, and the authored teal once that
+ * chip is seated. Control spans the pair, so it turns only when both are down.
+ *
+ * Set as the two stops of the gradient the guide is already painted with —
+ * build paths run `filter: none` on purpose and take their colour from that
+ * gradient, so the state belongs in the stops rather than in a recolour chain.
+ */
+.majorana-module.is-build-missing
+  .majorana-build-path.majorana-pathway--readout,
+.majorana-module.is-build-missing
+  .majorana-build-path.majorana-pathway--external,
+.majorana-module.is-build-missing
+  .majorana-build-path.majorana-pathway--control {
+  --mj-guide-from: #ff8a70;
+  --mj-guide-to: #ff5c39;
+}
+
+/* A seated chip settles its own guide, and only its own — the other keeps
+   asking until its chip lands too. Listed after the missing state so it wins
+   while the module is still prompting for the one that is left. */
+.majorana-module.is-build-qpu-placed
+  .majorana-build-path.majorana-pathway--readout,
+.majorana-module.is-build-cmos-placed
+  .majorana-build-path.majorana-pathway--external,
+.majorana-module.is-build-complete
+  .majorana-build-path.majorana-pathway--control {
+  --mj-guide-from: #01c6db;
+  --mj-guide-to: #49c5b1;
+}
+
+/* Both chips are seated, so the tray has no job left: the glass, the dashed
+   frame and the instruction dissolve together and leave the finished board
+   on its own. */
 .majorana-module.is-build-complete .majorana-build__tray {
-  --majorana-holder-border: rgba(0, 0, 0, 0.3);
-  background: rgba(255, 255, 255, 0.6);
+  background: transparent;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  transition:
+    background 420ms ease,
+    -webkit-backdrop-filter 420ms ease,
+    backdrop-filter 420ms ease;
+}
+
+.majorana-module.is-build-complete .majorana-build__tray
+  > .majorana-component-holder__border,
+.majorana-module.is-build-complete .majorana-build__tray
+  > .majorana-component-holder__title {
+  visibility: hidden;
+  opacity: 0;
+  transition:
+    opacity 420ms ease,
+    visibility 0s linear 420ms;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .majorana-module.is-build-complete .majorana-build__tray,
+  .majorana-module.is-build-complete .majorana-build__tray
+    > .majorana-component-holder__border,
+  .majorana-module.is-build-complete .majorana-build__tray
+    > .majorana-component-holder__title {
+    transition-duration: 1ms;
+  }
 }
 
 .majorana-finale {
@@ -3872,8 +3971,6 @@ body.is-kiosk .majorana-module .majorana-build__instruction
   top: 0;
   left: 0;
   display: block;
-  width: 1800px;
-  height: 3114px;
   max-width: none;
   opacity: 0;
   pointer-events: none;
@@ -3883,19 +3980,35 @@ body.is-kiosk .majorana-module .majorana-build__instruction
 
 /* Module 08's intrinsic stop-02 bitmap remains the same rendered element from
    the live-board handoff through the final Cryostat frame. */
+/* Both plates are sized to their own bitmaps in JS, from the nanoscale camera
+   that also positions them -- these are the intrinsic pixels its art transforms
+   are expressed in, and hardcoding them here let one drift from the other. */
+/* Between the chandelier and the package close-up: it replaces the arm the
+   pull-out magnifies, and the package plate still lands on top of it. */
+.majorana-finale__coldfinger {
+  position: absolute;
+  z-index: 1;
+  top: 0;
+  left: 0;
+  display: block;
+  max-width: none;
+  opacity: 0;
+  pointer-events: none;
+  transform-origin: 0 0;
+  will-change: opacity, transform;
+}
+
 .majorana-finale__chip {
   position: absolute;
   z-index: 2;
   top: 0;
   left: 0;
   display: block;
-  width: 1300px;
-  height: 2466px;
   max-width: none;
   opacity: 0;
   pointer-events: none;
   transform-origin: 0 0;
-  will-change: filter, opacity, transform;
+  will-change: opacity, transform;
 }
 
 .majorana-module.is-finale .majorana-build {
@@ -3918,9 +4031,10 @@ body.is-kiosk .majorana-module .majorana-build__instruction
 .majorana-module.is-finale .majorana-model-slot--build,
 .majorana-module.is-finale .majorana-build__board,
 .majorana-module.is-finale .majorana-build__tray .majorana-build-part {
-  filter: blur(var(--majorana-finale-live-blur));
   opacity: var(--majorana-finale-live-opacity);
-  will-change: filter, opacity, transform;
+  /* A registered opacity dissolve avoids re-filtering the large board and
+     both WebGL canvases at a different blur radius on every frame. */
+  will-change: opacity, transform;
 }
 
 .majorana-module.is-finale .majorana-model-slot--build,
@@ -3936,16 +4050,12 @@ body.is-kiosk .majorana-module .majorana-build__instruction
   transform-origin: -424.965px -80px;
 }
 
-body.is-kiosk #kiosk-stage .majorana-module.is-finale .majorana-build__tray {
-  -webkit-backdrop-filter: none !important;
-  backdrop-filter: none !important;
-}
-
 .majorana-module.is-finale .majorana-build__tray
   > .majorana-component-holder__border,
 .majorana-module.is-finale .majorana-build__tray
   > .majorana-component-holder__title,
 .majorana-module.is-finale .majorana-build__explanation,
+.majorana-module.is-finale .majorana-build__summary,
 .majorana-module.is-finale .majorana-build__instruction,
 .majorana-module.is-finale .majorana-build__placed-labels,
 .majorana-module.is-finale .majorana-build__pathways {
@@ -3963,6 +4073,7 @@ body.is-kiosk #kiosk-stage .majorana-module.is-finale .majorana-build__tray {
   .majorana-module.is-finale .majorana-build__tray
     > .majorana-component-holder__title,
   .majorana-module.is-finale .majorana-build__explanation,
+  .majorana-module.is-finale .majorana-build__summary,
   .majorana-module.is-finale .majorana-build__instruction,
   .majorana-module.is-finale .majorana-build__placed-labels,
   .majorana-module.is-finale .majorana-build__pathways {

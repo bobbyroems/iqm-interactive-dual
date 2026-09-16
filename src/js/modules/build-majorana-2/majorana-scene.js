@@ -1,4 +1,7 @@
 import { assetUrl } from '../../core/asset-url.js'
+import { disposeObject3DResources } from '../../core/three-resource-disposal.js'
+import { leaseWebGLRenderer } from '../../core/webgl-renderer-pool.js'
+import { ensureRectAreaLightUniformsInitialized } from '../../core/rect-area-light-uniforms.js'
 import {
   getModuleNavigationGridLayout,
   MODULE_NAVIGATION_GRID,
@@ -105,25 +108,7 @@ function throwIfAborted(signal) {
 }
 
 function disposeObject(root) {
-  const geometries = new Set()
-  const materials = new Set()
-  const textures = new Set()
-
-  root?.traverse(object => {
-    if (object.geometry) geometries.add(object.geometry)
-    const objectMaterials = Array.isArray(object.material) ? object.material : [object.material]
-    objectMaterials.filter(Boolean).forEach(material => materials.add(material))
-  })
-
-  for (const material of materials) {
-    for (const value of Object.values(material)) {
-      if (value?.isTexture) textures.add(value)
-    }
-  }
-
-  textures.forEach(texture => texture.dispose())
-  materials.forEach(material => material.dispose())
-  geometries.forEach(geometry => geometry.dispose())
+  disposeObject3DResources(root)
 }
 
 function loadGltf(loader, url, onProgress) {
@@ -234,7 +219,7 @@ export async function createMajoranaScene({
   ])
 
   throwIfAborted(signal)
-  RectAreaLightUniformsLib.init()
+  ensureRectAreaLightUniformsInitialized(RectAreaLightUniformsLib)
 
   let host = initialHost
   let componentHosts = { ...initialComponentHosts }
@@ -344,13 +329,14 @@ export async function createMajoranaScene({
 
   const camera = new THREE.PerspectiveCamera(INTRO_FOV, 1, 0.01, 10_000)
   scene.add(camera)
-  const renderer = new THREE.WebGLRenderer({
+  const rendererLease = leaseWebGLRenderer(THREE, {
     alpha: true,
     antialias: true,
     depth: true,
     powerPreference: 'high-performance',
     preserveDrawingBuffer: false
   })
+  const { renderer } = rendererLease
   renderer.outputColorSpace = THREE.SRGBColorSpace
   renderer.toneMapping = THREE.ACESFilmicToneMapping
   renderer.toneMappingExposure = MAJORANA_INTRO_LIGHTING.exposure
@@ -897,12 +883,13 @@ export async function createMajoranaScene({
       COMPONENT_FOCUS_ENVIRONMENT_INTENSITY[partId] ?? 0.4
     const detailCamera = new THREE.PerspectiveCamera(COMPONENT_DETAIL_FOV, 1, 0.01, 10_000)
     detailScene.add(detailCamera)
-    const detailRenderer = new THREE.WebGLRenderer({
+    const detailRendererLease = leaseWebGLRenderer(THREE, {
       alpha: true,
       antialias: true,
       depth: true,
       powerPreference: 'high-performance'
     })
+    const { renderer: detailRenderer } = detailRendererLease
     detailRenderer.outputColorSpace = THREE.SRGBColorSpace
     detailRenderer.toneMapping = THREE.ACESFilmicToneMapping
     detailRenderer.toneMappingExposure =
@@ -1226,6 +1213,7 @@ export async function createMajoranaScene({
       },
       async prepare() {
         if (disposed) return
+        resizeDetail()
 
         const detailPmremGenerator = new THREE.PMREMGenerator(detailRenderer)
         try {
@@ -1243,6 +1231,9 @@ export async function createMajoranaScene({
 
         await detailRenderer.compileAsync(detailScene, detailCamera)
         if (disposed) return
+        // Layout may settle while compilation is pending. Allocate the final
+        // drawing buffer before reporting that the component is ready.
+        resizeDetail()
         detailRenderer.render(detailScene, detailCamera)
         dirty = false
       },
@@ -1310,10 +1301,8 @@ export async function createMajoranaScene({
         detailResizeObserver.disconnect()
         detailScene.environment = null
         detailEnvironmentRenderTarget?.dispose()
-        detailRenderer.dispose()
-        detailRenderer.forceContextLoss()
-        detailRenderer.domElement.remove()
         detailScene.clear()
+        detailRendererLease.release()
       }
     }
   }
@@ -1334,7 +1323,10 @@ export async function createMajoranaScene({
   }
 
   async function prepareComponentViews(readyCallback = onComponentsReady) {
-    await Promise.all([...componentViews.entries()].map(async ([partId, componentView]) => {
+    // Prepare one renderer at a time instead of overlapping two environment
+    // bakes, shader compilations and texture uploads during the chip transition.
+    for (const [partId, componentView] of componentViews) {
+      if (disposed) return
       try {
         await componentView.prepare()
       } catch (error) {
@@ -1342,7 +1334,7 @@ export async function createMajoranaScene({
           console.warn(`Majorana ${partId} detail view could not be prewarmed.`, error)
         }
       }
-    }))
+    }
 
     if (componentViews.size === Object.keys(componentHosts).length && componentViews.size > 0) {
       readyCallback?.([...componentViews.keys()])
@@ -2537,9 +2529,9 @@ export async function createMajoranaScene({
     }
     disposeObject(modelRoot)
     presentationRoot.remove(modelRoot)
-    renderer.dispose()
-    renderer.forceContextLoss()
-    renderer.domElement.remove()
+    scene.clear()
+    navigationGridScene.clear()
+    rendererLease.release()
   }
 
   function setSuspended(nextSuspended) {

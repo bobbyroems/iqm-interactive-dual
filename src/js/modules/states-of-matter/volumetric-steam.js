@@ -39,7 +39,10 @@ function clamp01(value) {
 /**
  * @returns {Promise<object|null>} null when the machine cannot run WebGPU compute
  */
-export async function mountVolumetricSteam(canvas, { element } = {}) {
+export async function mountVolumetricSteam(canvas, { element: hostElement } = {}) {
+  /* Reassignable so dispose can drop it: Chromium retains the WebGPU renderer
+     after teardown, and anything this closure still points at rides along. */
+  let element = hostElement
   if (!canvas) return null
 
   const [THREE, TSL, curlNoiseModule, webGpuModule] = await Promise.all([
@@ -515,6 +518,14 @@ export async function mountVolumetricSteam(canvas, { element } = {}) {
         curlNoiseTexture
       ].forEach(texture => texture.dispose())
       renderer.dispose()
+      /* Chromium keeps the WebGPU renderer alive past dispose (see
+         runtime-policy.js). The renderer owns its canvas, and while that canvas
+         is still in the tree the parentNode chain reaches the whole States of
+         Matter screen — so a retained renderer pins ~291 DOM nodes per visit.
+         Detaching the canvas and dropping the host reference leaves the
+         retained renderer holding one orphaned element and nothing else. */
+      canvas.remove()
+      element = null
     }
   })
 }

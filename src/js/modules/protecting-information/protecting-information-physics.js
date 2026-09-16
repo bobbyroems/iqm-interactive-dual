@@ -310,6 +310,9 @@ function writeParticle(arrays, index, {
   voltageX = baseX,
   voltageY = baseY,
   voltageZ = baseZ,
+  overvoltageX = baseX,
+  overvoltageY = baseY,
+  overvoltageZ = baseZ,
   magneticX = baseX,
   magneticY = baseY,
   magneticZ = baseZ,
@@ -325,6 +328,9 @@ function writeParticle(arrays, index, {
   arrays.voltageDisplacement[offset] = voltageX - baseX
   arrays.voltageDisplacement[offset + 1] = voltageY - baseY
   arrays.voltageDisplacement[offset + 2] = voltageZ - baseZ
+  arrays.overvoltageDisplacement[offset] = overvoltageX - baseX
+  arrays.overvoltageDisplacement[offset + 1] = overvoltageY - baseY
+  arrays.overvoltageDisplacement[offset + 2] = overvoltageZ - baseZ
   arrays.magneticDisplacement[offset] = magneticX - baseX
   arrays.magneticDisplacement[offset + 1] = magneticY - baseY
   arrays.magneticDisplacement[offset + 2] = magneticZ - baseZ
@@ -360,6 +366,7 @@ export function createProtectingParticleData({
     basePosition: new Float32Array(count * 3),
     thermal: new Float32Array(count * 4),
     voltageDisplacement: new Float32Array(count * 3),
+    overvoltageDisplacement: new Float32Array(count * 3),
     magneticDisplacement: new Float32Array(count * 3),
     role: new Float32Array(count),
     minTier: new Float32Array(count),
@@ -414,12 +421,19 @@ export function createProtectingParticleData({
       for (const memberOffset of [-0.03, 0.03]) {
         const baseX = layout.xMin + (random() * (layout.xMax - layout.xMin))
         const baseZ = layout.zRows[row] + ((random() - 0.5) * 0.3)
+        const evacuationOrdinal = (slot * 2) + (memberOffset > 0 ? 1 : 0)
+        const evacuationOffset = evacuationOrdinal * 2
+        const overvoltageX = evacuationTargets[row][evacuationOffset]
+        const overvoltageZ = evacuationTargets[row][evacuationOffset + 1]
         writeParticle(arrays, index, {
           role: PARTICLE_ROLES.nanowireReserve,
           minTier: tier,
           baseX,
           baseY: -0.127 + ((random() - 0.5) * 0.012),
           baseZ,
+          overvoltageX,
+          overvoltageY: -0.134 + ((random() - 0.5) * 0.024),
+          overvoltageZ,
           magneticX: pairX + memberOffset,
           magneticY: layout.surfaceY + PAIR_SURFACE_CLEARANCE,
           magneticZ: layout.zRows[row],
@@ -469,12 +483,14 @@ export function composeParticlePosition(data, index, {
   thermalTime = 0,
   temperatureDrive = 0,
   voltageDrive = 0,
+  voltageOverdriveDrive = 0,
   magneticDrive = 0
 } = {}) {
   const offset = index * 3
   const thermalOffset = index * 4
   const temperature = clamp01(temperatureDrive)
   const voltage = clamp01(voltageDrive)
+  const voltageOverdrive = clamp01(voltageOverdriveDrive)
   const magnetic = clamp01(magneticDrive)
   const reserve = data.role[index] === PARTICLE_ROLES.nanowireReserve ? 1 : 0
   const pairLock = reserve * smoothstep(PAIR_LOCK_START, 1, magnetic)
@@ -485,15 +501,23 @@ export function composeParticlePosition(data, index, {
   const phase = data.thermal[thermalOffset]
   const speed = data.thermal[thermalOffset + 1]
   const travel = thermalTime * speed
-  const effectX = data.basePosition[offset] +
+  let effectX = data.basePosition[offset] +
     (data.voltageDisplacement[offset] * voltage) +
     (data.magneticDisplacement[offset] * magnetic)
-  const effectY = data.basePosition[offset + 1] +
+  let effectY = data.basePosition[offset + 1] +
     (data.voltageDisplacement[offset + 1] * voltage) +
     (data.magneticDisplacement[offset + 1] * magnetic)
-  const effectZ = data.basePosition[offset + 2] +
+  let effectZ = data.basePosition[offset + 2] +
     (data.voltageDisplacement[offset + 2] * voltage) +
     (data.magneticDisplacement[offset + 2] * magnetic)
+  if (reserve > 0 && voltageOverdrive > 0) {
+    const overvoltageX = data.basePosition[offset] + data.overvoltageDisplacement[offset]
+    const overvoltageY = data.basePosition[offset + 1] + data.overvoltageDisplacement[offset + 1]
+    const overvoltageZ = data.basePosition[offset + 2] + data.overvoltageDisplacement[offset + 2]
+    effectX += (overvoltageX - effectX) * voltageOverdrive
+    effectY += (overvoltageY - effectY) * voltageOverdrive
+    effectZ += (overvoltageZ - effectZ) * voltageOverdrive
+  }
   const edgeAttenuation = particleEdgeAttenuation(effectX, effectZ)
   const edgeMotion = THERMAL_MOTION_PROFILE.edgeMotionFloor + (
     (1 - THERMAL_MOTION_PROFILE.edgeMotionFloor) * edgeAttenuation

@@ -1,0 +1,3 @@
+(node:49985) [DEP0180] DeprecationWarning: fs.Stats constructor is deprecated.
+(Use `Electron --trace-deprecation ...` to show where the warning was created)
+ASAR protocol PASS {"status":206,"range":"bytes 2-5/10","body":"2345"}

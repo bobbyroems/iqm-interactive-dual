@@ -128,3 +128,22 @@
     transform: rotate(360deg);
   }
 }
+
+/* Each module carries one of the three band schemes the boards draw. The host
+   is the scope because every surface that reads a band token — the direction
+   bar, the sub-module 1-2-3, and the up-next popup — is mounted inside it, so
+   setting the scheme here colours all three at once and nothing outside a
+   module is touched. `data-module-scheme` comes from the registry. */
+.module-host[data-module-scheme='blue'] {
+  --band-gradient: var(--band-gradient-blue);
+  --band-deep: var(--band-deep-blue);
+  --band-bright: var(--band-bright-blue);
+  --band-pale: var(--band-bright-blue);
+}
+
+.module-host[data-module-scheme='teal'] {
+  --band-gradient: var(--band-gradient-teal);
+  --band-deep: var(--band-deep-teal);
+  --band-bright: var(--band-bright-teal);
+  --band-pale: var(--band-bright-teal);
+}

@@ -9,12 +9,14 @@ export class IdleController {
     this.reset = this.reset.bind(this)
   }
 
-  start() {
-    if (this.enabled) return
-    this.enabled = true
-    ACTIVITY_EVENTS.forEach(eventName => {
-      window.addEventListener(eventName, this.reset, { passive: true, capture: true })
-    })
+  start(timeoutMs) {
+    if (timeoutMs !== undefined) this.timeoutMs = timeoutMs
+    if (!this.enabled) {
+      this.enabled = true
+      ACTIVITY_EVENTS.forEach(eventName => {
+        window.addEventListener(eventName, this.reset, { passive: true, capture: true })
+      })
+    }
     this.reset()
   }
 

@@ -3,6 +3,7 @@ import { assetUrl } from '../../core/asset-url.js'
 const BUOY_URL = 'assets/modules/differences/Buoy.glb'
 const TARGET_HEIGHT = 1.36
 const REQUIRED_PARTS = Object.freeze(['Qubit', 'Frame', 'Flagpole', 'Flag'])
+const BUOY_STENCIL_REF = 1
 
 export const BUOY_FLAG_HEIGHT_LIMITS = Object.freeze({ min: 0.72, max: 8.5 })
 export const BUOY_SCREEN_EAST_YAW = -Math.PI / 2
@@ -11,8 +12,10 @@ export const BUOY_QUBIT_COLORS = Object.freeze({
   candidate: '#ee3b32',
   winner: '#39b874',
   menu: '#5547c9',
-  cue: '#2ed7b8'
+  cue: '#07529c'
 })
+
+export const BUOY_SELECTION_OUTLINE_COLOR = '#63c7ff'
 
 export const BUOY_WASHED_COLORS = Object.freeze({
   emissive: '#16364a',
@@ -56,9 +59,8 @@ export const BUOY_IDENTITY_PRESETS = Object.freeze({
 
 const BUOY_CUE_PRESET = Object.freeze({
   qubitColor: BUOY_QUBIT_COLORS.cue,
-  qubitEmissive: '#13b899',
-  frameColor: '#8ce4d2',
-  flagColor: '#5bd8c1'
+  qubitEmissive: '#032b5c',
+  qubitEmissiveIntensity: 0.2
 })
 
 const BUOY_MATERIAL_PRESETS = Object.freeze({
@@ -237,91 +239,99 @@ function createQubitAxisLines(THREE, qubit, seed) {
   return lines
 }
 
-function createQubitCueGlow(THREE, qubit) {
-  const layerSpecs = [
-    { opacity: 0.32, scale: 1.08 },
-    { opacity: 0.23, scale: 1.18 },
-    { opacity: 0.15, scale: 1.32 },
-    { opacity: 0.09, scale: 1.48 },
-    { opacity: 0.05, scale: 1.65 },
-    { opacity: 0.025, scale: 1.82 }
-  ]
-  const glowMaterials = []
-  const [innerLayer, ...outerLayers] = layerSpecs
+function createMeshSelectionOutline(THREE, mesh, screenThickness, {
+  scaleFromCenter = false,
+  showThroughWater = false
+} = {}) {
+  mesh.geometry.computeBoundingSphere()
+  const material = new THREE.ShaderMaterial({
+    blending: THREE.NormalBlending,
+    depthTest: !showThroughWater,
+    depthWrite: false,
+    /* Stencil removes the original mesh footprint, so both face orientations
+       are safe here. Rendering both fixes gaps on the buoy's thin cage bars,
+       open seams, and concave joins that a back-face-only hull can miss. */
+    side: THREE.DoubleSide,
+    stencilWrite: showThroughWater,
+    stencilRef: showThroughWater ? BUOY_STENCIL_REF : 0,
+    stencilFunc: showThroughWater ? THREE.NotEqualStencilFunc : THREE.AlwaysStencilFunc,
+    stencilFail: THREE.KeepStencilOp,
+    stencilZFail: THREE.KeepStencilOp,
+    stencilZPass: THREE.KeepStencilOp,
+    toneMapped: false,
+    transparent: true,
+    uniforms: {
+      uColor: { value: new THREE.Color(BUOY_SELECTION_OUTLINE_COLOR) },
+      uCue: { value: 0 },
+      uScale: { value: scaleFromCenter ? 1.3 : 1 },
+      uScaleCenter: { value: mesh.geometry.boundingSphere.center.clone() },
+      uScaleFromCenter: { value: scaleFromCenter ? 1 : 0 },
+      uScreenThickness: { value: screenThickness }
+    },
+    vertexShader: `
+      uniform float uScale;
+      uniform vec3 uScaleCenter;
+      uniform float uScaleFromCenter;
+      uniform float uScreenThickness;
 
-  function createGlowMaterial(layerOpacity) {
-    return new THREE.ShaderMaterial({
-      blending: THREE.AdditiveBlending,
-      depthTest: true,
-      depthWrite: false,
-      side: THREE.BackSide,
-      toneMapped: false,
-      transparent: true,
-      uniforms: {
-        uColor: { value: new THREE.Color('#8fffe9') },
-        uCue: { value: 0 },
-        uLayerOpacity: { value: layerOpacity },
-        uMotion: { value: 1 },
-        uTime: { value: 0 }
-      },
-      vertexShader: `
-        varying vec3 vNormal;
-        varying vec3 vViewDirection;
+      void main() {
+        vec3 scaledOutline = uScaleCenter + ((position - uScaleCenter) * uScale);
+        vec3 outlinedPosition = mix(position, scaledOutline, uScaleFromCenter);
+        vec4 viewPosition = modelViewMatrix * vec4(outlinedPosition, 1.0);
+        vec4 clipPosition = projectionMatrix * viewPosition;
 
-        void main() {
-          vec4 viewPosition = modelViewMatrix * vec4(position, 1.0);
-          vNormal = normalize(normalMatrix * normal);
-          vViewDirection = normalize(-viewPosition.xyz);
-          gl_Position = projectionMatrix * viewPosition;
+        if (uScaleFromCenter < 0.5) {
+          vec3 viewNormal = normalize(normalMatrix * normal);
+          vec2 projectedNormal = (projectionMatrix * vec4(viewNormal, 0.0)).xy;
+          float aspect = projectionMatrix[1][1] / projectionMatrix[0][0];
+          vec2 pixelNormal = vec2(projectedNormal.x * aspect, projectedNormal.y);
+          float normalLength = length(pixelNormal);
+          if (normalLength > 0.0001) {
+            vec2 pixelDirection = pixelNormal / normalLength;
+            vec2 ndcDirection = vec2(pixelDirection.x / aspect, pixelDirection.y);
+            clipPosition.xy += ndcDirection * uScreenThickness * clipPosition.w;
+          }
         }
-      `,
-      fragmentShader: `
-        uniform vec3 uColor;
-        uniform float uCue;
-        uniform float uLayerOpacity;
-        uniform float uMotion;
-        uniform float uTime;
-        varying vec3 vNormal;
-        varying vec3 vViewDirection;
 
-        void main() {
-          vec3 normal = normalize(vNormal);
-          float facing = abs(dot(normal, normalize(vViewDirection)));
-          float rim = pow(1.0 - clamp(facing, 0.0, 1.0), 1.35);
-          float feather = smoothstep(0.0, 0.22, facing);
-          float motionTime = uTime * uMotion;
-          float pulse = 0.93 + (0.07 * sin(motionTime * 1.7));
-          float vapour = 0.84 + (0.16 * sin(
-            (normal.x * 8.0) + (normal.y * 11.0) + (motionTime * 0.52)
-          ));
-          float alpha = uCue * uLayerOpacity * rim * feather * pulse * vapour;
-          gl_FragColor = vec4(uColor, alpha);
-        }
-      `
-    })
-  }
+        gl_Position = clipPosition;
+      }
+    `,
+    fragmentShader: `
+      uniform vec3 uColor;
+      uniform float uCue;
 
-  const material = createGlowMaterial(innerLayer.opacity)
-  glowMaterials.push(material)
-  const glow = new THREE.Mesh(qubit.geometry, material)
-  glow.name = 'QubitGlow'
-  glow.position.copy(qubit.position)
-  glow.quaternion.copy(qubit.quaternion)
-  glow.scale.copy(qubit.scale).multiplyScalar(innerLayer.scale)
-  glow.renderOrder = Math.max(5, qubit.renderOrder + 1)
-  outerLayers.forEach(({ opacity, scale }, index) => {
-    const layerMaterial = createGlowMaterial(opacity)
-    const layer = new THREE.Mesh(qubit.geometry, layerMaterial)
-    layer.name = `QubitGlowLayer-${index + 2}`
-    layer.scale.setScalar(scale / innerLayer.scale)
-    layer.renderOrder = glow.renderOrder + index + 1
-    glowMaterials.push(layerMaterial)
-    glow.add(layer)
+      void main() {
+        gl_FragColor = vec4(uColor, uCue);
+      }
+    `
   })
-  glow.userData.materials = glowMaterials
-  glow.visible = false
-  qubit.parent.add(glow)
-  return glow
+  /* Classic game outline: solid parts extrude along their projected normals at
+     a constant screen width. The flat flag scales from its geometry centre;
+     stencil hides each original footprint and leaves the hard silhouette. */
+  const outline = new THREE.Mesh(mesh.geometry, material)
+  outline.name = `${mesh.name}SelectionOutline`
+  outline.renderOrder = showThroughWater
+    ? Math.max(6, mesh.renderOrder + 1)
+    : mesh.renderOrder + 1
+  outline.visible = false
+  outline.userData.materials = [material]
+  mesh.add(outline)
+  return outline
+}
+
+function createBuoySelectionOutlines(THREE, parts, options) {
+  /* NDC height units: about 9px on the kiosk canvas. Larger values make the
+     cage's long side rails read as displaced rather than tightly outlined. */
+  const screenThickness = 0.005
+  return REQUIRED_PARTS.map(name => createMeshSelectionOutline(
+    THREE,
+    parts[name],
+    screenThickness,
+    {
+      ...options,
+      scaleFromCenter: name === 'Flag'
+    }
+  ))
 }
 
 export function calculateBuoyFlagAttachmentOffset({ THREE, qubit, flagpole }) {
@@ -385,6 +395,7 @@ export function cloneBuoy({
   const materialPreset = identity === 'menu'
     ? BUOY_MATERIAL_PRESETS.menu
     : BUOY_MATERIAL_PRESETS.default
+  const showOutlineThroughWater = identity !== 'menu'
 
   root.traverse(object => {
     if (!object.isMesh) return
@@ -418,13 +429,25 @@ export function cloneBuoy({
       }
       object.material.needsUpdate = true
     }
+    if (showOutlineThroughWater) {
+      object.material.stencilWrite = true
+      object.material.stencilRef = BUOY_STENCIL_REF
+      object.material.stencilFunc = THREE.AlwaysStencilFunc
+      object.material.stencilFail = THREE.KeepStencilOp
+      object.material.stencilZFail = THREE.KeepStencilOp
+      object.material.stencilZPass = THREE.ReplaceStencilOp
+    }
     materials.add(object.material)
   })
 
   const parts = findRequiredParts(root)
   parts.QubitLines = createQubitAxisLines(THREE, parts.Qubit, qubitLineSeed)
-  parts.QubitGlow = createQubitCueGlow(THREE, parts.Qubit)
-  parts.QubitGlow.userData.materials.forEach(material => materials.add(material))
+  parts.SelectionOutlines = createBuoySelectionOutlines(THREE, parts, {
+    showThroughWater: showOutlineThroughWater
+  })
+  parts.SelectionOutlines.forEach(outline => {
+    outline.userData.materials.forEach(material => materials.add(material))
+  })
   parts.Flagpole.geometry.computeBoundingBox()
   const poleHeight = parts.Flagpole.geometry.boundingBox.getSize(new THREE.Vector3()).y
   const basePoleScaleY = parts.Flagpole.scale.y
@@ -474,9 +497,7 @@ export function cloneBuoy({
   }
   const cueColors = {
     qubit: new THREE.Color(BUOY_CUE_PRESET.qubitColor),
-    emissive: new THREE.Color(BUOY_CUE_PRESET.qubitEmissive),
-    frame: new THREE.Color(BUOY_CUE_PRESET.frameColor),
-    flag: new THREE.Color(BUOY_CUE_PRESET.flagColor)
+    emissive: new THREE.Color(BUOY_CUE_PRESET.qubitEmissive)
   }
   const washedColors = {
     qubit: new THREE.Color(BUOY_WASHED_COLORS.qubit),
@@ -537,33 +558,31 @@ export function cloneBuoy({
     scratchColors.flag.copy(outcomeColors.flag).lerp(washedColors.flag, washAmount)
     scratchColors.qubit.lerp(cueColors.qubit, cueAmount)
     scratchColors.emissive.lerp(cueColors.emissive, cueAmount)
-    scratchColors.frame.lerp(cueColors.frame, cueAmount * 0.72)
-    scratchColors.flag.lerp(cueColors.flag, cueAmount * 0.5)
 
     parts.Qubit.material.color.copy(scratchColors.qubit)
     parts.Qubit.material.emissive.copy(scratchColors.emissive)
     parts.Qubit.material.emissiveIntensity = materialPreset.quietEmissiveIntensity +
-      (cueAmount * (1.15 - materialPreset.quietEmissiveIntensity))
+      (cueAmount * (
+        BUOY_CUE_PRESET.qubitEmissiveIntensity - materialPreset.quietEmissiveIntensity
+      ))
     parts.Frame.material.color.copy(scratchColors.frame)
     parts.Flagpole.material.color.copy(scratchColors.pole)
     parts.Flag.material.color.copy(scratchColors.flag)
   }
 
-  function setCue(amount, {
-    animate = true,
-    glowAmount = amount,
-    time = 0
-  } = {}) {
+  function setCue(amount, { outlineAmount = amount } = {}) {
     const requestedAmount = Number.isFinite(amount) ? amount : 0
     cueAmount = Math.max(0, Math.min(1, requestedAmount))
-    const requestedGlowAmount = Number.isFinite(glowAmount) ? glowAmount : cueAmount
-    const safeGlowAmount = Math.max(0, Math.min(1, requestedGlowAmount))
-    for (const material of parts.QubitGlow.userData.materials) {
-      material.uniforms.uCue.value = safeGlowAmount
-      material.uniforms.uMotion.value = animate ? 1 : 0
-      material.uniforms.uTime.value = Number.isFinite(time) ? time : 0
+    const requestedOutlineAmount = Number.isFinite(outlineAmount)
+      ? outlineAmount
+      : cueAmount
+    const safeOutlineAmount = Math.max(0, Math.min(1, requestedOutlineAmount))
+    for (const outline of parts.SelectionOutlines) {
+      for (const material of outline.userData.materials) {
+        material.uniforms.uCue.value = safeOutlineAmount
+      }
+      outline.visible = safeOutlineAmount > 0.001
     }
-    parts.QubitGlow.visible = safeGlowAmount > 0.001
     applyAppearance()
   }
 

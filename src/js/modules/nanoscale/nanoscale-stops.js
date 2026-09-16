@@ -1,13 +1,13 @@
 /*
  * Nanoscale, design v3.
  *
- * The interaction has eight timeline positions: a room-scale splash, five numbered content
- * stops and the two Figma-authored finale screens. Content indices stay zero-based so the
+ * The interaction has seven timeline positions: a room-scale splash, five numbered content
+ * stops and the Figma-authored finale screen. Content indices stay zero-based so the
  * five-entry content and layout arrays remain easy to address; timeline indices include the
  * splash and therefore run one higher.
  */
 
-export const NANOSCALE_V3_STOPS = Object.freeze([0, 1, 2, 3, 4, 5, 6, 7])
+export const NANOSCALE_V3_STOPS = Object.freeze([0, 1, 2, 3, 4, 5, 6])
 
 const NANOSCALE_ROOT = 'assets/modules/nanoscale'
 const COMPARISON_ROOT = `${NANOSCALE_ROOT}/Comparison Images`
@@ -18,7 +18,10 @@ export const NANOSCALE_V3_SPLASH = Object.freeze({
   timelineIndex: 0,
   title: 'Exploring the nanoscale',
   body: 'Zoom from quantum hardware to nanoscale structures, using familiar objects to put their size in perspective.',
-  instruction: 'Pinch or scroll to zoom',
+  /* Names the direction, not just the gesture. "Pinch or scroll to zoom" left
+     the one thing a visitor has to guess unsaid, and at this first stop a
+     downward drag is the one direction with nowhere to go. */
+  instruction: 'Swipe up to zoom in',
   hero: Object.freeze({ image: `${NANOSCALE_ROOT}/splash-room.webp` })
 })
 
@@ -69,7 +72,7 @@ export const NANOSCALE_V3_SEQUENCE = Object.freeze([
        it was carrying two meanings across the kiosk. "Qubit chip" matches this
        stop's own copy, leaves "array" to stop 04, and keeps the zoom nesting:
        processor, chip, array, wire. The id and asset names stay `qpu-chip`. */
-    name: 'Qubit chip',
+    name: 'Qubit array',
     description: 'This tiny square is where the qubits live and the computing happens. Chips like this are designed for room to grow — with power measured not in size, but in scale.',
     dimension: Object.freeze({ label: '~0.5 cm', axis: 'vertical' }),
     hero: Object.freeze({ image: `${NANOSCALE_ROOT}/qpu-chip-clean.webp` }),
@@ -85,11 +88,13 @@ export const NANOSCALE_V3_SEQUENCE = Object.freeze([
     timelineIndex: 4,
     number: '04',
     name: 'Qubit array',
-    /* The card's heading. `name` stays the short label, because it also names
-       the image for a screen reader and is read out with the size comparison —
-       "…built pixel by pixel, about the same size as a grain of salt" is not a
-       sentence anyone should hear. */
-    headline: 'Qubit array as captured by a scanning electron microscope, with the image built pixel by pixel',
+    /* The card's heading, split the way the board draws it: the name at the
+       title's own size and the qualifier under it at 36px. `name` stays the
+       short label, because it also names the image for a screen reader and is
+       read out with the size comparison, where the qualifier would not
+       belong. */
+    headline: 'Qubit array',
+    subheadline: '(as captured by a scanning electron microscope)',
     description: 'This grid holds interconnected qubits smaller than a grain of salt. Pack this grid tighter and repeat it, and the path to a million-qubit machine comes into view.',
     dimension: Object.freeze({ label: '~3 mm', axis: 'horizontal' }),
     hero: Object.freeze({ image: `${NANOSCALE_ROOT}/qubit-array-clean.webp` }),
@@ -117,21 +122,10 @@ export const NANOSCALE_V3_SEQUENCE = Object.freeze([
 
 export const NANOSCALE_V3_FINALE = Object.freeze([
   Object.freeze({
-    id: 'impact',
-    kind: 'finale',
-    timelineIndex: 6,
-    title: 'Small qubits. Big implications.',
-    paragraphs: Object.freeze([
-      'Topological qubits have three things going for them: they’re small, fast, and reliable.',
-      'This combination unlocks something remarkable: scale without bulk.'
-    ]),
-    instruction: 'Scroll down to see impact'
-  }),
-  Object.freeze({
     id: 'scale',
     kind: 'finale',
-    timelineIndex: 7,
-    title: 'Built to scale',
+    timelineIndex: 6,
+    title: 'Scale without bulk',
     paragraphs: Object.freeze([
       'Other quantum systems grow into room-sized machines as you add qubits.',
       'With topological qubits, the machine barely changes size whether it holds one qubit or one million qubits.'
@@ -159,8 +153,8 @@ export const NANOSCALE_V3_TIMELINE = Object.freeze([
   ...NANOSCALE_V3_FINALE
 ])
 
-/* The last numbered specimen. The two finale screens have no measurement,
-   comparison card or scrubber tick of their own. */
+/* The last numbered specimen. The finale screen has no measurement, comparison
+   card or scrubber tick of its own. */
 export const NANOSCALE_LAST_CONTENT_STOP = NANOSCALE_V3_SEQUENCE.at(-1).timelineIndex
 
 /* Shown on the last numbered specimen, where the sequence runs out and nothing

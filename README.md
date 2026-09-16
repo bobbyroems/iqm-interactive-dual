@@ -8,7 +8,7 @@ The project deliberately reuses the reliable platform choices from the previous 
 
 - 55-inch Elo 4K PCAP touchscreen
 - Portrait output: 2160 × 3840
-- Windows 11 Enterprise
+- Windows 11 Enterprise, or Windows Pro for a supervised event session
 - Offline-first runtime
 
 ## Requirements
@@ -24,7 +24,7 @@ npm install
 npm run dev
 ```
 
-Development mode opens a resizable 9:16 Electron window. The UI is always laid out on a logical 2160 × 3840 canvas and scaled to fit the window, so the same coordinates are used in development and on the physical kiosk.
+Development mode opens a resizable 9:16 Electron window. It starts at port 5173 and automatically advances to the next available port when that port is occupied. The UI is always laid out on a logical 2160 × 3840 canvas and scaled to fit the window, so the same coordinates are used in development and on the physical kiosk.
 
 ## Useful commands
 
@@ -33,19 +33,41 @@ npm run dev             # Vite + resizable Electron development window
 npm run build           # Syntax checks and renderer build
 npm run preview         # Built renderer in a safe window
 npm run preview:kiosk   # Local fullscreen preview; Ctrl+Shift+Q exits
-npm run package:win     # Production Windows NSIS installer (fullscreen kiosk)
+npm run package:win     # Production Windows NSIS application installer
+npm run package:win:kiosk # Complete client ZIP with one-click install/update
+npm run package:win:pro # Windows Pro event ZIP: fullscreen + Explorer/session control
 npm run package:win:review # Portable Windows EXE (windowed 9:16 review build)
 ```
 
 `package:win:review` creates a single, no-install EXE in `build/review/`. It
 opens the production renderer in a resizable window on the primary display,
-keeps the 2160 × 3840 (9:16) aspect ratio and uses the ten-minute review idle
-timeout. The normal close button and Escape navigation remain available.
+keeps the 2160 × 3840 (9:16) aspect ratio and uses ten-minute review idle
+timeouts for both return stages. The normal close button and Escape navigation
+remain available.
 
-`package:win` (or the explicit alias `package:win:kiosk`) creates the client
-NSIS installer. Its installed application starts fullscreen in Electron kiosk
-mode by default. The review EXE can still be forced fullscreen with `--kiosk`,
-and the production EXE can be manually opened with `--windowed` when needed.
+`package:win` creates the raw NSIS application installer.
+`package:win:pro` creates `build/pro-event/IQM-Kiosk-Windows-Pro-Event-<version>-x64.zip`.
+Extract it, run `01-CONFIGURE-WINDOWS.cmd`, restart Windows, and run
+`02-START-KIOSK.cmd` normally. It opens the full-screen app, stops Explorer in
+that session, filters common desktop shortcuts and restores Explorer on service
+exit (Ctrl+Shift+Q followed by the PIN set during Configure). App exits trigger
+relaunches; repeated failures or supervisor failure leave the recovery screen.
+The Pro setup has its own reversible settings backup and does not use Shell Launcher, create accounts or auto-logon.
+See [the Polish operator instructions](deployment/windows-pro/README.txt) and
+[the implementation and validation notes](docs/WINDOWS-PRO-EVENT-SETUP.md).
+
+`package:win:kiosk` additionally creates a transferable production ZIP with
+top-level install/update and full-removal launchers. `START-IQM-KIOSK-SETUP.cmd`
+handles clean installation, recoverable updates, smoke testing and Windows kiosk
+verification. `UNINSTALL-IQM-KIOSK.cmd` restores the captured pre-deployment
+Windows state and moves the installed application into a protected recovery
+archive. The installed application starts in Electron kiosk mode by default. The review EXE can still
+be forced fullscreen with `--kiosk`, and the production EXE can be manually
+opened with `--windowed` when needed.
+
+Client-kit packaging refuses a dirty Git working tree. Use
+`package:win:kiosk-kit:test` only to exercise the installer workflow locally
+before its source changes are committed.
 
 Build and smoke-test the final artifacts on Windows. An unsigned internal build
 can trigger Microsoft Defender SmartScreen; client-facing distribution should
@@ -54,12 +76,11 @@ application layer—Windows 11 Enterprise must also be configured with Shell
 Launcher and the relevant lockdown policies before deployment. See
 [docs/WINDOWS-KIOSK-SETUP.md](docs/WINDOWS-KIOSK-SETUP.md).
 
-The ready-to-copy Windows deployment kit lives in `deployment/windows/`.
-`INSTALL-KIOSK.cmd` enables the required Enterprise features and applies Shell
-Launcher v2, automatic sign-in, edge-swipe lockdown, Keyboard Filter and
-event-safe power settings. `CHECK-KIOSK.cmd` verifies the result and
-`DISABLE-KIOSK.cmd` returns the machine to technician service mode. No Node.js
-installation or manual PowerShell commands are needed on the kiosk PC.
+The source for the generated Windows deployment kit lives in
+`deployment/windows/`. Its support tools enable Shell Launcher v2, automatic
+sign-in, edge-swipe lockdown, Keyboard Filter and event-safe power settings.
+No Node.js installation, Git checkout or manual PowerShell commands are needed
+on the kiosk PC.
 
 ## Current implementation
 
@@ -76,11 +97,12 @@ The renderer already provides:
 - Module 07, **Build a Majorana 2**, using the supplied 3D model and HDR lighting
   for Components, Pathways and a validated two-part drag-and-drop build;
 - home and back navigation;
-- an idle timeout that returns to the attract screen;
+- a two-stage idle return that moves an abandoned module to the menu, then the
+  menu to the attract screen;
 - touch-safe defaults and blocked browser gestures;
 - fixed-canvas scaling for the 4K portrait display;
-- a settings cog in the bottom-right corner holding the volume slider and a
-  Top / Center switch for how the module menu is laid out;
+- a settings cog in the bottom-right corner holding volume, menu layout, up-next
+  visibility and persisted module/menu idle-return controls;
 - a small development HUD showing the active scale, off unless
   `development.showHud` is switched on.
 
@@ -149,7 +171,8 @@ Edit `config/kiosk.config.json` to change:
 - preferred display label or index;
 - development window size;
 - whether the development HUD is drawn (`development.showHud`, off by default);
-- development and production idle timeouts;
+- development and production module-to-menu (`idleReturnToMenuMs`) and
+  menu-to-home (`idleReturnToHomeMs`) timeouts;
 - the Electron window background.
 
 For multi-display staging, environment overrides are also supported:

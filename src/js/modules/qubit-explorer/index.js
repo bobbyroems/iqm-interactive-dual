@@ -10,8 +10,7 @@ import {
 } from '../../core/kiosk-tooltip.js'
 import { sound } from '../../core/kiosk-audio.js'
 import { createQubitScene } from './qubit-scene.js'
-import { createUpNextBanner } from '../../core/up-next-banner.js'
-import { nextPlayableModule } from '../module-registry.js'
+import { mountModuleOutro } from '../module-outro.js'
 import {
   createQubitExplorerState,
   isQubitSemiconductorVisible,
@@ -25,9 +24,25 @@ import {
  * while each introduced 3D material remains visible below.
  */
 const SUPERCONDUCTOR_LEAD = 'A material that, when made cold enough, lets electricity flow freely.'
-const SUPERCONDUCTOR_DETAIL = 'At super cold temperatures, electrons in a superconductor slow down and move in a flawless, orderly flow—exactly what our qubit needs.'
+const SUPERCONDUCTOR_DETAIL = 'At super cold temperatures, electrons in a superconductor slow down and move in a flawless, orderly flow — exactly what our qubit needs.'
 const SEMICONDUCTOR_LEAD = 'A material that acts like an on/off switch for electricity.'
 const SEMICONDUCTOR_DETAIL = 'That switch is the reason semiconductors run the modern world. Every phone, laptop, and game console is built from billions of these tiny switches flipping on and off. A semiconductor steers electrons one at a time, guiding them precisely where you want them to go.'
+
+/* One string for both the initial markup and the re-render that follows, which
+   held their own copies of it before.
+ *
+ * The first break is stated rather than left to the wrap. Nothing here is a
+ * webfont -- there is no @font-face in the build -- so where the line falls is
+ * whatever font the machine resolved, and it differed: the kiosk's Segoe Sans
+ * Display fitted "naturally" onto the first line where the Inter and Helvetica
+ * fallbacks did not. Breaking after "occur" is the shorter of the two, which
+ * is why it is the one to force -- it clears the 1080 column in every font in
+ * the stack, so the paragraph holds its shape wherever it runs rather than
+ * gaining a line on the machines that cannot fit the longer opener. */
+const TOPOCONDUCTOR_INTRO_BODY = 'A topoconductor doesn’t occur <br>naturally — you build it. '
+  + 'Stacked with perfect precision, Microsoft layers a semiconductor onto a '
+  + 'superconductor. The two together do something neither can do alone.'
+
 const INTRO_TO_PANEL_DELAY_MS = 520
 const MATERIAL_PANEL_SWAP_DELAY_MS = 320
 const PANEL_TO_BUILD_COPY_DELAY_MS = 320
@@ -60,7 +75,7 @@ const END_SCREENS = Object.freeze([
     title: 'Topoconductor: a new state of matter',
     one: 'Topoconductors do not occur naturally. Microsoft engineered this material to create the foundation for topological qubits.',
     two: '',
-    foot: 'Creating the material is only the beginning. For a topoconductor to exhibit its unique properties, the right conditions must be established.',
+    foot: 'Creating the material is only the beginning. The topoconductor only switches on when you tune it just right.',
     holdMs: 1800,
     offerAfterHold: true
   })
@@ -187,11 +202,8 @@ function moduleMarkup() {
 
         <div class="qe__intro" data-qe-intro aria-hidden="true">
           <div class="qe__intro-copy">
-            <h2>Two materials. One new state.</h2>
-            <p>
-              Bringing a superconductor and semiconductor together creates a completely
-              new material: a <span>topoconductor</span>.
-            </p>
+            <h2>Two materials, one new state of matter.</h2>
+            <p>${TOPOCONDUCTOR_INTRO_BODY}</p>
           </div>
         </div>
 
@@ -245,18 +257,18 @@ export async function mount(container, options = {}) {
   /* Offered once the topoconductor is made, so the visitor can carry straight
      on instead of going back out to the carousel. The registry decides what
      follows, so the run order stays in one place. */
-  const followingModule = module ? nextPlayableModule(module.id) : null
-  const upNextBanner = followingModule
-    ? createUpNextBanner({
-        delayMs: 0,
-        title: followingModule.title,
-        onContinue: () => {
-          noteActivity()
-          navigate.module?.(followingModule.id)
-        }
-      })
-    : null
-  if (upNextBanner) root.append(upNextBanner.element)
+  /* The band states where the visitor is, then follows the registry route. */
+  const upNextBanner = mountModuleOutro({
+    module,
+    root,
+    navigate,
+    /* Wrapped rather than passed by reference: noteActivity is a const declared
+       further down this file, so reading it here would be a use before its
+       initialisation. The closure defers the lookup to the call. */
+    onActivity: () => noteActivity(),
+    onRestart: () => root.querySelector('[data-qe-action="restart"]')?.click(),
+    delayMs: 0
+  })
   container.replaceChildren(root)
 
   const sceneHost = root.querySelector('[data-qe-scene]')
@@ -403,6 +415,22 @@ export async function mount(container, options = {}) {
   let restoreContinueFocus = false
   const presentationTimers = new Set()
 
+  /* Every action cue follows the content it advances: the opening/build copy
+     or the active material explainer. Measure the rendered lower edge so each
+     tooltip and its transparent control stay exactly 80px below it. */
+  const syncActionPromptPosition = () => {
+    const anchor = state.phase === 'materials'
+      ? materialPanel.element
+      : introBody
+    let top = anchor.offsetHeight + 80
+    let node = anchor
+    while (node && node !== experience) {
+      top += node.offsetTop
+      node = node.offsetParent
+    }
+    root.style.setProperty('--qe-action-prompt-top', `${top}px`)
+  }
+
   const schedulePresentation = (callback, delayMs) => {
     if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
       callback()
@@ -430,6 +458,7 @@ export async function mount(container, options = {}) {
   }
 
   const syncGuidance = () => {
+    syncActionPromptPosition()
     const introContinueVisible = state.phase === 'intro' && state.introSettled
     const materialContinueVisible = state.phase === 'materials' &&
       materialPanelPresented &&
@@ -636,11 +665,12 @@ export async function mount(container, options = {}) {
        material panel has completed its exit. */
     const opening = state.phase === 'intro' || state.phase === 'materials'
     introTitle.textContent = opening
-      ? 'Two materials. One new state.'
+      ? 'Two materials, one new state of matter.'
       : 'Build the topoconductor'
     introBody.innerHTML = opening
-      ? 'Bringing a superconductor and semiconductor together creates a completely new material: a <span>topoconductor</span>.'
-      : 'A semiconductor gives control. A superconductor gives collective quantum behavior. Microsoft combines both to create something new.'
+      ? TOPOCONDUCTOR_INTRO_BODY
+      : 'A semiconductor controls electrons. A superconductor allows electricity to flow freely. Put together, they create something new.'
+    syncActionPromptPosition()
     const introVisible = !state.introDismissed && !introRevealPending
     root.dataset.intro = introVisible ? 'visible' : 'dismissed'
     root.dataset.materialStep = state.materialStep || ''

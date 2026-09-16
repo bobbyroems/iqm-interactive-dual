@@ -317,9 +317,14 @@ export function createBrushedEnv(THREE, pmrem) {
   const texture = new THREE.CanvasTexture(canvas)
   texture.mapping = THREE.EquirectangularReflectionMapping
   texture.colorSpace = THREE.SRGBColorSpace
-  const env = pmrem.fromEquirectangular(texture).texture
+  const target = pmrem.fromEquirectangular(texture)
   texture.dispose()
-  return env
+  return {
+    texture: target.texture,
+    dispose() {
+      target.dispose()
+    }
+  }
 }
 
 export function createErrorCorrectionBall({

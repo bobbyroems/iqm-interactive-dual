@@ -1,5 +1,5 @@
 /*
- * Nanoscale — registered camera journey with a two-screen scrollytelling finale.
+ * Nanoscale — registered camera journey with a one-screen scrollytelling finale.
  *
  * Timeline 0 is the supplied room-scale splash. Stops 1-5 are the numbered
  * Cryostat, Majorana 2, QPU, qubit-array and nanowire views from Figma Design
@@ -9,6 +9,7 @@
  */
 
 import { assetUrl } from '../../core/asset-url.js'
+import { mountModuleOutro } from '../module-outro.js'
 import {
   createKioskExplainer,
   disposeKioskExplainer,
@@ -21,6 +22,7 @@ import {
   NANOSCALE_HOLD_SNAP_MS,
   NANOSCALE_SCROLL_CUE,
   NANOSCALE_LAST_CONTENT_STOP,
+  NANOSCALE_SETTLED_EPSILON,
   NANOSCALE_V3_FINALE,
   NANOSCALE_V3_SEQUENCE,
   NANOSCALE_V3_SPLASH,
@@ -37,8 +39,7 @@ import {
   nanoscaleTimelineScrubberAt
 } from './nanoscale-layout.js'
 import {
-  holdNanoscaleFinaleProgress,
-  isFreeNanoscaleFinaleGesture,
+  NANOSCALE_FINALE_SCALE_STOP,
   sampleNanoscaleFinale
 } from './nanoscale-finale.js'
 import {
@@ -49,21 +50,27 @@ import {
 } from './nanoscale-camera.js'
 import {
   NANOSCALE_PRESENTATION_SEGMENTS,
+  createNanoscaleRasterRefresh,
   nanoscalePresentationFrame,
   nanoscalePullbackCameraTransform,
   nanoscaleSceneCssTransform
 } from './nanoscale-presentation.js'
 import {
+  NANOSCALE_EDGE_OVERSHOOT_STOPS,
   clamp,
-  constrainGestureProgress,
+  dominantDragAxis,
   dragDeltaToProgress,
   getVelocityAwareSnapTarget,
+  horizontalDragDeltaToProgress,
   nearestNanoscaleStop,
   pinchDeltaToProgress,
-  sampleSettlingMotion
+  resolveGestureProgress,
+  sampleSettlingMotion,
+  wheelDeltaToProgressDirection
 } from './zoom-model.js'
 import {
   NANOSCALE_UI_IMAGE_PATHS,
+  decodeNanoscaleElementImages,
   decodeNanoscaleStageImages,
   preloadNanoscaleAssets,
   waitForNanoscaleAssets
@@ -75,9 +82,23 @@ import {
 } from './nanoscale-comparison.js'
 
 const DESIGN_PIXELS_PER_STOP = 760
+/* Wrong-way drags against the very start of the journey that are tolerated
+   before the hint stops being ambient and asks to be read. Two are a visitor
+   finding the controls; a third is one who has not seen the arrow at all. */
+const MISDIRECTED_GESTURE_LIMIT = 2
+/* Long enough to read the shake as deliberate rather than as a glitch, and to
+   outlast the shake keyframes themselves. */
+const MISDIRECTED_HINT_MS = 2_400
 const STAGE_HEIGHT = 3840
 const LAST_STOP = NANOSCALE_V3_STOPS.at(-1)
 const NANOSCALE_ASSET_ROOT = 'assets/modules/nanoscale'
+const NEXT_STOP_WARMUP_DELAY_MS = 360
+
+/* Upward travel out of the last content stop that counts as "go on" rather than
+   a wobble. Deliberately far below the half-stop the ordinary snap wants: the
+   threshold exists only to keep a still finger and pointer jitter from opening
+   the finale, not to ask for a committed swipe. */
+const FINALE_COMMIT_PROGRESS = 0.004
 
 /* One canonical DOM layer per visual source. Splash and Cryostat are separate
    assets registered through the warm-metal cryostat landmark. */
@@ -339,7 +360,7 @@ function moduleMarkup() {
       </header>
 
       <h1 class="nz__sr" id="nz-title">Nanoscale of topological qubits</h1>
-      <p class="nz__sr" id="nz-controls">Use pinch, vertical drag, mouse wheel, arrow keys, plus, or minus to move through the zoom journey.</p>
+      <p class="nz__sr" id="nz-controls">Use pinch, vertical or horizontal drag, trackpad or mouse wheel, arrow keys, plus, or minus to move through the zoom journey.</p>
 
       <div data-nz-intro-slot></div>
       <div data-nz-instruction-slot></div>
@@ -371,27 +392,16 @@ function moduleMarkup() {
 }
 
 function finaleMarkup() {
-  const [impact, scale] = NANOSCALE_V3_FINALE
+  const [scale] = NANOSCALE_V3_FINALE
   return `
     <!-- Figma-authored full-stage scrollytelling: intentionally not a floating kiosk-explainer. -->
     <div class="nz__finale" data-nz-finale aria-hidden="true" inert>
-      <div class="nz__finale-atmosphere" data-nz-finale-atmosphere aria-hidden="true"></div>
       <div class="nz__finale-track" data-nz-finale-track>
-        <section class="nz__finale-section nz__finale-section--impact" data-nz-finale-section="impact" aria-labelledby="nz-finale-impact-title" aria-hidden="true" inert>
-          <svg class="nz__finale-guide" data-nz-finale-guide viewBox="0 0 20 970" aria-hidden="true" focusable="false">
-            <line x1="10" y1="0" x2="10" y2="944"></line>
-            <circle cx="10" cy="960" r="10"></circle>
-          </svg>
-          <div class="nz__finale-copy nz__finale-copy--impact">
-            <h2 id="nz-finale-impact-title" data-nz-finale-heading="impact">${impact.title}</h2>
-            <div class="nz__finale-paragraphs">
-              ${impact.paragraphs.map((copy, index) => `<p data-nz-finale-paragraph="impact-${index}">${copy}</p>`).join('')}
-            </div>
-          </div>
-          <div data-nz-finale-prompt-slot></div>
-        </section>
-
         <section class="nz__finale-section nz__finale-section--scale" data-nz-finale-section="scale" aria-labelledby="nz-finale-scale-title" aria-hidden="true" inert>
+          <svg class="nz__finale-guide nz__finale-guide--scale" data-nz-finale-guide="scale" viewBox="0 0 20 470" aria-hidden="true" focusable="false">
+            <line x1="10" y1="0" x2="10" y2="444"></line>
+            <circle cx="10" cy="460" r="10"></circle>
+          </svg>
           <div class="nz__finale-copy nz__finale-copy--scale">
             <h2 id="nz-finale-scale-title" data-nz-finale-heading="scale">${scale.title}</h2>
             <div class="nz__finale-paragraphs">
@@ -441,6 +451,17 @@ function createNanoscaleExplainers(root) {
   })
   instruction.element.dataset.nzInstruction = ''
 
+  /* Inside .kiosk-tooltip__text, which is the centred flex row the badge and
+     the words already share, so the arrow lands on the line rather than under
+     it. Decorative: the words beside it already name the direction. */
+  const instructionArrow = document.createElement('img')
+  instructionArrow.className = 'nz__instruction-arrow'
+  instructionArrow.src = assetUrl(NANOSCALE_UI_IMAGE_PATHS.swipeUpArrow)
+  instructionArrow.alt = ''
+  instructionArrow.draggable = false
+  instructionArrow.setAttribute('aria-hidden', 'true')
+  instruction.copy.after(instructionArrow)
+
   const identity = createKioskExplainer({
     ariaHidden: true,
     className: 'nz__identity',
@@ -452,13 +473,6 @@ function createNanoscaleExplainers(root) {
   identity.title.dataset.nzName = ''
   identity.body.dataset.nzCopy = ''
 
-  const finalePrompt = createKioskTooltip({
-    ariaHidden: true,
-    className: 'nz__finale-prompt',
-    text: NANOSCALE_V3_FINALE[0].instruction
-  })
-  finalePrompt.element.dataset.nzFinalePrompt = ''
-
   root.querySelector('[data-nz-intro-slot]').replaceWith(intro.element)
   const scrollCue = createKioskTooltip({
     className: 'nz__scroll-cue',
@@ -467,9 +481,8 @@ function createNanoscaleExplainers(root) {
   root.querySelector('[data-nz-scroll-cue-slot]').replaceWith(scrollCue.element)
   root.querySelector('[data-nz-instruction-slot]').replaceWith(instruction.element)
   root.querySelector('[data-nz-identity-slot]').replaceWith(identity.element)
-  root.querySelector('[data-nz-finale-prompt-slot]').replaceWith(finalePrompt.element)
 
-  return Object.freeze({ finalePrompt, identity, instruction, intro, scrollCue })
+  return Object.freeze({ identity, instruction, intro, scrollCue })
 }
 
 /* App startup calls this while the visitor is still outside the experience;
@@ -481,7 +494,7 @@ export function preload() {
 export async function mount(container, options = {}) {
   if (!container?.replaceChildren) throw new TypeError('Nanoscale requires a DOM container')
 
-  const { signal, onActivity, navigate = {} } = options
+  const { signal, onActivity, navigate = {}, module } = options
   if (signal?.aborted) throw createAbortError()
 
   if (import.meta.env?.DEV) assertValidNanoscaleCamera()
@@ -504,6 +517,17 @@ export async function mount(container, options = {}) {
   await decodeNanoscaleStageImages(root, { signal })
   if (signal?.aborted) throw createAbortError()
   container.replaceChildren(root)
+
+  /* The last module on the floor, so its offer is the way back to the start
+     rather than on to another one — see module-outro.js. The band states which
+     module this is from the moment it opens, as it does everywhere else. */
+  const upNextBanner = mountModuleOutro({
+    module,
+    root,
+    navigate,
+    onActivity,
+    onRestart: () => root.querySelector('[data-nz-action="restart"]')?.click()
+  })
 
   const sceneElements = new Map(
     [...root.querySelectorAll('[data-nz-scene]')]
@@ -592,7 +616,6 @@ export async function mount(container, options = {}) {
   const instruction = explainers.instruction.element
   const scrollCue = explainers.scrollCue.element
   const identity = explainers.identity.element
-  const finalePrompt = explainers.finalePrompt.element
   const comparison = root.querySelector('[data-nz-comparison]')
   const comparisonCaption = root.querySelector('[data-nz-comparison-caption]')
   const scrubberNumber = root.querySelector('[data-nz-number]')
@@ -600,9 +623,11 @@ export async function mount(container, options = {}) {
   const ticks = [...root.querySelectorAll('[data-nz-tick]')]
   const status = root.querySelector('[data-nz-status]')
   const finale = root.querySelector('[data-nz-finale]')
-  const finaleAtmosphere = root.querySelector('[data-nz-finale-atmosphere]')
   const finaleTrack = root.querySelector('[data-nz-finale-track]')
-  const finaleGuide = root.querySelector('[data-nz-finale-guide]')
+  const finaleGuides = new Map(
+    [...root.querySelectorAll('[data-nz-finale-guide]')]
+      .map(element => [element.dataset.nzFinaleGuide, element])
+  )
   const finaleSections = new Map(
     [...root.querySelectorAll('[data-nz-finale-section]')]
       .map(element => [element.dataset.nzFinaleSection, element])
@@ -683,14 +708,20 @@ export async function mount(container, options = {}) {
   let wheelTarget = null
   let wheelUnlockTimer = null
   let holdSnapTimer = null
+  let misdirectedGestures = 0
+  let misdirectedHintTimer = null
   let writtenMarkerX = null
   let writtenScrim = null
   let writtenScrubberColors = null
   let writtenFinale = null
   let writtenNumberOpacity = null
+  let textureWarmupTimer = null
+  let textureWarmupToken = 0
+  let restoreActiveTextureWarmup = null
   const writtenPresentationTransforms = Array(stackCameras.length).fill(null)
   const writtenPresentationPromoted = Array(stackCameras.length).fill(null)
   const writtenPresentationOpacities = Array(stackCameras.length).fill(null)
+  const rasterRefresh = stackCameras.map(() => createNanoscaleRasterRefresh())
   let writtenFinalePromoted = null
 
   root.style.setProperty('--nz-scrubber-x', `${NANOSCALE_SCRUBBER.x}px`)
@@ -905,6 +936,19 @@ export async function mount(container, options = {}) {
     root.style.setProperty('--nz-identity-title-weight', String(identityLayout.title.type.fontWeight))
     root.style.setProperty('--nz-identity-title-tracking', identityLayout.title.type.letterSpacing)
     root.style.setProperty('--nz-identity-title-leading', `${identityLayout.title.type.lineHeight}px`)
+    /* Only the stops that carry a qualifier write these. The element hides
+       itself when it has no text, so a stale box on the others is never
+       painted. */
+    if (identityLayout.subtitle) {
+      root.style.setProperty('--nz-identity-subtitle-x', `${identityLayout.subtitle.box.x}px`)
+      root.style.setProperty('--nz-identity-subtitle-y', `${identityLayout.subtitle.box.y}px`)
+      root.style.setProperty('--nz-identity-subtitle-width', `${identityLayout.subtitle.box.width}px`)
+      root.style.setProperty('--nz-identity-subtitle-height', `${identityLayout.subtitle.box.height}px`)
+      root.style.setProperty('--nz-identity-subtitle-size', `${identityLayout.subtitle.type.fontSize}px`)
+      root.style.setProperty('--nz-identity-subtitle-weight', String(identityLayout.subtitle.type.fontWeight))
+      root.style.setProperty('--nz-identity-subtitle-tracking', identityLayout.subtitle.type.letterSpacing)
+      root.style.setProperty('--nz-identity-subtitle-leading', `${identityLayout.subtitle.type.lineHeight}px`)
+    }
     root.style.setProperty('--nz-identity-body-x', `${identityLayout.body.box.x}px`)
     root.style.setProperty('--nz-identity-body-y', `${identityLayout.body.box.y}px`)
     root.style.setProperty('--nz-identity-body-width', `${identityLayout.body.box.width}px`)
@@ -937,7 +981,10 @@ export async function mount(container, options = {}) {
       body: stop.description,
       /* A stop may carry a longer heading for the card than the label used to
          announce it; most do not, and fall back to the label. */
-      title: stop.headline ?? stop.name
+      title: stop.headline ?? stop.name,
+      /* Empty on every stop but one, which hides the element rather than
+         leaving the previous stop's qualifier under a new heading. */
+      subtitle: stop.subheadline ?? ''
     })
     setNanoscaleComparisonMediaStackStop(comparisonMediaStack, stop, {
       alt: comparisonAlt(stop)
@@ -1017,6 +1064,7 @@ export async function mount(container, options = {}) {
       : progress >= NANOSCALE_LAST_CONTENT_STOP
         ? NANOSCALE_PRESENTATION_SEGMENTS.at(-1)
         : null
+    const now = performance.now()
     presentation.cameraTransforms.forEach((baseCameraTransform, segment) => {
       const camera = stackCameras[segment]
       const promoted = segment === presentation.movingSegment || segment === preparedSegment
@@ -1037,7 +1085,11 @@ export async function mount(container, options = {}) {
       /* W4 also owns the finale-entry fade. Give its existing surface the opacity
          reason as soon as that bounded camera is prepared, so entering the
          finale does not rebuild the full retained stack on its first frame. */
-      const promotion = promoted
+      const refresh = rasterRefresh[segment](
+        segment, cameraTransform.scale, now, segment === presentation.movingSegment
+      )
+      if (refresh) requestRender()
+      const promotion = promoted && !refresh
         ? segment === NANOSCALE_PRESENTATION_SEGMENTS.at(-1)
           ? 'transform, opacity'
           : 'transform'
@@ -1135,23 +1187,13 @@ export async function mount(container, options = {}) {
     }
     const finaleKey = [
       finaleSample.trackY,
-      finaleSample.atmosphereOpacity,
-      finaleSample.impact.heading,
-      ...finaleSample.impact.paragraphs,
-      finaleSample.impact.prompt,
       finaleSample.scale.heading,
       ...finaleSample.scale.paragraphs,
       finaleSample.scale.figure
     ].map(value => value.toFixed(4)).join('|')
     if (finaleKey !== writtenFinale) {
       finaleTrack.style.transform = `translate3d(0, ${finaleSample.trackY.toFixed(2)}px, 0)`
-      finaleAtmosphere.style.opacity = finaleSample.atmosphereOpacity.toFixed(4)
-      finaleGuide.style.opacity = finaleSample.impact.heading.toFixed(4)
-      finaleHeadings.get('impact').style.opacity = finaleSample.impact.heading.toFixed(4)
-      finaleSample.impact.paragraphs.forEach((opacity, index) => {
-        finaleParagraphs.get(`impact-${index}`).style.opacity = opacity.toFixed(4)
-      })
-      finalePrompt.style.opacity = finaleSample.impact.prompt.toFixed(4)
+      finaleGuides.get('scale').style.opacity = finaleSample.scale.heading.toFixed(4)
       finaleHeadings.get('scale').style.opacity = finaleSample.scale.heading.toFixed(4)
       finaleSample.scale.paragraphs.forEach((opacity, index) => {
         finaleParagraphs.get(`scale-${index}`).style.opacity = opacity.toFixed(4)
@@ -1160,20 +1202,22 @@ export async function mount(container, options = {}) {
       writtenFinale = finaleKey
     }
     finale.style.visibility = finaleVisible ? 'visible' : 'hidden'
-    root.dataset.finaleSection = finaleSample.dominantSection
-    /* Keyed on the screen being presented rather than on the scrubber having
-       landed on stop 7: the last screen is reached by the finale's free scroll,
-       which holds wherever the hand let go and only registers an arrival if it
-       lands exactly on the stop. Opacity is what "this screen is up" actually
-       means here.
+    /* Keyed on how far the finale has slid in, not on the figure's own reveal.
+       The figure used to sit in a second screen and only came up once that
+       screen was scrolled to; now it clears its threshold partway through the
+       5 -> 6 entry, while the camera is still visibly pulling back — starting
+       the count there would run it under a moving stage.
 
-       Half rather than nearly-all, because the free scroll will happily rest
-       part way through the fade — at 6.9 the screen is most of the way in, and
-       waiting for 1 would leave someone looking at a finished screen with the
-       count still reading zero. The gap between the two thresholds stops a rest
-       near the boundary from restarting it over and over. */
-    if (finaleSample.scale.figure >= 0.5) startCount()
-    else if (finaleSample.scale.figure < 0.2) resetCount()
+       Nearly-arrived rather than exactly-arrived: the entry can be left resting
+       just short of the stop, and waiting for 1 would leave someone looking at a
+       finished screen with the count still reading zero. The gap between the two
+       thresholds stops a rest near the boundary from restarting it over. */
+    if (finaleSample.entryProgress >= 0.92) {
+      startCount()
+      /* Same threshold as the counter, and for the same reason: this is what
+         "the last screen is up" means here. offerNext only takes the first. */
+      upNextBanner.offer()
+    } else if (finaleSample.entryProgress < 0.6) resetCount()
 
     const splashVisible = settled && nearest === 0 && arrivedStop === 0
     const specimenSettled = contentSettled && arrivedStop <= NANOSCALE_LAST_CONTENT_STOP
@@ -1195,18 +1239,14 @@ export async function mount(container, options = {}) {
     setExplainerVisibility(explainers.identity, specimenSettled && reveal.identity)
     setAccessibleVisibility(comparison, specimenSettled && reveal.measurement)
     setAccessibleVisibility(finale, finaleVisible && !finaleIsMoving)
-    for (const [id, section] of finaleSections) {
-      setAccessibleVisibility(
-        section,
-        finaleVisible && !finaleIsMoving && id === finaleSample.dominantSection
-      )
+    for (const [, section] of finaleSections) {
+      setAccessibleVisibility(section, finaleVisible && !finaleIsMoving)
     }
-    setAccessibleVisibility(finalePrompt, false)
     if (settled) {
       announceTimelineStop(nearest)
-    } else if (finaleVisible && !finaleIsMoving && announcedFinaleSection !== finaleSample.dominantSection) {
-      announcedFinaleSection = finaleSample.dominantSection
-      announceTimelineStop(finaleSample.dominantSection === 'impact' ? 6 : 7)
+    } else if (finaleVisible && !finaleIsMoving && announcedFinaleSection !== 'scale') {
+      announcedFinaleSection = 'scale'
+      announceTimelineStop(NANOSCALE_FINALE_SCALE_STOP)
     }
 
     if (contentSettled && !reveal.measurement) requestRender()
@@ -1278,19 +1318,198 @@ export async function mount(container, options = {}) {
     frame = requestAnimationFrame(render)
   }
 
+  function snapshotInlineStyles(element, properties) {
+    const values = properties.map(property => ({
+      property,
+      priority: element.style.getPropertyPriority(property),
+      value: element.style.getPropertyValue(property)
+    }))
+    return () => {
+      for (const { property, priority, value } of values) {
+        if (value) element.style.setProperty(property, value, priority)
+        else element.style.removeProperty(property)
+      }
+    }
+  }
+
+  function cancelTextureWarmup() {
+    textureWarmupToken += 1
+    if (textureWarmupTimer !== null) clearTimeout(textureWarmupTimer)
+    textureWarmupTimer = null
+    restoreActiveTextureWarmup?.()
+    restoreActiveTextureWarmup = null
+  }
+
+  function prepareCameraSceneForWarmup(element, { covered }) {
+    if (!element) return { images: [], restore: () => {} }
+    const camera = element.querySelector('[data-nz-camera]')
+    const restoreElement = snapshotInlineStyles(element, [
+      'visibility',
+      'opacity',
+      'z-index',
+      'will-change'
+    ])
+    const restoreCamera = snapshotInlineStyles(camera, ['transform', 'will-change'])
+
+    element.style.visibility = 'visible'
+    /* During the route wipe the layer can be fully opaque. Between stops a
+       sub-pixel alpha is enough to make Chromium raster it without producing a
+       perceptible flash through transparent parts of the current artwork. */
+    element.style.opacity = covered ? '1' : '0.001'
+    element.style.zIndex = '30'
+    element.style.willChange = 'opacity'
+    camera.style.transform = 'matrix(1, 0, 0, 1, 0, 0)'
+    camera.style.willChange = 'transform'
+
+    return {
+      images: [...element.querySelectorAll('img[src]')],
+      restore: () => {
+        restoreCamera()
+        restoreElement()
+      }
+    }
+  }
+
+  function prepareComparisonForWarmup(timelineStop, { covered }) {
+    if (timelineStop?.kind !== 'content') return { images: [], restore: () => {} }
+    const media = comparisonMediaStack.querySelector(
+      `[data-nz-comparison-media="${timelineStop.id}"]`
+    )
+    if (!media) return { images: [], restore: () => {} }
+
+    const wasHidden = media.hidden
+    const restoreMedia = snapshotInlineStyles(media, ['opacity', 'z-index', 'will-change'])
+    const restoreComparison = snapshotInlineStyles(comparison, [
+      'left',
+      'top',
+      'width',
+      'height',
+      'opacity',
+      'will-change'
+    ])
+
+    if (covered) {
+      placeBox(comparison, nanoscaleLayoutAt(timelineStop.index).ui.comparison.box)
+      comparison.style.opacity = '1'
+    }
+    comparison.style.willChange = 'opacity'
+    media.hidden = false
+    media.style.opacity = covered ? '1' : '0.001'
+    media.style.zIndex = '30'
+    media.style.willChange = 'opacity'
+
+    return {
+      images: [...media.querySelectorAll('img[src]')],
+      restore: () => {
+        media.hidden = wasHidden
+        restoreMedia()
+        restoreComparison()
+      }
+    }
+  }
+
+  function prepareFinaleForWarmup({ covered }) {
+    const restoreFinale = snapshotInlineStyles(finale, [
+      'visibility',
+      'opacity',
+      'will-change'
+    ])
+    const restoreFigure = snapshotInlineStyles(finaleFigure, ['opacity', 'will-change'])
+    finale.style.visibility = 'visible'
+    finale.style.opacity = covered ? '1' : '0.001'
+    finale.style.willChange = 'opacity'
+    finaleFigure.style.opacity = '1'
+    finaleFigure.style.willChange = 'opacity'
+    return {
+      images: [...finale.querySelectorAll('img[src]')],
+      restore: () => {
+        restoreFigure()
+        restoreFinale()
+      }
+    }
+  }
+
+  async function warmTimelineStop(timelineIndex, { covered = false } = {}) {
+    cancelTextureWarmup()
+    const token = textureWarmupToken
+    const timelineStop = nanoscaleTimelineStopAt(timelineIndex)
+    const cameraScene = NANOSCALE_CAMERA_SCENES[timelineIndex]
+    const prepared = []
+
+    if (cameraScene) {
+      prepared.push(prepareCameraSceneForWarmup(
+        sceneElements.get(cameraScene.layerId),
+        { covered }
+      ))
+    }
+    if (timelineStop.kind === 'content') {
+      prepared.push(prepareComparisonForWarmup(timelineStop, { covered }))
+    } else if (timelineStop.kind === 'finale') {
+      prepared.push(prepareFinaleForWarmup({ covered }))
+    }
+
+    const restore = () => {
+      for (const item of prepared.toReversed()) item.restore()
+    }
+    restoreActiveTextureWarmup = restore
+
+    try {
+      await decodeNanoscaleElementImages(prepared.flatMap(item => item.images), { signal })
+      if (disposed || signal?.aborted || token !== textureWarmupToken) return
+      /* Commit the temporary paint properties before yielding compositor
+         frames. The read is local to the next scene and does not touch layout
+         during the visitor's gesture. */
+      const paintTarget = cameraScene
+        ? sceneElements.get(cameraScene.layerId)
+        : timelineStop.kind === 'finale'
+          ? finale
+          : comparison
+      void paintTarget?.offsetWidth
+      await nextPaintFrame()
+      await nextPaintFrame()
+    } finally {
+      if (restoreActiveTextureWarmup === restore) {
+        restore()
+        restoreActiveTextureWarmup = null
+      }
+    }
+  }
+
+  function scheduleNextStopWarmup(stop) {
+    cancelTextureWarmup()
+    /* The finale is the one stop past the numbered specimens, and nothing
+       follows it. */
+    if (stop >= LAST_STOP) return
+    const next = stop + 1
+    textureWarmupTimer = setTimeout(() => {
+      textureWarmupTimer = null
+      if (disposed || gesture || settle || arrivedStop !== stop) return
+      void warmTimelineStop(next).catch(error => {
+        if (error?.name !== 'AbortError') {
+          console.warn(`Nanoscale stop ${next} texture warm-up failed.`, error)
+        }
+      })
+    }, NEXT_STOP_WARMUP_DELAY_MS)
+  }
+
   function setProgress(next) {
     const clamped = clamp(next, 0, LAST_STOP)
     if (clamped === progress) return
+    cancelTextureWarmup()
     progress = clamped
     requestRender()
   }
 
   function arriveAt(target) {
     const changedStop = arrivedStop !== target
+    /* Leaving the first stop is proof the direction landed, so the tally starts
+       clean if they ever come back to it. */
+    if (target > 0) clearMisdirectedHint()
     progress = target
     arrivedStop = target
     if (changedStop) settledAt = performance.now()
     requestRender()
+    scheduleNextStopWarmup(target)
   }
 
   function settleTo(target, velocity) {
@@ -1339,9 +1558,56 @@ export async function mount(container, options = {}) {
     requestRender()
   }
 
+  /* The stretch is a visual offset on the artwork, never a progress value: the
+     camera is only ever asked to render a position inside the journey. While a
+     gesture is live `is-zooming` drops the transition so the artwork tracks the
+     finger; clearing the offset on release lets that same transition spring it
+     back. */
+  function setOverscroll(edge, overshoot, axis) {
+    const distance = edge ? overshoot * DESIGN_PIXELS_PER_STOP : 0
+    /* Toward the finger: at the start of the journey backward is down and
+       left, at the end forward is up and right. */
+    const away = edge === 'start' ? 1 : -1
+    const horizontal = axis === 'horizontal'
+    root.style.setProperty(
+      '--nz-overscroll-x',
+      `${horizontal ? distance * -away : 0}px`
+    )
+    root.style.setProperty(
+      '--nz-overscroll-y',
+      `${horizontal ? 0 : distance * away}px`
+    )
+  }
+
+  /* Counts only gestures blocked against the first stop. That is the one place
+     a wrong guess is answered by nothing at all — everywhere else a backward
+     drag is a legitimate move to the previous stop. */
+  function noteMisdirectedGesture() {
+    misdirectedGestures += 1
+    if (misdirectedGestures <= MISDIRECTED_GESTURE_LIMIT) return
+    root.classList.remove('is-misdirected')
+    void root.offsetWidth
+    root.classList.add('is-misdirected')
+    if (misdirectedHintTimer !== null) clearTimeout(misdirectedHintTimer)
+    misdirectedHintTimer = setTimeout(() => {
+      misdirectedHintTimer = null
+      root.classList.remove('is-misdirected')
+    }, MISDIRECTED_HINT_MS)
+  }
+
+  function clearMisdirectedHint() {
+    misdirectedGestures = 0
+    if (misdirectedHintTimer !== null) clearTimeout(misdirectedHintTimer)
+    misdirectedHintTimer = null
+    root.classList.remove('is-misdirected')
+  }
+
   function restart() {
+    upNextBanner.withdraw()
     settle?.cancel()
     settle = null
+    setOverscroll(null, 0, null)
+    clearMisdirectedHint()
     progress = 0
     arrivedStop = 0
     renderedTimelineStop = -1
@@ -1349,6 +1615,7 @@ export async function mount(container, options = {}) {
     announcedFinaleSection = null
     settledAt = performance.now()
     requestRender()
+    scheduleNextStopWarmup(0)
   }
 
   function beginGesture() {
@@ -1360,6 +1627,8 @@ export async function mount(container, options = {}) {
       lastAt: performance.now(),
       velocity: 0,
       mode: null,
+      axis: null,
+      blockedEdge: null,
       pinchStart: pointers.size >= 2 ? pinchDistance([...pointers.values()]) : null,
       pointerStart: [...pointers.values()][0]
     }
@@ -1381,29 +1650,37 @@ export async function mount(container, options = {}) {
       if (gesture.pinchStart === null) gesture.pinchStart = pinchDistance(points)
       delta = pinchDeltaToProgress(gesture.pinchStart, pinchDistance(points))
     } else if (gesture.pointerStart && points[0]) {
-      delta = dragDeltaToProgress(
-        points[0].y - gesture.pointerStart.y,
-        stageScaleOf(root),
-        DESIGN_PIXELS_PER_STOP
-      )
+      const clientDeltaX = points[0].x - gesture.pointerStart.x
+      const clientDeltaY = points[0].y - gesture.pointerStart.y
+      gesture.axis ??= dominantDragAxis(clientDeltaX, clientDeltaY)
+      delta = gesture.axis === 'horizontal'
+        ? horizontalDragDeltaToProgress(
+            clientDeltaX,
+            stageScaleOf(root),
+            DESIGN_PIXELS_PER_STOP
+          )
+        : dragDeltaToProgress(
+            clientDeltaY,
+            stageScaleOf(root),
+            DESIGN_PIXELS_PER_STOP
+          )
     }
 
     const proposed = gesture.startProgress + delta
-    if (gesture.mode === null && Math.abs(delta) > 0.001) {
-      gesture.mode = isFreeNanoscaleFinaleGesture({
-        startProgress: gesture.startProgress,
-        deltaProgress: delta,
-        pointerCount: points.length,
-        reducedMotion: reducedMotion?.matches
-      }) ? 'finale-free' : 'snap'
+    if (gesture.mode === null && Math.abs(delta) > 0.001) gesture.mode = 'snap'
+    const resolved = resolveGestureProgress(
+      proposed,
+      gesture.startProgress,
+      NANOSCALE_V3_STOPS
+    )
+    const next = clamp(resolved.progress, 0, LAST_STOP)
+
+    /* A pinch has no direction to be wrong about, so it does not stretch. */
+    if (points.length >= 2) setOverscroll(null, 0, null)
+    else {
+      setOverscroll(resolved.edge, resolved.overshoot, gesture.axis)
+      if (resolved.edge) gesture.blockedEdge = resolved.edge
     }
-    const next = gesture.mode === 'finale-free'
-      ? holdNanoscaleFinaleProgress(proposed)
-      : clamp(
-          constrainGestureProgress(proposed, gesture.startProgress, NANOSCALE_V3_STOPS),
-          0,
-          LAST_STOP
-        )
 
     const now = performance.now()
     const elapsed = Math.max(1, now - gesture.lastAt)
@@ -1414,11 +1691,22 @@ export async function mount(container, options = {}) {
     scheduleHoldSnap()
   }
 
+  /* The end-of-module pop-up is a modal offer — `aria-modal`, over a full-stage
+     scrim — so the journey behind it must not still be scrollable. A press is
+     already stopped by the `data-kiosk-chrome` guard on the pointer handlers,
+     because the scrim it lands on carries that attribute; the wheel and the
+     arrow keys reach the journey without ever touching an element, so they are
+     stopped here instead.
+
+     The quieter band offer deliberately does not block: it leaves the module
+     replayable, and scrolling back is how a visitor replays it. */
+  const outroPopupRaised = () => !upNextBanner.popup.element.hidden
+
   /* A gesture that stops moving is finished in every way that matters to the
      visitor, so it snaps to its stop rather than waiting for the release. */
   function snapWhileHeld() {
     holdSnapTimer = null
-    if (disposed || !gesture || gesture.mode === 'finale-free') return
+    if (disposed || !gesture) return
     const target = getVelocityAwareSnapTarget(progress, 0, {
       gestureStartProgress: gesture.startProgress,
       stops: NANOSCALE_V3_STOPS
@@ -1433,6 +1721,7 @@ export async function mount(container, options = {}) {
     gesture.startProgress = target
     gesture.lastProgress = target
     gesture.velocity = 0
+    gesture.axis = null
     gesture.pointerStart = points[0] ?? gesture.pointerStart
     gesture.pinchStart = points.length >= 2 ? pinchDistance(points) : null
   }
@@ -1450,18 +1739,34 @@ export async function mount(container, options = {}) {
   function endGesture() {
     cancelHoldSnap()
     root.classList.remove('is-zooming')
+    /* Cleared before the early return below, so releasing a pinch or a finale
+       scrub cannot leave the artwork parked off-centre. `is-zooming` has just
+       gone, so this is the frame the spring-back transition starts on. */
+    setOverscroll(null, 0, null)
     if (!gesture) return
-    if (gesture.mode === 'finale-free') {
-      const held = holdNanoscaleFinaleProgress(progress)
+    /* Only a gesture that began at the first stop counts against the visitor.
+       A long backward swipe from stop 01 also runs out of journey at 0 and
+       stretches, but it arrived somewhere — reading that as a wrong guess would
+       nag the one visitor who has understood the control. */
+    if (
+      gesture.blockedEdge === 'start' &&
+      gesture.startProgress <= NANOSCALE_SETTLED_EPSILON
+    ) noteMisdirectedGesture()
+    /* The last content stop is the doorway into the finale, not another stop to
+       be nudged past. The velocity-aware snap asks a swipe to be either fast or
+       more than half a stop long, and anything short of that fell back to 05 —
+       which reads as the module refusing to go on. From here any upward motion
+       commits, however small or slow. */
+    if (
+      gesture.startProgress >= NANOSCALE_LAST_CONTENT_STOP - NANOSCALE_SETTLED_EPSILON &&
+      progress - gesture.startProgress > FINALE_COMMIT_PROGRESS
+    ) {
+      const velocity = gesture.velocity
       gesture = null
-      if (Math.abs(held - 6) <= 0.001 || Math.abs(held - 7) <= 0.001) {
-        arriveAt(Math.round(held))
-      } else {
-        progress = held
-        requestRender()
-      }
+      settleTo(NANOSCALE_LAST_CONTENT_STOP + 1, velocity)
       return
     }
+
     const target = getVelocityAwareSnapTarget(progress, gesture.velocity, {
       gestureStartProgress: gesture.startProgress,
       stops: NANOSCALE_V3_STOPS
@@ -1472,7 +1777,11 @@ export async function mount(container, options = {}) {
   }
 
   root.addEventListener('pointerdown', event => {
-    if (event.target.closest('[data-nz-action]')) return
+    /* The header's own controls, and the shared band and pop-up that sit over
+       this module. Capturing the pointer for the journey would swallow the
+       press before it could become a click, so "Return to home" and the
+       pop-up's controls did nothing at all. */
+    if (event.target.closest('[data-nz-action], [data-kiosk-chrome]')) return
     onActivity?.()
     pointers.set(event.pointerId, { x: event.clientX, y: event.clientY })
     root.setPointerCapture?.(event.pointerId)
@@ -1481,7 +1790,12 @@ export async function mount(container, options = {}) {
 
   root.addEventListener('pointermove', event => {
     if (!pointers.has(event.pointerId)) return
+    /* The pop-up escalates on a timer, so it can arrive with a finger already
+       down and moving. The position is still recorded, so the release settles
+       from where the hand actually is rather than from where it was when the
+       offer appeared. */
     pointers.set(event.pointerId, { x: event.clientX, y: event.clientY })
+    if (outroPopupRaised()) return
     updateGesture()
   }, { signal: listeners.signal })
 
@@ -1494,7 +1808,10 @@ export async function mount(container, options = {}) {
   }
 
   root.addEventListener('wheel', event => {
+    /* Swallowed either way, so a blocked wheel cannot scroll the page behind
+       the stage instead. */
     event.preventDefault()
+    if (outroPopupRaised()) return
     onActivity?.()
     cancelHoldSnap()
     if (countFrame !== null) cancelAnimationFrame(countFrame)
@@ -1504,7 +1821,8 @@ export async function mount(container, options = {}) {
       wheelUnlockTimer = null
     }, 180)
     if (wheelTarget !== null) return
-    const direction = Math.sign(event.deltaY) * -1
+    const direction = wheelDeltaToProgressDirection(event.deltaX, event.deltaY)
+    if (direction === 0) return
     const anchor = nearestNanoscaleStop(progress, NANOSCALE_V3_STOPS)
     wheelTarget = nearestNanoscaleStop(anchor + direction, NANOSCALE_V3_STOPS)
     settleTo(wheelTarget, 0)
@@ -1512,6 +1830,7 @@ export async function mount(container, options = {}) {
 
   root.addEventListener('keydown', event => {
     if (event.target.closest('[data-nz-action]')) return
+    if (outroPopupRaised()) return
     const advanceKeys = new Set(['ArrowUp', 'ArrowRight', 'PageUp', '+', '='])
     const retreatKeys = new Set(['ArrowDown', 'ArrowLeft', 'PageDown', '-', '_'])
     let target = null
@@ -1578,6 +1897,10 @@ export async function mount(container, options = {}) {
         await nextPaintFrame()
         await nextPaintFrame()
       }
+      /* Revisit the first handoff last. Warming every 4K layer in one pass can
+         evict the Cryostat again before the wipe opens; this makes the first
+         actual zoom the most recently decoded and painted transition. */
+      await warmTimelineStop(1, { covered: true })
       if (!disposed && !signal?.aborted) renderCamera()
     })()
     return presentationWarmup
@@ -1589,10 +1912,19 @@ export async function mount(container, options = {}) {
     settle?.cancel()
     if (frame !== null) cancelAnimationFrame(frame)
     if (wheelUnlockTimer !== null) clearTimeout(wheelUnlockTimer)
+    /* Both of these already no-op once `disposed` is set, but leaving them
+       queued keeps the whole module closure reachable until they fire. */
+    if (countFrame !== null) cancelAnimationFrame(countFrame)
+    countFrame = null
+    if (misdirectedHintTimer !== null) clearTimeout(misdirectedHintTimer)
+    misdirectedHintTimer = null
+    cancelHoldSnap()
+    cancelTextureWarmup()
     listeners.abort()
     pointers.clear()
     disposeKioskExplainer(explainers.intro)
     disposeKioskExplainer(explainers.identity)
+    upNextBanner.dispose()
     root.remove()
     signal?.removeEventListener?.('abort', dispose)
   }

@@ -1,6 +1,5 @@
 import { assetUrl } from '../../core/asset-url.js'
-import { createUpNextBanner } from '../../core/up-next-banner.js'
-import { nextPlayableModule } from '../module-registry.js'
+import { mountModuleOutro } from '../module-outro.js'
 import { createKioskTooltip } from '../../core/kiosk-tooltip.js'
 import { sound } from '../../core/kiosk-audio.js'
 import {
@@ -9,6 +8,7 @@ import {
 } from './media.js'
 import {
   LAST_FRAME,
+  MATTER_PHASES,
   TIMELINE_LAST_FRAME,
   clampFrame,
   clampProgress,
@@ -32,7 +32,6 @@ import {
   VFX_MOTION_WIDTH
 } from './vfx-motion.js'
 import { mountVolumetricSteam } from './volumetric-steam.js'
-import { shouldMountVolumetricSteam } from './runtime-policy.js'
 
 const VIDEO_ASSET = 'assets/modules/states-of-matter/SoM_IceCube_4k_vertical.mp4'
 const POSTER_ASSET = 'assets/modules/states-of-matter/som-poster.jpg'
@@ -42,6 +41,21 @@ const EXIT_ASSET = 'assets/ui/exit-x.svg'
 
 /* Blur applied to the footage at full fog. */
 const FOG_BLUR_PX = 16
+
+/*
+ * How fast the scrubber is allowed to travel, in progress per second, however
+ * fast the finger moves.
+ *
+ * Dragging mapped the pointer straight onto progress, so a flick across the
+ * stage crossed the whole journey in a couple of hundred milliseconds: the ice
+ * became steam with nothing legible in between, which is the one thing this
+ * module exists to show. The pointer now sets a target and the scrubber travels
+ * toward it under this cap, so melting and boiling both have time to read.
+ */
+const SCRUB_PROGRESS_PER_SECOND = 0.3
+/* A single fast gesture should not skip the whole lesson even after release.
+   Roughly one authored phase per grab keeps the intermediate states legible. */
+const MAX_SCRUB_PROGRESS_PER_GESTURE = 0.3
 
 const TIMELINE_WIDTH_PX = 1500
 const KNOB_WIDTH_PX = 120
@@ -54,9 +68,9 @@ const KNOB_MIN_X_PX = KNOB_MIN_CENTER_PX - KNOB_RADIUS_PX
 const KNOB_MAX_X_PX = TIMELINE_WIDTH_PX - KNOB_WIDTH_PX
 const KNOB_VISUAL_TRAVEL_PX = KNOB_MAX_X_PX - KNOB_MIN_X_PX
 const INFO_SOLID_HEIGHT_PX = 248
-/* 60 padding + 128 heading + 80 gap + 300 copy + 60 padding. */
-const INFO_COPY_HEIGHT_PX = 628
-const COPY_LINE_HEIGHT_PX = 300
+/* Four 75px lines plus 20px for font descenders and the copy transition. */
+const COPY_LINE_HEIGHT_PX = 320
+const INFO_COPY_HEIGHT_PX = 60 + 128 + 80 + COPY_LINE_HEIGHT_PX + 60
 
 /* Copy is verbatim from the authored States of Matter frames (Figma 7:1992).
    Every phase now carries a paragraph — Solid used to be heading-only. */
@@ -65,8 +79,23 @@ const COPY_LINE_HEIGHT_PX = 300
    one sentence there rather than carrying three — the scrub is what changes
    between them, not the explanation — and the fourth state is where the copy
    turns over. */
-const CLASSIC_INFO = 'We all know these everyday states of matter – solid, liquid, gas. Change the conditions, and matter changes with it.'
-const TOPOCONDUCTOR_INFO = 'Microsoft created a brand-new one for quantum computing: the topoconductor. Quantum information is hidden inside the material itself – protected by physics.'
+const CLASSIC_INFO = 'We all know these everyday states of matter — solid, liquid, gas. Change the conditions, and matter changes with it.'
+const TOPOCONDUCTOR_INFO = 'Microsoft created a brand-new one for quantum computing: the topoconductor. Quantum information is hidden inside the material itself — protected by physics.'
+
+/* Mark both endpoints and each state transition using the scrubber's mapping. */
+function mountTimelineTicks(element) {
+  const stops = [
+    ...MATTER_PHASES.map(phase => ({ id: phase.id, frame: phase.startFrame })),
+    { id: 'end', frame: TIMELINE_LAST_FRAME }
+  ]
+  stops.forEach(stop => {
+    const tick = document.createElement('span')
+    tick.className = 'som__tick'
+    tick.dataset.somTick = stop.id
+    tick.style.setProperty('--som-tick-position', `${frameToProgress(stop.frame) * 100}%`)
+    element.append(tick)
+  })
+}
 
 function resolveMountArguments(container, options) {
   if (container?.root && !options) {
@@ -93,6 +122,14 @@ export async function mount(containerArgument, optionsArgument) {
   let dragWidth = 1
   let pendingDragFrame = null
   let dragAnimationFrame = null
+  /* Where the finger says the scrubber should be, and where it has actually
+     been allowed to reach. See SCRUB_PROGRESS_PER_SECOND. */
+  let scrubTargetProgress = 0
+  let scrubProgress = 0
+  let scrubTicker = null
+  let scrubTickedAt = 0
+  let rangePointerActive = false
+  let rangeStartProgress = 0
   let requestedFrame = 0
   let frameRequested = false
   let announcedPhase = null
@@ -168,7 +205,7 @@ export async function mount(containerArgument, optionsArgument) {
         <p data-som-copy="solid">${CLASSIC_INFO}</p>
         <p data-som-copy="liquid">${CLASSIC_INFO}</p>
         <p data-som-copy="gas">${CLASSIC_INFO}</p>
-        <p data-som-copy="topoconductor">Microsoft created a brand-new one for quantum computing: the <span class="som__accent">topoconductor</span>. Quantum information is hidden inside the material itself &ndash; protected by physics.</p>
+        <p data-som-copy="topoconductor">${TOPOCONDUCTOR_INFO}</p>
       </div>
     </article>
 
@@ -197,9 +234,10 @@ export async function mount(containerArgument, optionsArgument) {
     <div class="som__timeline">
       <div class="som__track" aria-hidden="true"></div>
       <div class="som__progress" aria-hidden="true"></div>
+      <div class="som__ticks" aria-hidden="true"></div>
       <div class="som__knob" aria-hidden="true"></div>
       <label class="som__range-label">
-        <span class="som__sr-only">Explore the three states of matter</span>
+        <span class="som__sr-only">Explore the four states of matter</span>
         <input class="som__range" type="range" min="0" max="${TIMELINE_LAST_FRAME}" step="1" value="0" disabled>
       </label>
     </div>
@@ -207,6 +245,8 @@ export async function mount(containerArgument, optionsArgument) {
     <p class="som__sr-only" data-som-media-status aria-live="polite">Preparing the states of matter video.</p>
     <p class="som__sr-only" data-som-status aria-live="polite">Solid.</p>
   `
+
+  mountTimelineTicks(screen.querySelector('.som__ticks'))
 
   const matterTooltip = createKioskTooltip({
     ariaHidden: true,
@@ -230,17 +270,14 @@ export async function mount(containerArgument, optionsArgument) {
   /* Reaching the fourth state is the end of this module — there is nothing
      past it on the scrubber — so that is where the band offering the next one
      arrives. */
-  const followingModule = module ? nextPlayableModule(module.id) : null
-  const upNextBanner = followingModule
-    ? createUpNextBanner({
-        title: followingModule.title,
-        onContinue: () => {
-          onActivity?.()
-          navigate.module?.(followingModule.id)
-        }
-      })
-    : null
-  if (upNextBanner) screen.append(upNextBanner.element)
+  /* The band states where the visitor is, then follows the registry route. */
+  const upNextBanner = mountModuleOutro({
+    module,
+    root: screen,
+    navigate,
+    onActivity,
+    onRestart: () => screen.querySelector('[data-som-action="restart"]')?.click()
+  })
   const topoconductorScreen = screen.querySelector('[data-som-topoconductor]')
 
   container.replaceChildren(screen)
@@ -249,9 +286,7 @@ export async function mount(containerArgument, optionsArgument) {
      in which case the module runs without the effect layer. */
   let stateShader = null
   let steamVolume = null
-  const useVolumetricSteam = shouldMountVolumetricSteam(options)
-  steamVolumeCanvas.hidden = !useVolumetricSteam
-  screen.dataset.steamRenderer = useVolumetricSteam ? 'webgpu' : 'procedural'
+  screen.dataset.steamRenderer = 'webgpu'
 
   const vfxMotion = createMatterVfxMotion(vfxMotionCanvas, {
     element: screen,
@@ -359,23 +394,21 @@ export async function mount(containerArgument, optionsArgument) {
       return null
     })
 
-  const steamVolumeReady = useVolumetricSteam
-    ? mountVolumetricSteam(steamVolumeCanvas, { element: screen })
-      .then(controller => {
-        if (disposed || !controller) {
-          controller?.dispose()
-          return null
-        }
-        steamVolume = controller
-        if (mediaReady) steamVolume.start()
-        applyVisualState(visualFrame)
-        return controller
-      })
-      .catch(error => {
-        console.warn('Volumetric water steam could not start; using the procedural fallback.', error)
+  const steamVolumeReady = mountVolumetricSteam(steamVolumeCanvas, { element: screen })
+    .then(controller => {
+      if (disposed || !controller) {
+        controller?.dispose()
         return null
-      })
-    : Promise.resolve(null)
+      }
+      steamVolume = controller
+      if (mediaReady) steamVolume.start()
+      applyVisualState(visualFrame)
+      return controller
+    })
+    .catch(error => {
+      console.warn('Volumetric water steam could not start; using the procedural fallback.', error)
+      return null
+    })
 
   const noteActivity = () => {
     screen.classList.add('som--engaged')
@@ -415,13 +448,43 @@ export async function mount(containerArgument, optionsArgument) {
     seekQueue.request(requestedFrame)
   }
 
+  const clampGestureTarget = (targetProgress, gestureStartProgress) => clampProgress(
+    Math.min(
+      gestureStartProgress + MAX_SCRUB_PROGRESS_PER_GESTURE,
+      Math.max(gestureStartProgress - MAX_SCRUB_PROGRESS_PER_GESTURE, targetProgress)
+    )
+  )
+
   const onRangeInput = event => {
     noteActivity()
-    requestFrame(event.currentTarget.valueAsNumber)
+    if (!rangePointerActive) {
+      requestFrame(event.currentTarget.valueAsNumber)
+      return
+    }
+
+    const targetProgress = frameToProgress(event.currentTarget.valueAsNumber)
+    scrubTargetProgress = clampGestureTarget(targetProgress, rangeStartProgress)
+    /* The native range is visually hidden. Keep its internal value aligned with
+       the throttled thumb instead of leaving it at the finger's uncapped jump. */
+    event.currentTarget.value = String(requestedFrame)
+    startScrubTicker()
   }
 
-  const onRangeInteractionStart = () => vfxMotion.setInteractionActive(true)
-  const onRangeInteractionEnd = () => vfxMotion.setInteractionActive(false)
+  const onRangeInteractionStart = event => {
+    if (event.button !== undefined && event.button !== 0) return
+    rangePointerActive = true
+    rangeStartProgress = frameToProgress(requestedFrame)
+    scrubProgress = rangeStartProgress
+    scrubTargetProgress = rangeStartProgress
+    scrubTickedAt = 0
+    stopScrubTicker()
+    vfxMotion.setInteractionActive(true)
+  }
+
+  const onRangeInteractionEnd = () => {
+    rangePointerActive = false
+    vfxMotion.setInteractionActive(false)
+  }
 
   const onRangeKeyDown = event => {
     const nextFrame = frameForKeyboardKey(event.key, requestedFrame)
@@ -453,6 +516,40 @@ export async function mount(containerArgument, optionsArgument) {
     flushDragFrame()
   }
 
+  const stopScrubTicker = () => {
+    if (scrubTicker === null) return
+    window.cancelAnimationFrame(scrubTicker)
+    scrubTicker = null
+  }
+
+  /* Walks the scrubber toward wherever the finger has asked for, never faster
+     than SCRUB_PROGRESS_PER_SECOND. It keeps running after release so a flick
+     still arrives where it was thrown, rather than stopping wherever the finger
+     happened to leave the glass. */
+  const advanceScrub = timestamp => {
+    scrubTicker = null
+    if (disposed) return
+
+    const elapsed = scrubTickedAt ? (timestamp - scrubTickedAt) / 1000 : 0
+    scrubTickedAt = timestamp
+
+    const remaining = scrubTargetProgress - scrubProgress
+    /* A frame is one step; below it there is nothing left to travel. */
+    const step = SCRUB_PROGRESS_PER_SECOND * Math.min(elapsed, 0.1)
+    if (Math.abs(remaining) <= step) scrubProgress = scrubTargetProgress
+    else scrubProgress += Math.sign(remaining) * step
+
+    scheduleDragFrame(progressToFrame(scrubProgress))
+
+    if (scrubProgress !== scrubTargetProgress) startScrubTicker()
+    else scrubTickedAt = 0
+  }
+
+  function startScrubTicker() {
+    if (scrubTicker !== null || disposed) return
+    scrubTicker = window.requestAnimationFrame(advanceScrub)
+  }
+
   const onPointerDown = event => {
     if (!mediaReady || (event.button !== undefined && event.button !== 0)) return
     if (event.target.closest('button, input')) return
@@ -463,6 +560,12 @@ export async function mount(containerArgument, optionsArgument) {
       : 'scrub'
     startX = event.clientX
     startProgress = frameToProgress(requestedFrame)
+    /* A new grab starts from where the scrubber actually is, so interrupting a
+       flick mid-travel takes over from that point rather than snapping. */
+    scrubProgress = startProgress
+    scrubTargetProgress = startProgress
+    scrubTickedAt = 0
+    stopScrubTicker()
     dragWidth = screen.getBoundingClientRect().width || 1
     previousPointerX = event.clientX
     previousPointerY = event.clientY
@@ -500,9 +603,14 @@ export async function mount(containerArgument, optionsArgument) {
       return
     }
 
-    const progress = clampProgress(startProgress + ((event.clientX - startX) / dragWidth))
+    /* The pointer sets the destination; the ticker decides how fast the
+       scrubber is allowed to get there. */
+    scrubTargetProgress = clampGestureTarget(
+      startProgress + ((event.clientX - startX) / dragWidth),
+      startProgress
+    )
     noteActivity()
-    scheduleDragFrame(progressToFrame(progress))
+    startScrubTicker()
     event.preventDefault()
   }
 
@@ -539,6 +647,15 @@ export async function mount(containerArgument, optionsArgument) {
     noteActivity()
 
     if (action === 'restart') {
+      /* Back to the first state, so the band goes back to naming this module.
+         Left standing, the offer outlived the run that earned it and sat over a
+         module the visitor had just started again. */
+      upNextBanner?.withdraw()
+      stopScrubTicker()
+      scrubProgress = 0
+      scrubTargetProgress = 0
+      scrubTickedAt = 0
+      rangePointerActive = false
       frameRequested = false
       requestFrame(0)
       screen.classList.remove('som--engaged')
@@ -586,6 +703,7 @@ export async function mount(containerArgument, optionsArgument) {
     pendingDragFrame = null
     if (dragAnimationFrame !== null) window.cancelAnimationFrame(dragAnimationFrame)
     dragAnimationFrame = null
+    stopScrubTicker()
     listeners.abort()
     seekQueue.dispose()
     vfxMotion.dispose()

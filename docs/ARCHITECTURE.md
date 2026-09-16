@@ -31,14 +31,22 @@ Windows packaging exposes these modes as two deliberately separate artifacts:
 
 - `package:win:review`: a portable EXE with `windowed` stored as its packaged
   default, intended for frictionless review without installation;
-- `package:win` / `package:win:kiosk`: the production NSIS installer with
-  `kiosk` stored as its packaged default.
+- `package:win`: the production NSIS application installer with `kiosk` stored
+  as its packaged default;
+- `package:win:kiosk`: the same installer wrapped in a versioned production kit
+  with client-facing install/update and recoverable full-removal launchers.
 
 Explicit `--windowed` and `--kiosk` flags override the packaged default. No
 source file is rewritten between flavors, so an interrupted build cannot leave
 the next artifact in the wrong launch mode.
 
 The operating-system kiosk lockdown remains separate. Electron owns the application window; Windows 11 Enterprise owns edge gestures, shell replacement, automatic sign-in and keyboard filtering.
+
+Full removal reverses that ownership boundary in the safe order: Windows shell
+replacement and input lockdown are removed first, captured machine policy and
+power state are restored next, and only then are the managed account and
+application registration removed. Application and deployment files are moved
+to an administrator-only archive so a failed field operation remains recoverable.
 
 ## Module boundary
 

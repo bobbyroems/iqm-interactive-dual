@@ -4,13 +4,16 @@ import {
 } from '../build-majorana-2/majorana-render-utils.js'
 import { registerLightRig } from '../../core/light-rig-registry.js'
 import { applyImperfectionToObject } from '../../core/surface-imperfection.js'
+import { leaseWebGLRenderer } from '../../core/webgl-renderer-pool.js'
 import {
   isValidQubitDrop,
   QUBIT_DROP_THRESHOLD
 } from './qubit-state.js'
 import {
   applyAssemblySnap,
+  ASSEMBLY_IDLE_PULL_MAX_PROGRESS,
   assemblyDistanceFromProgress,
+  assemblyIdlePullProgress,
   assemblyProgressFromPoint
 } from './qubit-drag.js'
 import { resolveQubitShellTransition } from './qubit-fusion.js'
@@ -379,11 +382,12 @@ export async function createQubitScene(host, callbacks = {}) {
   ])
   const { RoundedBoxGeometry } = roundedBoxModule
 
-  const renderer = new THREE.WebGLRenderer({
+  const rendererLease = leaseWebGLRenderer(THREE, {
     antialias: true,
     alpha: true,
     powerPreference: 'high-performance'
   })
+  const { renderer } = rendererLease
   renderer.outputColorSpace = THREE.SRGBColorSpace
   renderer.toneMapping = THREE.ACESFilmicToneMapping
   renderer.toneMappingExposure = 1.05
@@ -541,6 +545,8 @@ export async function createQubitScene(host, callbacks = {}) {
     let semiconductorPresenceTarget = 0
     let semiconductorPresence = 0
     let idleMotionStrength = 0
+    let idleMotionStartedAt = null
+    let idlePullProgress = 0
     let tuningLiftTarget = 0
     let tuningLift = 0
     let activeLayerId = null
@@ -638,7 +644,9 @@ export async function createQubitScene(host, callbacks = {}) {
       } else {
         dragOffset.set(0, 0, 0)
       }
-      dragProgressTarget = 0
+      /* Begin from wherever the idle prompt has brought the pair. Resetting to
+         zero here made the slabs retreat before following the visitor's drag. */
+      dragProgressTarget = idlePullProgress
       pointerPrevious.set(event.clientX, event.clientY)
       pointerPreviousAt = event.timeStamp || performance.now()
       pointerVelocity.set(0, 0)
@@ -1094,6 +1102,7 @@ export async function createQubitScene(host, callbacks = {}) {
       if (phase === 'ready') {
         const reducedMotion = Boolean(reducedMotionQuery?.matches)
         const idleMotionTarget = !reducedMotion &&
+          interactiveRequested &&
           materialFocusTarget === 0 &&
           semiconductorPresenceTarget > 0 &&
           semiconductorEntranceProgress >= 1
@@ -1107,9 +1116,31 @@ export async function createQubitScene(host, callbacks = {}) {
               3.8,
               deltaSeconds
             )
-        const float = Math.sin(elapsedSeconds * 0.72) * 0.025 * idleMotionStrength
-        superLayer.root.position.y = superOrigin.y + float
-        semiLayer.root.position.y = semiOrigin.y - float * 0.45
+        const idleElapsedSeconds = idleMotionStartedAt === null
+          ? 0
+          : Math.max(0, now - idleMotionStartedAt) / 1000
+        idlePullProgress = reducedMotion
+          ? 0
+          : assemblyIdlePullProgress(idleElapsedSeconds, idleMotionStrength)
+
+        /* The shared lift makes the pair levitate as one gesture while their
+           symmetric convergence reads as a pinch. Particles and the moving
+           shadows provide the quieter ambient/secondary layers. */
+        superLayer.root.position.lerpVectors(
+          superOrigin,
+          finalUpperPosition,
+          idlePullProgress
+        )
+        semiLayer.root.position.lerpVectors(
+          semiOrigin,
+          finalLowerPosition,
+          idlePullProgress
+        )
+        const pinchStrength = idlePullProgress / ASSEMBLY_IDLE_PULL_MAX_PROGRESS
+        const hover = Math.sin(idleElapsedSeconds * 1.05) * 0.035 * idleMotionStrength
+        const pinchLift = pinchStrength * 0.035
+        superLayer.root.position.y += hover + pinchLift
+        semiLayer.root.position.y += hover + pinchLift
         targetMaterial.opacity = damp(targetMaterial.opacity, 0, 7, deltaSeconds)
       }
 
@@ -1158,7 +1189,14 @@ export async function createQubitScene(host, callbacks = {}) {
         return true
       },
       setInteractive(value) {
-        interactiveRequested = Boolean(value)
+        const nextInteractiveRequested = Boolean(value)
+        if (nextInteractiveRequested && !interactiveRequested) {
+          idleMotionStartedAt = performance.now()
+        } else if (!nextInteractiveRequested) {
+          idleMotionStartedAt = null
+          idlePullProgress = 0
+        }
+        interactiveRequested = nextInteractiveRequested
         interactive = interactiveRequested &&
           phase === 'ready' &&
           semiconductorEntranceProgress >= 1
@@ -1236,6 +1274,8 @@ export async function createQubitScene(host, callbacks = {}) {
         semiconductorPresenceTarget = 0
         semiconductorPresence = 0
         idleMotionStrength = 0
+        idleMotionStartedAt = null
+        idlePullProgress = 0
         materialPresentation.semiconductorPresence = 0
         materialPresentation.semiDim = 0
         materialPresentation.superDim = 0
@@ -1300,16 +1340,12 @@ export async function createQubitScene(host, callbacks = {}) {
         superLayer.dispose()
         semiLayer.dispose()
         topo.dispose()
-        renderer.dispose()
-        renderer.forceContextLoss()
-        renderer.domElement.remove()
+        rendererLease.release()
       }
     }
   } catch (error) {
     unregisterLights?.()
-    renderer.dispose()
-    renderer.forceContextLoss()
-    renderer.domElement.remove()
+    rendererLease.release()
     throw error
   }
 }

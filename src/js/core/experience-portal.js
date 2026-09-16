@@ -1,3 +1,5 @@
+import { waitForTask, taskTimeout } from './abortable-task.js'
+
 const PORTAL_ANTICIPATION_MS = 160
 const PORTAL_EXPAND_MS = 900
 const PORTAL_REVEAL_AT_MS = 460
@@ -62,27 +64,35 @@ function smoothStep(progress) {
 function animateSharedScene({
   session,
   localSource,
-  localDestination
+  localDestination,
+  signal
 }) {
-  return new Promise(resolve => {
+  return new Promise((resolve, reject) => {
+    let frame = 0
+    const abort = () => { cancelAnimationFrame(frame); reject(signal.reason) }
+    signal.addEventListener('abort', abort, { once: true })
+    if (signal.aborted) { abort(); return }
     const startedAt = performance.now()
 
     const update = now => {
+      if (signal.aborted) return
       const rawProgress = Math.min(1, Math.max(0, (now - startedAt) / PORTAL_EXPAND_MS))
       const progress = smoothStep(rawProgress)
       const sceneViewport = interpolatePortalRect(localSource, localDestination, progress)
 
       const complete = rawProgress >= 1
       session.setViewport(sceneViewport, () => {
+        if (signal.aborted) return
         if (complete) {
+          signal.removeEventListener('abort', abort)
           resolve()
         } else {
-          window.requestAnimationFrame(update)
+          frame = window.requestAnimationFrame(update)
         }
       }, progress)
     }
 
-    window.requestAnimationFrame(update)
+    frame = window.requestAnimationFrame(update)
   })
 }
 
@@ -130,6 +140,9 @@ export async function playMajoranaPortalTransition({
     stage.offsetHeight
   )
   if (!source) throw new Error('The Majorana portal source could not be measured.')
+  const controller = new AbortController()
+  const deadline = setTimeout(() => controller.abort(taskTimeout('The Majorana transition took too long. Please try again.')), 45000)
+  const wait = task => waitForTask(task, controller.signal)
   let revealTimer = 0
   let revealed = false
   let portal = null
@@ -141,7 +154,7 @@ export async function playMajoranaPortalTransition({
   }
 
   try {
-    const prepared = await prepare()
+    const prepared = await wait(prepare())
     const destinationElement = prepared?.destinationElement
     if (!(destinationElement instanceof HTMLElement)) {
       throw new Error('The Majorana intro destination could not be measured.')
@@ -203,23 +216,23 @@ export async function playMajoranaPortalTransition({
         easing: 'ease-out',
         fill: 'forwards'
       })
-      await Promise.all([
+      await wait(Promise.all([
         animationFinished(coverAnimation),
         menuAnimation ? animationFinished(menuAnimation) : Promise.resolve()
-      ])
+      ]))
       revealOnce()
-      await new Promise(resolve => {
+      await wait(new Promise(resolve => {
         sceneSession.setViewport(localDestination, resolve, 1)
-      })
-      await (prepared.handoffScene?.() || Promise.resolve())
-      await animationFinished(handoff.animate([
+      }))
+      await wait(prepared.handoffScene?.() || Promise.resolve())
+      await wait(animationFinished(handoff.animate([
         { opacity: 1 },
         { opacity: 0 }
       ], {
         duration: 160,
         easing: 'ease-out',
         fill: 'forwards'
-      }))
+      })))
       return
     }
 
@@ -232,11 +245,12 @@ export async function playMajoranaPortalTransition({
       fill: 'forwards'
     })
 
-    await animationFinished(anticipation)
+    await wait(animationFinished(anticipation))
     const sceneAnimation = animateSharedScene({
       session: sceneSession,
       localSource,
-      localDestination
+      localDestination,
+      signal: controller.signal
     })
     const veilAnimation = veil.animate([
       { opacity: 0 },
@@ -268,28 +282,31 @@ export async function playMajoranaPortalTransition({
     })
 
     revealTimer = window.setTimeout(revealOnce, PORTAL_REVEAL_AT_MS)
-    await Promise.all([
+    await wait(Promise.all([
       sceneAnimation,
       animationFinished(veilAnimation),
       animationFinished(fieldAnimation),
       menuAnimation ? animationFinished(menuAnimation) : Promise.resolve()
-    ])
+    ]))
     revealOnce()
 
     // Reveal the mounted module before moving the shared canvas. Reparenting
     // and rendering the canvas happen synchronously, so completing the
     // background crossfade first avoids a second light sweep at the handoff
     // without exposing an empty frame.
-    await animationFinished(veil.animate([
+    await wait(animationFinished(veil.animate([
       { opacity: 1 },
       { opacity: 0 }
     ], {
       duration: PORTAL_SURROUNDINGS_FADE_MS,
       easing: 'cubic-bezier(0.2, 0, 0, 1)',
       fill: 'forwards'
-    }))
-    await (prepared.handoffScene?.() || Promise.resolve())
+    })))
+    await wait(prepared.handoffScene?.() || Promise.resolve())
   } finally {
+    clearTimeout(deadline)
+    controller.abort()
+    portal?.getAnimations({ subtree: true }).forEach(animation => animation.cancel())
     window.clearTimeout(revealTimer)
     revealOnce()
     // `fill: forwards` otherwise keeps the menu at opacity: 0 after the

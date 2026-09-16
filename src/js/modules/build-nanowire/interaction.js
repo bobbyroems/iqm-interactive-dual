@@ -106,7 +106,10 @@ export const NANOWIRE_SCAN_VIBRATION = Object.freeze({
 export const NANOWIRE_LOUPE_TARGETING = Object.freeze({
   lockRadius: 52,
   releaseRadius: 72,
-  centeringDuration: 280
+  centeringDuration: 360,
+  pullRadius: 900,
+  pullStrength: 0.98,
+  pullCurve: 1.5
 })
 
 export const NANOWIRE_INTRO_TIMING = Object.freeze({
@@ -118,8 +121,10 @@ export const NANOWIRE_INTRO_TIMING = Object.freeze({
   lineHold: 750,
   sheetDuration: 1_400,
   sheetHold: 150,
-  handoffDuration: 1,
-  totalDuration: 3_771
+  /* Fast enough to keep the prompt responsive, but long enough for the raised
+     atom sheet to grow and settle instead of appearing in a single frame. */
+  handoffDuration: 240,
+  totalDuration: 4_010
 })
 
 export const NANOWIRE_INTRO_REDUCED_TIMING = Object.freeze({
@@ -267,9 +272,9 @@ export function getSheetBuildTiming(sheetIndex, elapsed = null, options = {}) {
 
   if (elapsed === null) {
     return {
-      visible: false,
+      visible: sheetIndex === 0,
       localElapsed: 0,
-      revealProgress: 0
+      revealProgress: sheetIndex === 0 ? 1 : 0
     }
   }
 
@@ -692,6 +697,30 @@ export function resolveLoupeCenteringProgress(elapsed, options = {}) {
   )
   const safeElapsed = Number.isFinite(elapsed) ? Math.max(elapsed, 0) : 0
   return smoothstep01(safeElapsed / duration)
+}
+
+export function resolveLoupeMagneticPull(position, defectPosition, options = {}, out = {}) {
+  const x = Number.isFinite(position?.x) ? position.x : 0
+  const y = Number.isFinite(position?.y) ? position.y : 0
+  const defectX = Number.isFinite(defectPosition?.x) ? defectPosition.x : x
+  const defectY = Number.isFinite(defectPosition?.y) ? defectPosition.y : y
+  const distance = Math.hypot(x - defectX, y - defectY)
+  const pullRadius = Math.max(options.pullRadius ?? NANOWIRE_LOUPE_TARGETING.pullRadius, 1)
+  const pullStrength = clamp01(options.pullStrength ?? NANOWIRE_LOUPE_TARGETING.pullStrength)
+  const pullCurve = Math.max(options.pullCurve ?? NANOWIRE_LOUPE_TARGETING.pullCurve, 0.001)
+  const proximity = distance >= pullRadius
+    ? 0
+    : smoothstep01(1 - (distance / pullRadius))
+  /* A long field should be perceptible without steering the loupe from across
+     the screen. The power curve keeps the outer reach gentle, then ramps into
+     a near-total capture once the defect enters the loupe's visible area. */
+  const amount = pullStrength * Math.pow(proximity, pullCurve)
+
+  out.x = x + ((defectX - x) * amount)
+  out.y = y + ((defectY - y) * amount)
+  out.distance = distance
+  out.amount = amount
+  return out
 }
 
 export function resolveLoupeTarget(position, defectPosition, options = {}) {

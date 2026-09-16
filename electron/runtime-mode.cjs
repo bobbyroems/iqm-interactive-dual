@@ -9,15 +9,33 @@ function normalizeDefaultLaunchMode(value) {
     : LAUNCH_MODES.KIOSK
 }
 
+/* The packaged build states how it wants to come up. A production kiosk keeps
+   quit behind a flag so an unattended machine cannot be closed out of; a review
+   build that opens fullscreen on someone's desk has to hand the exit back, or
+   the only way out is Task Manager. */
+function normalizePackagedDefaults(defaults) {
+  if (typeof defaults === 'string') {
+    return { defaultLaunchMode: defaults, defaultAllowQuit: false }
+  }
+  return {
+    defaultLaunchMode: defaults?.defaultLaunchMode,
+    defaultAllowQuit: defaults?.defaultAllowQuit === true
+  }
+}
+
 function resolveRuntimeMode(
   argv = [],
-  defaultLaunchMode = LAUNCH_MODES.KIOSK
+  packagedDefaults = LAUNCH_MODES.KIOSK
 ) {
+  const { defaultLaunchMode, defaultAllowQuit } = normalizePackagedDefaults(packagedDefaults)
   const args = new Set(argv)
-  const isDevelopment = args.has('--dev')
+  const isSupervised = args.has('--supervised')
+  const isDevelopment = !isSupervised && args.has('--dev')
   let launchMode = normalizeDefaultLaunchMode(defaultLaunchMode)
 
-  if (isDevelopment) {
+  if (isSupervised) {
+    launchMode = LAUNCH_MODES.KIOSK
+  } else if (isDevelopment) {
     launchMode = LAUNCH_MODES.WINDOWED
   } else if (args.has('--kiosk')) {
     // Kiosk wins if contradictory flags are supplied. This keeps production
@@ -29,13 +47,12 @@ function resolveRuntimeMode(
 
   const isWindowed = launchMode === LAUNCH_MODES.WINDOWED
   const isKiosk = !isDevelopment && !isWindowed
-  const isShellHosted = isKiosk && args.has('--shell-hosted')
 
   return {
-    allowQuit: isDevelopment || isWindowed || args.has('--allow-quit'),
+    allowQuit: !isSupervised && (isDevelopment || isWindowed || defaultAllowQuit || args.has('--allow-quit')),
+    isSupervised,
     isDevelopment,
     isKiosk,
-    isShellHosted,
     isWindowed,
     launchMode
   }
@@ -44,5 +61,6 @@ function resolveRuntimeMode(
 module.exports = {
   LAUNCH_MODES,
   normalizeDefaultLaunchMode,
+  normalizePackagedDefaults,
   resolveRuntimeMode
 }

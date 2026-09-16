@@ -1,4 +1,5 @@
 import { sound } from './kiosk-audio.js'
+import { ensureRectAreaLightUniformsInitialized } from './rect-area-light-uniforms.js'
 import { advanceCarouselSpring, createCarouselSpring } from './carousel-spring.js'
 import {
   getModuleNavigationGridLayout,
@@ -30,6 +31,12 @@ import {
 } from '../modules/protecting-information/menu-scene.js'
 import { createQuantumComputerMenuObject } from '../modules/quantum-vs-classical/nav-model.js'
 import { createQubitNavPreview } from '../modules/qubit-explorer/qubit-nav-preview.js'
+import {
+  COLUMN_COUNT as QP_COLUMNS,
+  DOT_PITCH as QP_PITCH,
+  DOT_ROWS as QP_DOT_ROWS,
+  DOT_SIZE as QP_DOT
+} from '../modules/quantum-platform/stack.js'
 
 const ICE = '#8fd2ff'
 const GREEN = '#8be6b4'
@@ -65,6 +72,56 @@ export const NANOSCALE_MENU_BALL_TIMING = Object.freeze({
   maxErrorTiles: 6,
   instantErrors: true
 })
+
+/* Module 09's field, in the units its own table is written in: the lattice is
+   4 columns of 56px dots on a 92px pitch, so the field is 332 across. The card
+   works in fractions of these rather than in pixels, which is what lets `s`
+   size the object without the lattice changing shape. */
+const QP_FIELD_WIDTH = (QP_COLUMNS - 1) * QP_PITCH + QP_DOT
+/* How deep the field is spread, as a multiple of its own pitch. Enough that the
+   column has a near and a far side to find when it turns; not so much that the
+   board's arrangement stops reading head-on, or that the column comes apart
+   into loose dots once it is side on. */
+const QP_DEPTH_RATIO = 0.7
+
+/* Distance from the centre of a drawn ground shadow -> how dark it is there,
+   as a fraction of its peak. Sampled off the Figma plate for Module 09, which
+   is the only artwork on the floor that draws one. */
+const GROUND_SHADOW_PROFILE = Object.freeze([
+  [0, 1], [0.3, 0.96], [0.5, 0.87], [0.7, 0.72], [0.8, 0.55], [0.9, 0.24], [1, 0]
+])
+/* The module's six inks, as the plate's flat colours. The shade each one falls
+   to on the artwork is a consistent 60% of it warmed back towards blue, which
+   is a light-to-shade ratio of about 1.44 — the number the card's `contrast`
+   is set from, below. The values live here rather than in the module's own
+   table because that table names them for a stylesheet, and this is the other
+   place they are drawn. */
+const QP_INKS = Object.freeze({
+  blue: '#0078d4',
+  purple: '#8661c5',
+  teal: '#49c5b1',
+  grey: '#b1b3b3',
+  slate: '#7b7b7b',
+  mist: '#d9d9d9'
+})
+
+/* The shader offers two ways to shade a surface, and only one of them suits
+   this artwork.
+
+   Its matte term runs the ball light-to-dark top-to-bottom, which is not where
+   the plate's gradient goes — on the plate the light comes from over the
+   visitor's right shoulder and the shading runs diagonally away from it. Its
+   directional term does exactly that, and with a range wide enough to reach
+   the plate's own contrast, so the spheres take that one and the vertical mix
+   is switched off by handing both of its ends the same colour.
+
+   That leaves one number to set: the tone which, lit, peaks at the plate's
+   flat colour. The directional term's high end is about 1.3x at the contrast
+   below, so the tone is the ink divided by that — fitted against the rendered
+   card rather than taken from the shader, since the renderer's tone mapping
+   sits in between. */
+const QP_TONE_GAIN = 1.3
+
 
 /*
  * New-style nav previews: one sphere centred in the visual, tinted by the
@@ -135,7 +192,28 @@ const SCENE_DEFS = {
     dur: 10,
     drift: 0
   }],
-  'build-majorana-2': [{ ...SPHERE, color: PURPLE, dur: 5.8 }]
+  'build-majorana-2': [{ ...SPHERE, color: PURPLE, dur: 5.8 }],
+  /* The stack, standing rather than lying on the page. It is much taller than
+     it is wide, so `s` sizes it well under the round objects beside it: `s` is
+     the field's width, and this field is nearly three times as tall as wide.
+     Square-on to start, because that is the arrangement the board draws and
+     the one a visitor should meet; turning it is theirs to do. No turntable
+     for the same reason the topoconductor has none — an idle spin would swing
+     the composition off the framing it was drawn for. */
+  'quantum-platform': [{
+    ...SPHERE,
+    type: 'stack-column',
+    color: BLUE,
+    s: 15,
+    y: 44,
+    dur: 8.4,
+    drift: 10,
+    /* Painted, not projected — see the drawn-shadow block in the pool. Its
+       width is the plate's: a touch wider than the field itself. */
+    groundShadow: { widthRatio: 1.08, opacity: 0.21, forward: 0.5 },
+    autoRotate: false,
+    startAngle: 0
+  }]
 }
 
 const CAMERA_DISTANCE = MODULE_NAVIGATION_PROJECTION.distance
@@ -916,6 +994,61 @@ function buildShapeMesh(THREE, RoundedBoxGeometry, def, radius, material, makeMa
       }
       instanced.instanceMatrix.needsUpdate = true
     }
+  } else if (def.type === 'stack-column') {
+    /* Module 09's quantum stack, as an object rather than a drawing.
+       The field itself — which of the 44 lattice positions carry a dot, and in
+       which of the six inks — is the module's own table, so the card and the
+       module cannot drift apart.
+
+       The board draws that field flat, and a flat field is not something a
+       visitor can turn: side on it would be a line. So the dots take a shallow
+       depth as well. It is deterministic rather than random — a kiosk that
+       reshuffles its own menu art between sessions is a kiosk with a bug — and
+       shallow enough that head-on the composition is still the board's.
+
+       One geometry and six materials for all 27, since every dot is the same
+       ball in one of the same handful of colours. */
+    const fieldWidth = radius * 2
+    const pitch = fieldWidth * (QP_PITCH / QP_FIELD_WIDTH)
+    const dotRadius = (fieldWidth * (QP_DOT / QP_FIELD_WIDTH)) / 2
+    const depth = pitch * QP_DEPTH_RATIO
+    const rows = QP_DOT_ROWS.length
+
+    const dotGeometry = new THREE.SphereGeometry(dotRadius, 32, 24)
+    const inks = new Map()
+    const inkMaterial = ink => {
+      if (!inks.has(ink)) {
+        const dotMaterial = makeMaterial ? makeMaterial(QP_INKS[ink]) : material
+        /* One tone at both ends, so the light is the only thing shading these
+           balls. The shared tint would instead roll a shadow by pushing the
+           hue round and mixing in a dark violet — right for the pearls on the
+           other cards, and what made these read cold and unlike the plate. */
+        const tone = new THREE.Color(QP_INKS[ink]).multiplyScalar(1 / QP_TONE_GAIN)
+        dotMaterial.uniforms?.uLight.value.copy(tone)
+        dotMaterial.uniforms?.uShadow.value.copy(tone)
+        inks.set(ink, dotMaterial)
+      }
+      return inks.get(ink)
+    }
+
+    /* The standard GLSL hash, used here for the one thing it is good at: a
+       fixed, evenly spread number per lattice position. */
+    const stagger = (row, column) => {
+      const noise = Math.sin(row * 12.9898 + column * 78.233) * 43758.5453
+      return (noise - Math.floor(noise) - 0.5) * depth
+    }
+
+    QP_DOT_ROWS.forEach((row, rowIndex) => {
+      for (const dot of row) {
+        const mesh = new THREE.Mesh(dotGeometry, inkMaterial(dot.ink))
+        mesh.position.set(
+          (dot.column - (QP_COLUMNS - 1) / 2) * pitch,
+          ((rows - 1) / 2 - rowIndex) * pitch,
+          stagger(rowIndex, dot.column)
+        )
+        group.add(mesh)
+      }
+    })
   } else if (def.type === 'board') {
     /* Simplified Majorana 2 puck: gold frame, blue PCB, gold modules, silver die. */
     const gold = makeMaterial ? makeMaterial(GOLD) : material
@@ -1006,7 +1139,7 @@ export async function createShapeScenePool({ hosts, isVisible, onActivity }) {
     HorizontalBlurShader = hBlur.HorizontalBlurShader
     VerticalBlurShader = vBlur.VerticalBlurShader
     RectAreaLightUniformsLib = rectArea.RectAreaLightUniformsLib
-    RectAreaLightUniformsLib.init()
+    ensureRectAreaLightUniformsInitialized(RectAreaLightUniformsLib)
     GLTFLoader = gltf.GLTFLoader
   } catch (error) {
     console.warn('Shape scenes: three.js could not be loaded.', error)
@@ -1148,7 +1281,8 @@ export async function createShapeScenePool({ hosts, isVisible, onActivity }) {
   /* Shared across all card previews: the hex-ball geometry is built once and
      cloned per scene; the brushed reflection map feeds every gloss coat. */
   const ballTemplate = createBallTemplate(THREE, BufferGeometryUtils)
-  const brushedEnv = createBrushedEnv(THREE, pmrem)
+  const brushedEnvironment = createBrushedEnv(THREE, pmrem)
+  const brushedEnv = brushedEnvironment.texture
 
   /* Contact-shadow pipeline (after webgl_shadow_contact), shared materials. */
   const contactDepthMat = new THREE.MeshDepthMaterial()
@@ -1270,6 +1404,39 @@ export async function createShapeScenePool({ hosts, isVisible, onActivity }) {
       keyY: 3,
       keyZ: 2,
       hemiIntensity: 0.45
+    },
+    /* Module 09's plate is lit from over the visitor's right shoulder, not the
+       left: on every sphere in it the brightest point sits at 0.54 right and
+       0.76 up from the centre, which is this direction. World-space, so
+       turning the column moves the lit side rather than carrying it round. */
+    'quantum-platform': {
+      dirX: 0.54,
+      dirY: 0.76,
+      dirZ: 0.36
+    }
+  }
+
+  /* Per-module finish overrides, the material-side companion to the light rig
+     above. The floor's objects are pearls — iridescent, glossy, sparkling —
+     and Module 09's are not: the plate draws flat matte balls with one broad
+     soft gradient and no highlight of their own. */
+  const MODULE_MATERIAL_OVERRIDES = {
+    'quantum-platform': {
+      /* Shading comes from the directional term alone: no matte blend, no
+         studio wash, and none of the pearl finish. `contrast` is the one that
+         matters — it sets how far the surface swings either side of its tone,
+         and 0.58 is the plate's own light-to-shade ratio of about 1.44. */
+      contrast: 0.58,
+      diffuseMix: 0,
+      envWash: 0,
+      irid: 0,
+      spec: 0,
+      gloss: 0,
+      rim: 0,
+      /* The negative fill darkens toward the bottom right; on this rig that is
+         the lit side, so it would be cutting into the highlight. */
+      shadowSide: 0,
+      grain: 0
     }
   }
 
@@ -1494,18 +1661,22 @@ export async function createShapeScenePool({ hosts, isVisible, onActivity }) {
   }
 
   const entries = hosts.map((host, hostIndex) => {
-    const defs = SCENE_DEFS[host.moduleId]
+    const defs = host.gridOnly ? [] : SCENE_DEFS[host.moduleId]
     if (!defs) return null
-    const allowsUserOrbit = allowsShapeSceneUserOrbit(host.moduleId)
+    const allowsUserOrbit = !host.gridOnly && allowsShapeSceneUserOrbit(host.moduleId)
 
     /* Per-scene copies: the dev panel tunes each card independently. */
-    const entryMaterialParams = { ...defaultMaterialParams }
+    const entryMaterialParams = {
+      ...defaultMaterialParams,
+      ...MODULE_MATERIAL_OVERRIDES[host.moduleId]
+    }
     const entryLightParams = {
       ...defaultLightParams,
       ...MODULE_LIGHT_OVERRIDES[host.moduleId]
     }
     const entryUniforms = createUniformSet(entryMaterialParams)
     const accentLights = []
+    const drawnShadows = []
     const entryIceUniforms = []
     let entryLightScale = 1
 
@@ -1760,6 +1931,50 @@ export async function createShapeScenePool({ hosts, isVisible, onActivity }) {
       }
     })
 
+    /* A drawn ground shadow, for objects the rendered one cannot serve. The
+       rendered contact shadow works by reading an object's depth from just
+       under the floor, which needs the object to be sitting more or less on
+       it; a tall column floating above the plane projects almost nothing.
+
+       So this one is painted rather than derived — the same soft ellipse the
+       board's own artwork carries, at the profile measured off it: peaking at
+       21% black and easing to nothing at the rim. It is a circle on the
+       ground, so the camera's own 11-degree pitch is what flattens it to the
+       ellipse the plate draws, and turning the object leaves it unchanged. */
+    for (const shape of shapes) {
+      const spec = shape.def.groundShadow
+      if (!spec) continue
+      const canvas = document.createElement('canvas')
+      canvas.width = 128
+      canvas.height = 128
+      const paint = canvas.getContext('2d')
+      const falloff = paint.createRadialGradient(64, 64, 0, 64, 64, 64)
+      for (const [stop, darkness] of GROUND_SHADOW_PROFILE) {
+        falloff.addColorStop(stop, `rgba(0, 0, 0, ${(darkness * spec.opacity).toFixed(4)})`)
+      }
+      paint.fillStyle = falloff
+      paint.fillRect(0, 0, 128, 128)
+      const texture = new THREE.CanvasTexture(canvas)
+      texture.colorSpace = THREE.SRGBColorSpace
+      const diameter = spec.widthRatio * ((shape.def.s / 100) * frustumWidth)
+      const disc = new THREE.Mesh(
+        new THREE.PlaneGeometry(diameter, diameter).rotateX(-Math.PI / 2),
+        new THREE.MeshBasicMaterial({ map: texture, transparent: true, depthWrite: false })
+      )
+      disc.renderOrder = 1
+      /* Nudged toward the visitor along the floor rather than dropped below
+         it: the shadow stays welded to the ground plane the grid establishes,
+         and the camera's downward pitch is what turns that into sitting lower
+         under the object. */
+      disc.position.set(
+        shape.baseX,
+        groundPlacement.y - groundThickness - groundDrop + 0.004,
+        (spec.forward ?? 0) * diameter
+      )
+      scene.add(disc)
+      drawnShadows.push(disc)
+    }
+
     /* Contact shadow: render the ball's depth from under the floor, blur it,
        and use it as the ground shadow texture — same look as the module view. */
     const ballShape = shapes.find(
@@ -1828,6 +2043,7 @@ export async function createShapeScenePool({ hosts, isVisible, onActivity }) {
 
     const sceneEntry = {
       contactShadow,
+      drawnShadows,
       host: host.element,
       moduleId: host.moduleId,
       materialParams: entryMaterialParams,
@@ -1853,7 +2069,7 @@ export async function createShapeScenePool({ hosts, isVisible, onActivity }) {
          def. It used to be a moduleId check for build-nanowire alone; reading it
          from the def means a new scene declares its own behaviour instead of
          this list growing. Pointer orbit is separate — see userOrbit. */
-      orbitSpeed: allowsShapeSceneAutoRotate(host.moduleId)
+      orbitSpeed: !host.gridOnly && allowsShapeSceneAutoRotate(host.moduleId)
         ? (hostIndex % 2 === 0 ? 1 : -1) * 0.11
         : 0,
       /* The angle the scene rests at, and the one a non-rotating scene simply
@@ -2586,6 +2802,11 @@ export async function createShapeScenePool({ hosts, isVisible, onActivity }) {
           shape.group.userData.dispose?.()
           shape.ball?.dispose()
         }
+        for (const disc of entry.drawnShadows ?? []) {
+          disc.geometry.dispose()
+          disc.material.map?.dispose()
+          disc.material.dispose()
+        }
         if (entry.contactShadow) {
           entry.contactShadow.rt.dispose()
           entry.contactShadow.rtBlur.dispose()
@@ -2598,7 +2819,7 @@ export async function createShapeScenePool({ hosts, isVisible, onActivity }) {
       contactVBlur.dispose()
       iceGeometry?.dispose()
       ballTemplate.dispose()
-      brushedEnv.dispose()
+      brushedEnvironment.dispose()
       environmentRenderTarget.dispose()
       iceEnvironmentRenderTarget.dispose()
       renderer.dispose()

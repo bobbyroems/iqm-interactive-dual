@@ -11,6 +11,7 @@ import {
 } from './coin-assets.js'
 import { BUOY_SCREEN_EAST_YAW, cloneBuoy } from './interference-assets.js'
 import { calculateQvcPixelRatio } from './render-quality.js'
+import { leaseWebGLRenderer } from '../../core/webgl-renderer-pool.js'
 
 const INTERFERENCE_PREVIEW_BUOY_Y = -1.16
 const INTERFERENCE_PREVIEW_PITCH = 15 * Math.PI / 180
@@ -64,11 +65,12 @@ export function createMenuScene(
 
     const scene = new THREE.Scene()
     const camera = new THREE.PerspectiveCamera(30, 1, 0.1, 40)
-    const renderer = new THREE.WebGLRenderer({
+    const rendererLease = leaseWebGLRenderer(THREE, {
       antialias: true,
       alpha: true,
       powerPreference: 'high-performance'
     })
+    const { renderer } = rendererLease
     renderer.setClearColor(0x000000, 0)
     renderer.setClearAlpha(0)
     renderer.domElement.className = 'qvc__menu-canvas'
@@ -107,6 +109,7 @@ export function createMenuScene(
       scene,
       camera,
       renderer,
+      rendererLease,
       poster,
       posterContext,
       rig,
@@ -341,8 +344,10 @@ export function createMenuScene(
       view.rig.restoreEnvironment()
       view.viewport = null
       resizeView(view)
-      view.renderer.compile(view.scene, view.camera)
       view.update(clock.getElapsedTime(), 0.001)
+      /* The render itself performs the only compile we need. A separate
+         compile immediately beforehand leaves Three's temporary shader pair
+         alive when this short-lived selector is disposed. */
       view.renderer.render(view.scene, view.camera)
       view.renderer.getContext().finish()
       snapshotView(view)
@@ -388,12 +393,9 @@ export function createMenuScene(
   }
 
   const ready = (async () => {
-    /* Synchronous compile is intentional. Three's compileAsync polling is not
-       cancellation-safe if an abort disposes a renderer mid-warmup. This work
-       happens behind the opaque wipe and involves only three tiny scenes. */
-    for (const view of views) view.renderer.compile(view.scene, view.camera)
-    if (disposed) return
-
+    /* The first hidden render compiles exactly the variants it presents. Do
+       not precompile: Three retains the precompile-only shader pair after the
+       selector's materials are disposed. */
     renderFrame({ finish: true, snapshot: true })
     await waitForReadinessFrame()
     if (disposed) return
@@ -442,12 +444,13 @@ export function createMenuScene(
         view.disposeCluster?.()
         view.rig.dispose()
         view.poster.remove()
-        view.renderer.domElement.remove()
-        view.renderer.dispose()
-        view.renderer.forceContextLoss()
       }
       for (const material of coinMaterials) material.dispose()
       coinMaterials.clear()
+      for (const view of views) {
+        view.scene.clear()
+        view.rendererLease.release()
+      }
     }
   }
 }

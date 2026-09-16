@@ -1,32 +1,79 @@
 const freezeRange = (startMs, endMs) => Object.freeze({ startMs, endMs })
 
+// Authored leg durations for the one-shot intro. Nothing on the screen accepts
+// a tap until the intro reaches `copy.endMs`, so the sum of these legs is the
+// visitor's lockout budget - keep it short and retune it here rather than in
+// the derived timestamps below.
+const INTRO_LEGS = Object.freeze({
+  enterMs: 300,
+  externalMs: 1_000,
+  cmosHoldMs: 900,
+  controlMs: 780,
+  qpuHoldMs: 900,
+  readoutMs: 1_000,
+  copyDelayMs: 150,
+  copyFadeMs: 400,
+  loopHandoffMs: 300
+})
+
+// The looping cycle runs a little slower than the intro: by then the visitor
+// can interact, so the pace serves reading rather than getting out of the way.
+const LOOP_LEGS = Object.freeze({
+  externalMs: 1_400,
+  cmosHoldMs: 1_000,
+  controlMs: 900,
+  qpuHoldMs: 1_000,
+  readoutMs: 1_400,
+  pauseMs: 400
+})
+
+// Each label fades in a beat after its own leg starts, so the copy follows the
+// pulse instead of racing it.
+const LABEL_FADE_MS = 250
+const LABEL_DELAY_RATIO = 0.36
+
+const introExternalStartMs = INTRO_LEGS.enterMs
+const introCmosHoldStartMs = introExternalStartMs + INTRO_LEGS.externalMs
+const introControlStartMs = introCmosHoldStartMs + INTRO_LEGS.cmosHoldMs
+const introQpuHoldStartMs = introControlStartMs + INTRO_LEGS.controlMs
+const introReadoutStartMs = introQpuHoldStartMs + INTRO_LEGS.qpuHoldMs
+const introReadoutEndMs = introReadoutStartMs + INTRO_LEGS.readoutMs
+const copyStartMs = introReadoutEndMs + INTRO_LEGS.copyDelayMs
+const copyEndMs = copyStartMs + INTRO_LEGS.copyFadeMs
+
+function labelRange(legStartMs, legDurationMs) {
+  const startMs = legStartMs + Math.round(legDurationMs * LABEL_DELAY_RATIO)
+  return freezeRange(startMs, startMs + LABEL_FADE_MS)
+}
+
 export const PATHWAYS_TIMINGS = Object.freeze({
-  enterEndMs: 500,
-  junctionHoldMs: 2_000,
-  pulseAbsorptionMs: 320,
-  pulseEmissionMs: 320,
+  enterEndMs: INTRO_LEGS.enterMs,
+  junctionHoldMs: LOOP_LEGS.cmosHoldMs,
+  pulseAbsorptionMs: 260,
+  pulseEmissionMs: 260,
   intro: Object.freeze({
-    external: freezeRange(500, 1_883),
-    cmosHold: freezeRange(1_883, 3_883),
-    control: freezeRange(3_883, 4_953),
-    qpuHold: freezeRange(4_953, 6_953),
-    readout: freezeRange(6_953, 8_336)
+    external: freezeRange(introExternalStartMs, introCmosHoldStartMs),
+    cmosHold: freezeRange(introCmosHoldStartMs, introControlStartMs),
+    control: freezeRange(introControlStartMs, introQpuHoldStartMs),
+    qpuHold: freezeRange(introQpuHoldStartMs, introReadoutStartMs),
+    readout: freezeRange(introReadoutStartMs, introReadoutEndMs)
   }),
   labels: Object.freeze({
-    external: freezeRange(1_000, 1_350),
-    control: freezeRange(4_195, 4_545),
-    readout: freezeRange(7_415, 7_765)
+    external: labelRange(introExternalStartMs, INTRO_LEGS.externalMs),
+    control: labelRange(introControlStartMs, INTRO_LEGS.controlMs),
+    readout: labelRange(introReadoutStartMs, INTRO_LEGS.readoutMs)
   }),
-  copy: freezeRange(8_648, 9_273),
-  loopStartMs: 9_773,
+  copy: freezeRange(copyStartMs, copyEndMs),
+  loopStartMs: copyEndMs + INTRO_LEGS.loopHandoffMs,
   loop: Object.freeze({
-    externalMs: 1_970,
-    cmosHoldMs: 2_000,
-    controlMs: 1_270,
-    qpuHoldMs: 2_000,
-    readoutMs: 1_970,
-    pauseMs: 600,
-    durationMs: 9_810
+    ...LOOP_LEGS,
+    durationMs:
+      LOOP_LEGS.externalMs +
+      LOOP_LEGS.cmosHoldMs +
+      LOOP_LEGS.controlMs +
+      LOOP_LEGS.qpuHoldMs +
+      LOOP_LEGS.readoutMs +
+      LOOP_LEGS.pauseMs
   }),
   componentGlowRadiusMs: 225
 })
@@ -36,10 +83,13 @@ const smoothstep = value => {
   const clamped = clamp01(value)
   return clamped * clamped * (3 - (2 * clamped))
 }
+// A selected pathway replays the loop's own travel legs, and
+// `getPathwaysContinuationElapsed` maps one timeline onto the other by
+// assuming they match. Derive them so the two cannot drift apart.
 const DETAIL_PATHWAY_TRAVEL_MS = Object.freeze({
-  external: 1_970,
-  control: 1_270,
-  readout: 1_970
+  external: PATHWAYS_TIMINGS.loop.externalMs,
+  control: PATHWAYS_TIMINGS.loop.controlMs,
+  readout: PATHWAYS_TIMINGS.loop.readoutMs
 })
 
 const OVERVIEW_PATHWAY_START_MS = Object.freeze({

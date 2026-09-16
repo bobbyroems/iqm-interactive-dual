@@ -12,11 +12,12 @@ const BASE_MODULE_ASSETS = Object.freeze([
      baked back into the experience unnoticed. */
   { path: 'assets/modules/nanoscale/splash-room.webp', type: 'webp', minimumBytes: 200_000 },
   { path: 'assets/modules/nanoscale/cryostat.webp', type: 'webp', minimumBytes: 100_000 },
+  /* The arm's tip as its own close-up, for the Module 06 finale's pull-out. */
+  { path: 'assets/modules/nanoscale/coldfinger.webp', type: 'webp', minimumBytes: 100_000 },
   { path: 'assets/modules/nanoscale/majorana-2.webp', type: 'webp', minimumBytes: 100_000 },
   { path: 'assets/modules/nanoscale/qpu-chip-clean.webp', type: 'webp', minimumBytes: 100_000 },
   { path: 'assets/modules/nanoscale/qubit-array-clean.webp', type: 'webp', minimumBytes: 100_000 },
   { path: 'assets/modules/nanoscale/nanowire-clean.webp', type: 'webp', minimumBytes: 100_000 },
-  { path: 'assets/modules/nanoscale/qpu-chip-background.webp', type: 'webp', minimumBytes: 100_000 },
   { path: 'assets/modules/nanoscale/qpu-chip-focal.webp', type: 'webp', minimumBytes: 100_000 },
   { path: 'assets/modules/nanoscale/qubit-array-background.webp', type: 'webp', minimumBytes: 1_000_000 },
   { path: 'assets/modules/nanoscale/nanowire-background.webp', type: 'webp', minimumBytes: 1_000_000 },
@@ -25,6 +26,24 @@ const BASE_MODULE_ASSETS = Object.freeze([
   { path: 'assets/modules/states-of-matter/Ice+Cube.glb', type: 'glb', minimumBytes: 7_000_000 },
   { path: 'assets/modules/states-of-matter/som-poster.jpg', type: 'jpg', minimumBytes: 40_000 },
   { path: 'assets/modules/protecting-information/module-selection-screen.mp4', type: 'mp4', minimumBytes: 1_000_000 },
+  /* Module 07's six delivered beats, alternating build and reading frame:
+     opening build, measurement-pair loop, sequence build, measurement-sequence
+     loop, information-cloud build, and the final loop.
+
+     VP9-alpha WebM, not MP4: the re-delivered masters carry a real alpha
+     channel so the module's gradient shows through instead of the footage
+     painting its own surface over the stage. The thresholds are far below the
+     old opaque set's because dropping the baked background dropped 51 MB to
+     13 MB -- the grey field outside the device is absent now rather than
+     compressed -- and lower again since these were re-baked at 1440 x 2560 to
+     get the decode inside frame budget, which took 13 MB to 7.7 MB. See
+     docs/ASSET-PRODUCTION-NOTES.md. */
+  { path: 'assets/modules/measurement-based/IQM_MultiQubit_VIDEO_split-001.webm', type: 'webm', minimumBytes: 240_000 },
+  { path: 'assets/modules/measurement-based/IQM_MultiQubit_VIDEO_split-002.webm', type: 'webm', minimumBytes: 80_000 },
+  { path: 'assets/modules/measurement-based/IQM_MultiQubit_VIDEO_split-003.webm', type: 'webm', minimumBytes: 1_030_000 },
+  { path: 'assets/modules/measurement-based/IQM_MultiQubit_VIDEO_split-004.webm', type: 'webm', minimumBytes: 930_000 },
+  { path: 'assets/modules/measurement-based/IQM_MultiQubit_VIDEO_split-005.webm', type: 'webm', minimumBytes: 1_180_000 },
+  { path: 'assets/modules/measurement-based/IQM_MultiQubit_VIDEO_split-006.webm', type: 'webm', minimumBytes: 1_000_000 },
   /* Deterministic field textures are baked losslessly so module startup only
      decodes images instead of running millions of CPU noise samples. */
   { path: 'assets/modules/states-of-matter/frost/noise.png', type: 'png', minimumBytes: 100_000 },
@@ -35,10 +54,12 @@ const BASE_MODULE_ASSETS = Object.freeze([
   { path: 'assets/audio/som-water-drip.ogg', type: 'ogg', minimumBytes: 40_000 },
   { path: 'assets/audio/som-steam-hiss.ogg', type: 'ogg', minimumBytes: 40_000 },
   { path: 'assets/audio/285555-Whoosh_-Low_gentle-slow_calm_and_deep.wav', type: 'wav', minimumBytes: 700_000 },
+  /* Module 05's payoff when all three dials land in target. */
+  { path: 'assets/audio/ESM_New_Bonus_2_Sound_FX_Arcade_Casino_Kids_Mobile_App.wav', type: 'wav', minimumBytes: 300_000 },
   { path: 'assets/modules/differences/Buoy.glb', type: 'glb', minimumBytes: 150_000 },
   { path: 'assets/modules/differences/coins/US Coins OBj.obj', type: 'obj', minimumBytes: 200_000 },
-  { path: 'assets/modules/differences/coins/TwentyFive_Cent_Color.png', type: 'png', minimumBytes: 7_000_000 },
-  { path: 'assets/modules/differences/coins/TwentyFive_Cent_Bump.png', type: 'png', minimumBytes: 1_000_000 },
+  { path: 'assets/modules/differences/coins/TwentyFive_Cent_Color.bmp', type: 'bmp', minimumBytes: 8_000_000 },
+  { path: 'assets/modules/differences/coins/TwentyFive_Cent_Bump.bmp', type: 'bmp', minimumBytes: 8_000_000 },
   { path: 'assets/modules/differences/coins/TwentyFive_Cent_Color01.jpg', type: 'jpg', minimumBytes: 800_000 },
   { path: 'assets/modules/differences/coins/TwentyFive_Cent_Color02.jpg', type: 'jpg', minimumBytes: 800_000 },
   { path: 'assets/modules/differences/coins/TwentyFive_Cent_Color03.jpg', type: 'jpg', minimumBytes: 800_000 },

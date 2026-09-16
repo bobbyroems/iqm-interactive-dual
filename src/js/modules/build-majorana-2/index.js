@@ -26,7 +26,7 @@ import {
   SECTION_TRANSITION_TIMINGS,
   transformBetweenRects
 } from './section-transition-motion.js'
-import { createUpNextBanner } from '../../core/up-next-banner.js'
+import { mountModuleOutro } from '../module-outro.js'
 import {
   createKioskExplainer,
   disposeKioskExplainer,
@@ -36,7 +36,6 @@ import {
   createKioskTooltip,
   updateKioskTooltip
 } from '../../core/kiosk-tooltip.js'
-import { nextPlayableModule } from '../module-registry.js'
 import {
   createMajoranaState,
   getMajoranaBuildProgress,
@@ -57,15 +56,15 @@ const TAB_ORDER = Object.freeze(Object.keys(TAB_LABELS))
 const PATHWAY_IDS = Object.freeze(['external', 'control', 'readout'])
 const PATHWAY_DETAILS = Object.freeze({
   external: Object.freeze({
-    title: 'Connection to External Instrumentation',
+    title: 'Connection to external instrumentation',
     body: 'This pathway connects room-temperature electronics to a cryogenic environment over 100x colder than outer space.'
   }),
   control: Object.freeze({
-    title: 'Control Signals to QPU',
+    title: 'Control signals to QPU',
     body: 'More qubits usually means more wiring. Placing the Cryo-CMOS next to the qubits helps reduce the wiring needed to scale.'
   }),
   readout: Object.freeze({
-    title: 'Qubit Readout',
+    title: 'Qubit readout',
     body: "Measuring a qubit changes its state. That's why the signal in this pathway comes from nearby sensors, not the qubit itself."
   })
 })
@@ -75,13 +74,13 @@ const PATHWAY_DETAILS = Object.freeze({
    by describing what the placed part cannot do on its own. */
 const BUILD_PANEL_COPY = Object.freeze({
   'qpu-first': 'The QPU stack generates quantum signals. It still needs instructions from the cryo-CMOS.',
-  'cryo-first': 'The cryo-CMOS sends instructions to the quantum processor. Without a QPU stack, there is nothing to control.',
+  'cryo-first': 'The cryo-CMOS sends instructions to the quantum processor. But without a QPU stack, there is nothing to control.',
   complete: 'Together, the cryo-CMOS and QPU stack form a complete quantum processing module.'
 })
 const BUILD_TOOLTIP_COPY = Object.freeze({
-  initial: 'Drag and drop the missing components on the M2',
+  initial: 'Drag and drop the missing components on M2',
   'qpu-first': 'Awaiting instructions. Add missing component.',
-  'cryo-first': 'Awaiting quantum signals. Add missing component.',
+  'cryo-first': 'Awaiting quantum hardware. Add missing component.',
   complete: 'Tap anywhere to finish'
 })
 const COMPONENTS_RELOCATION_MS = 1_800
@@ -157,14 +156,14 @@ function moduleMarkup() {
           <span class="majorana-brand__quantum">Quantum</span>
         </div>
 
-        <div class="majorana-module__actions">
-          <button class="majorana-utility-action" type="button" data-majorana-action="restart">
+        <div class="microsoft-header__actions">
+          <button class="microsoft-header__action" type="button" data-majorana-action="restart">
             <span>Restart</span>
-            <img src="${restartIcon}" alt="">
+            <span class="microsoft-header__action-icon" aria-hidden="true"><img src="${restartIcon}" alt=""></span>
           </button>
-          <button class="majorana-utility-action" type="button" data-majorana-action="exit">
+          <button class="microsoft-header__action" type="button" data-majorana-action="exit">
             <span>Exit</span>
-            <img src="${exitIcon}" alt="">
+            <span class="microsoft-header__action-icon" aria-hidden="true"><img src="${exitIcon}" alt=""></span>
           </button>
         </div>
       </header>
@@ -192,7 +191,7 @@ function moduleMarkup() {
               class="majorana-focus-component majorana-focus-component--qpu"
               type="button"
               data-majorana-component-inspect="qpu-stack"
-              aria-label="Rotate the QPU Stack to inspect it"
+              aria-label="Rotate the QPU stack to inspect it"
               aria-describedby="majorana-qpu-description"
             >
               <span class="majorana-focus-component__idle">
@@ -298,17 +297,17 @@ function moduleMarkup() {
                documented local-label exception to the shared explainer surface. -->
           <img class="majorana-pathway-connector majorana-pathway-connector--external" src="${pathwayLabelLine}" alt="" aria-hidden="true">
           <div class="majorana-pathway-tooltip majorana-pathway-tooltip--external" data-pathway-label="external">
-            <span class="majorana-pathway-tooltip__title">Instructions From External Instrumentation</span>
+            <span class="majorana-pathway-tooltip__title">Instructions from external instrumentation</span>
           </div>
 
           <img class="majorana-pathway-connector majorana-pathway-connector--readout" src="${pathwayLabelLine}" alt="" aria-hidden="true">
           <div class="majorana-pathway-tooltip majorana-pathway-tooltip--readout" data-pathway-label="readout">
-            <span class="majorana-pathway-tooltip__title">Quantum Information Readout</span>
+            <span class="majorana-pathway-tooltip__title">Quantum information readout</span>
           </div>
 
           <img class="majorana-pathway-connector majorana-pathway-connector--control" src="${pathwayLabelLineControl}" alt="" aria-hidden="true">
           <div class="majorana-pathway-tooltip majorana-pathway-tooltip--control" data-pathway-label="control">
-            <span class="majorana-pathway-tooltip__title">Control Signals To QPU</span>
+            <span class="majorana-pathway-tooltip__title">Control signals to QPU</span>
           </div>
 
           <div class="majorana-pathways__copy" data-majorana-explainer="pathways" data-pathways-copy></div>
@@ -323,7 +322,9 @@ function moduleMarkup() {
             <svg class="majorana-component-holder__border" viewBox="0 0 1310.068 830.757" preserveAspectRatio="none" focusable="false">
               <rect x="2.25" y="2.25" width="1305.568" height="826.257" rx="31.191" />
             </svg>
-            <p class="majorana-component-holder__title">Drag and drop the components</p>
+            <!-- No holder title here: these chips are a preview of what the
+                 build screen will hand over, and nothing in this view can be
+                 dragged yet. -->
             <figure class="majorana-pathways__component majorana-pathways__component--qpu">
               <span class="majorana-pathways__component-visual majorana-pathways__component-visual--qpu">
                 <span class="majorana-pathways__qpu-shell"></span>
@@ -335,7 +336,7 @@ function moduleMarkup() {
                   data-majorana-pathways-model="qpu-stack"
                 ></span>
               </span>
-              <figcaption>QPU Stack</figcaption>
+              <figcaption>QPU stack</figcaption>
             </figure>
             <figure class="majorana-pathways__component majorana-pathways__component--cmos">
               <span class="majorana-pathways__component-visual majorana-pathways__component-visual--cmos">
@@ -402,11 +403,13 @@ function moduleMarkup() {
           </div>
 
           <div class="majorana-build__placed-labels" aria-hidden="true">
-            <span class="majorana-build__placed-label majorana-build__placed-label--qpu-stack">QPU Stack</span>
+            <span class="majorana-build__placed-label majorana-build__placed-label--qpu-stack">QPU stack</span>
             <span class="majorana-build__placed-label majorana-build__placed-label--cryo-cmos">Cryo-CMOS</span>
           </div>
 
-          <div class="majorana-build__explanation" data-majorana-explainer="build" aria-live="polite"></div>
+          <div class="majorana-build__explanation majorana-build__explanation--qpu" data-majorana-explainer="build-qpu" aria-live="polite"></div>
+          <div class="majorana-build__explanation majorana-build__explanation--cryo" data-majorana-explainer="build-cryo" aria-live="polite"></div>
+          <div class="majorana-build__summary" data-majorana-explainer="build-summary" aria-live="polite"></div>
           <div class="majorana-build__instruction" data-majorana-tooltip="build" aria-live="polite"></div>
           <button class="majorana-tap-target" type="button" data-majorana-action="finish" aria-label="Finish building Majorana 2" hidden></button>
 
@@ -431,8 +434,8 @@ function moduleMarkup() {
                   data-majorana-build-model="qpu-stack"
                 ></span>
               </span>
-              <span class="majorana-build-part__label">QPU Stack</span>
-              <span class="majorana-build-part__guidance-label">QPU Stack</span>
+              <span class="majorana-build-part__label">QPU stack</span>
+              <span class="majorana-build-part__guidance-label">QPU stack</span>
             </button>
 
             <button
@@ -477,7 +480,7 @@ function moduleMarkup() {
         <div
           class="majorana-schematic"
           role="img"
-          aria-label="Majorana 2 schematic with the QPU Stack and Cryo-CMOS highlighted"
+          aria-label="Majorana 2 schematic with the QPU stack and Cryo-CMOS highlighted"
           aria-hidden="true"
         >
           <div class="majorana-schematic__reveal">
@@ -613,13 +616,13 @@ export function mount(container, options = {}) {
   const componentSummaryExplainer = attachExplainer('components-summary', {
     body: 'Together, the QPU stack and Cryo-CMOS make up two key components of Majorana 2.',
     className: 'majorana-shared-explainer majorana-shared-explainer--components-summary',
-    title: 'Quantum Processing Module'
+    title: 'Quantum processing module'
   })
   const qpuExplainer = attachExplainer('qpu', {
     body: 'The topological qubits reside here',
     className: 'majorana-shared-explainer majorana-shared-explainer--component',
     headingLevel: 3,
-    title: 'QPU Stack'
+    title: 'QPU stack'
   })
   const cmosExplainer = attachExplainer('cmos', {
     body: 'Provides digital control for the qubits',
@@ -632,8 +635,20 @@ export function mount(container, options = {}) {
     className: 'majorana-shared-explainer majorana-shared-explainer--pathways',
     title: 'Quantum information channels'
   })
-  const buildExplainer = attachExplainer('build', {
+  /* One panel per chip rather than one shared by both: each is sized to sit
+     above the component it describes, so once both are seated the board carries
+     both statements at once instead of the second overwriting the first. */
+  const buildQpuExplainer = attachExplainer('build-qpu', {
     className: 'majorana-shared-explainer majorana-shared-explainer--build',
+    hidden: true
+  })
+  const buildCryoExplainer = attachExplainer('build-cryo', {
+    className: 'majorana-shared-explainer majorana-shared-explainer--build',
+    hidden: true
+  })
+  /* And the closing line above the pair, in the space the tray leaves behind. */
+  const buildSummaryExplainer = attachExplainer('build-summary', {
+    className: 'majorana-shared-explainer majorana-shared-explainer--build-summary',
     hidden: true
   })
   const componentsContinueTooltip = attachTooltip('components', 'Tap anywhere to continue')
@@ -644,7 +659,9 @@ export function mount(container, options = {}) {
     qpuExplainer,
     cmosExplainer,
     pathwaysExplainer,
-    buildExplainer
+    buildQpuExplainer,
+    buildCryoExplainer,
+    buildSummaryExplainer
   ]
   if (options.majoranaSceneController) {
     root.classList.add('is-portal-entry')
@@ -700,24 +717,24 @@ export function mount(container, options = {}) {
   buildSection.prepend(finale.element, finale.chipElement)
   const componentsContinueAction = root.querySelector('[data-majorana-action="next-pathways"]')
   const pathwaysContinueAction = root.querySelector('[data-majorana-action="next-build"]')
+  const buildTrayTitle = root.querySelector(
+    '.majorana-build__tray > .majorana-component-holder__title'
+  )
   const finishAction = root.querySelector('[data-majorana-action="finish"]')
   const buildFeedback = root.querySelector('[data-build-feedback]')
 
   /* Offered once the chip is built. Build is the last of the three tabs, so
-     finishing it is finishing the module. What follows comes from the registry,
-     which is what sends this one to 08 while 07 is still in production. */
-  const followingModule = module ? nextPlayableModule(module.id) : null
-  const upNextBanner = followingModule
-      ? createUpNextBanner({
-        title: followingModule.title,
-        delayMs: 0,
-        onContinue: () => {
-          onActivity?.()
-          navigate?.module?.(followingModule.id)
-        }
-      })
-    : null
-  if (upNextBanner) root.append(upNextBanner.element)
+     finishing it is finishing the module. The registry supplies module 07 as
+     the next stop and keeps that route decision out of this feature. */
+  const upNextBanner = mountModuleOutro({
+    module,
+    root,
+    navigate,
+    onActivity,
+    onRestart: () => root.querySelector('[data-majorana-action="restart"]')?.click(),
+    delayMs: 0,
+    popupDelayMs: 2000
+  })
   const buildPartCards = [...root.querySelectorAll('[data-build-part]')]
   const buildSlots = [...root.querySelectorAll('[data-build-slot]')]
   const buildPaths = [...root.querySelectorAll('[data-build-path-index]')]
@@ -1269,6 +1286,7 @@ export function mount(container, options = {}) {
     } else if (currentView() === 'build') {
       buildGuidance.setActive(true)
       buildGuidance.syncPlacements(state.placements)
+      void finale.prepare()
     }
   }
 
@@ -1677,9 +1695,14 @@ export function mount(container, options = {}) {
   function setBuildGuidanceState(snapshot) {
     const partial = snapshot.phase === 'qpu-first' || snapshot.phase === 'cryo-first'
     const completionReady = snapshot.phase === 'complete' && snapshot.completionTooltipVisible
-    const panelCopy = partial || completionReady
-      ? BUILD_PANEL_COPY[snapshot.phase]
-      : ''
+    /* Each chip's line belongs to that chip, so it appears when the chip is
+       seated and stays there. The phase is enough to say which are down. */
+    const complete = snapshot.phase === 'complete'
+    const qpuPlaced = complete || snapshot.phase === 'qpu-first'
+    const cryoPlaced = complete || snapshot.phase === 'cryo-first'
+    const qpuCopy = qpuPlaced ? BUILD_PANEL_COPY['qpu-first'] : ''
+    const cryoCopy = cryoPlaced ? BUILD_PANEL_COPY['cryo-first'] : ''
+    const summaryCopy = completionReady ? BUILD_PANEL_COPY.complete : ''
     const promptKey = completionReady
       ? 'complete'
       : partial
@@ -1697,11 +1720,26 @@ export function mount(container, options = {}) {
       ? 'visible'
       : 'hidden'
 
-    updateKioskExplainer(buildExplainer, {
-      ariaHidden: !panelCopy,
-      body: panelCopy,
-      replay: Boolean(panelCopy),
-      visible: Boolean(panelCopy)
+    /* Replayed only while one slot is still open, which is when a line first
+       arrives. Replaying as the second chip lands would restage copy the
+       visitor is already part way through reading. */
+    updateKioskExplainer(buildQpuExplainer, {
+      ariaHidden: !qpuCopy,
+      body: qpuCopy,
+      replay: Boolean(qpuCopy) && partial,
+      visible: Boolean(qpuCopy)
+    })
+    updateKioskExplainer(buildCryoExplainer, {
+      ariaHidden: !cryoCopy,
+      body: cryoCopy,
+      replay: Boolean(cryoCopy) && partial,
+      visible: Boolean(cryoCopy)
+    })
+    updateKioskExplainer(buildSummaryExplainer, {
+      ariaHidden: !summaryCopy,
+      body: summaryCopy,
+      replay: Boolean(summaryCopy),
+      visible: Boolean(summaryCopy)
     })
     updateKioskTooltip(buildActionTooltip, {
       replay: Boolean(promptKey),
@@ -2197,6 +2235,7 @@ export function mount(container, options = {}) {
       ? 'That component belongs in the other highlighted position. Try again.'
       : ''
     root.classList.toggle('is-build-complete', complete)
+    buildTrayTitle?.setAttribute('aria-hidden', String(complete))
     root.classList.toggle('is-build-qpu-placed', Boolean(state.placements['qpu-stack']))
     root.classList.toggle('is-build-cmos-placed', Boolean(state.placements['cryo-cmos']))
     root.style.setProperty('--majorana-build-progress', String(progress / MAJORANA_PARTS.length))
@@ -2206,18 +2245,20 @@ export function mount(container, options = {}) {
       card.disabled = isPlaced
       card.classList.toggle('is-placed', isPlaced)
       card.setAttribute('aria-label', isPlaced
-        ? `${card.dataset.buildPart === 'qpu-stack' ? 'QPU Stack' : 'Cryo-CMOS'} placed`
-        : `Drag ${card.dataset.buildPart === 'qpu-stack' ? 'QPU Stack' : 'Cryo-CMOS'} onto the board`)
+        ? `${card.dataset.buildPart === 'qpu-stack' ? 'QPU stack' : 'Cryo-CMOS'} placed`
+        : `Drag ${card.dataset.buildPart === 'qpu-stack' ? 'QPU stack' : 'Cryo-CMOS'} onto the board`)
     })
 
     buildSlots.forEach(slot => {
       const isFilled = Boolean(state.placements[slot.dataset.buildSlot])
       slot.classList.toggle('is-filled', isFilled)
-      slot.setAttribute('aria-label', `${slot.dataset.buildSlot === 'qpu-stack' ? 'QPU Stack' : 'Cryo-CMOS'} position${isFilled ? ', filled' : ''}`)
+      slot.setAttribute('aria-label', `${slot.dataset.buildSlot === 'qpu-stack' ? 'QPU stack' : 'Cryo-CMOS'} position${isFilled ? ', filled' : ''}`)
     })
 
     buildGuidance.setActive(view === 'build' && !sectionTransition)
     buildGuidance.syncPlacements(state.placements)
+
+    if (view === 'build' && previousView !== 'build' && !sectionTransition) void finale.prepare()
 
     syncProgressNavigationControls()
 
@@ -2967,7 +3008,7 @@ export function mount(container, options = {}) {
     }
   }
 
-  Promise.resolve(options.sceneStartPromise).then(() => {
+  Promise.resolve(options.sceneStartPromise).then(async () => {
     if (disposed) return null
 
     if (options.majoranaSceneController) {
@@ -2976,12 +3017,9 @@ export function mount(container, options = {}) {
         ...sceneHosts,
         onComponentsReady: markComponentsReady
       })
+      // Do not enable Start while the two component renderers are still warming.
+      await attachment.componentsReady
       markSceneReady(attachment.partsFound)
-      void attachment.componentsReady.catch(error => {
-        if (!disposed && error?.name !== 'AbortError') {
-          console.warn('Majorana component views could not be prepared.', error)
-        }
-      })
       return controller
     }
 

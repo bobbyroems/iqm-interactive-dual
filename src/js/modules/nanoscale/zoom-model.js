@@ -143,6 +143,49 @@ export function dragDeltaToProgress(
   return -designDeltaY / designPixelsPerStop
 }
 
+/** Rightward one-finger travel advances the scale; leftward travel retreats. */
+export function horizontalDragDeltaToProgress(
+  clientDeltaX,
+  stageScale = 1,
+  designPixelsPerStop = 720
+) {
+  return dragDeltaToProgress(-clientDeltaX, stageScale, designPixelsPerStop)
+}
+
+/**
+ * Locks a one-finger gesture to its dominant axis after a small dead zone.
+ * Keeping the axis stable prevents a diagonal swipe from changing direction
+ * midway through the camera move.
+ */
+export function dominantDragAxis(
+  clientDeltaX,
+  clientDeltaY,
+  activationDistance = 6
+) {
+  if (
+    !isFiniteNumber(clientDeltaX) ||
+    !isFiniteNumber(clientDeltaY) ||
+    !isFiniteNumber(activationDistance) ||
+    activationDistance < 0
+  ) return null
+
+  if (Math.max(Math.abs(clientDeltaX), Math.abs(clientDeltaY)) < activationDistance) {
+    return null
+  }
+  return Math.abs(clientDeltaX) > Math.abs(clientDeltaY) ? 'horizontal' : 'vertical'
+}
+
+/**
+ * Maps the dominant wheel/trackpad axis onto the journey's reading direction:
+ * up and left advance; down and right retreat.
+ */
+export function wheelDeltaToProgressDirection(deltaX, deltaY) {
+  if (!isFiniteNumber(deltaX) || !isFiniteNumber(deltaY)) return 0
+  if (deltaX === 0 && deltaY === 0) return 0
+  if (Math.abs(deltaX) > Math.abs(deltaY)) return Math.sign(deltaX) * -1
+  return Math.sign(deltaY) * -1
+}
+
 /**
  * Pinch distance is logarithmic so deltas remain additive and independent of
  * viewport size. Doubling the finger distance advances one stop by default.
@@ -199,6 +242,59 @@ export function constrainGestureProgress(
 ) {
   const bounds = getGestureProgressBounds(gestureStartProgress, stops)
   return clamp(proposedProgress, bounds.minimum, bounds.maximum)
+}
+
+/**
+ * How far past the first or last stop a gesture may stretch, in stops. Small on
+ * purpose: it is a signal, not travel.
+ */
+export const NANOSCALE_EDGE_OVERSHOOT_STOPS = 0.06
+
+/*
+ * Reports whether a gesture is pushing against the end of the whole journey,
+ * and how far it has stretched past it.
+ *
+ * Only the journey's two ends stretch. Capping a long drag at one stop is
+ * deliberate and still snaps somewhere, so lending it the same elastic feel
+ * would say "nothing this way" where a stop is in fact waiting. At the first
+ * and last stop there genuinely is nothing, and a hard clamp there is silent:
+ * the visitor drags and not one pixel moves.
+ *
+ * `progress` stays inside the gesture's bounds, so the camera is never asked to
+ * render a position outside the journey. The stretch is reported separately for
+ * the caller to express as a visual offset, which is what the platform
+ * rubber-band does too — the content shifts while the scroll position stays
+ * pinned to the boundary.
+ */
+export function resolveGestureProgress(
+  proposedProgress,
+  gestureStartProgress,
+  stops = NANOSCALE_STOPS,
+  overshootStops = NANOSCALE_EDGE_OVERSHOOT_STOPS
+) {
+  const bounds = getGestureProgressBounds(gestureStartProgress, stops)
+  const progress = clamp(proposedProgress, bounds.minimum, bounds.maximum)
+  const limit = isFiniteNumber(overshootStops) && overshootStops > 0
+    ? overshootStops
+    : 0
+  const first = stops[0]
+  const last = stops[stops.length - 1]
+
+  if (!isFiniteNumber(proposedProgress) || limit === 0) {
+    return { progress, edge: null, overshoot: 0 }
+  }
+
+  /* Asymptotic, so the stretch eases to `limit` however hard the drag pushes
+     and never reaches a wall of its own. */
+  const stretch = excess => (limit * excess) / (excess + limit)
+
+  if (proposedProgress < first && bounds.minimum === first) {
+    return { progress, edge: 'start', overshoot: stretch(first - proposedProgress) }
+  }
+  if (proposedProgress > last && bounds.maximum === last) {
+    return { progress, edge: 'end', overshoot: stretch(proposedProgress - last) }
+  }
+  return { progress, edge: null, overshoot: 0 }
 }
 
 /**

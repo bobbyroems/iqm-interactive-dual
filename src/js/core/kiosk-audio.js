@@ -12,6 +12,9 @@ const SAMPLES = {
   pop: { src: '/assets/audio/ESM_Perfect_Clean_App_Button_Click_2_Organic_Simple_Classic_Game_Click.ogg', volume: 0.32 },
   dive: { src: '/assets/audio/ESM_Power_On_or_Success_Sync_Radar_Ping_Tonal_LFE_Electronic_Synth.ogg', volume: 0.28 },
   chime: { src: '/assets/audio/ESM_Quiet_BellOctave_Notification_Notification_Synth_Electronic_Particle_Cute_Cartoon.ogg', volume: 0.3 },
+  /* Bigger than `chime`: the payoff for finishing a whole task, not for one
+     step landing. Currently the three tuned dials in Module 05. */
+  bonus: { src: '/assets/audio/ESM_New_Bonus_2_Sound_FX_Arcade_Casino_Kids_Mobile_App.wav', volume: 0.3 },
   matterSolidIce: { src: '/assets/audio/som-ice-crackle.ogg', loop: true },
   matterLiquidWater: { src: '/assets/audio/som-water-drip.ogg', loop: true },
   matterGasSteam: { src: '/assets/audio/som-steam-hiss.ogg', loop: true },
@@ -29,6 +32,7 @@ const AMBIENT_VOLUME = 0.08
 const AMBIENT_FADE_IN_SECONDS = 3
 const AMBIENT_FADE_OUT_SECONDS = 1.5
 const VOLUME_STORAGE_KEY = 'kiosk-audio-volume'
+const MUSIC_STORAGE_KEY = 'kiosk-audio-music'
 
 let audioContext = null
 let masterGain = null
@@ -38,7 +42,13 @@ const bufferPromises = new Map()
 const loopMixers = new Set()
 const ambientDucks = new Map()
 
+/* `ambientDesired` is where the kiosk is — the loop belongs under a visitor who
+   is interacting, not under the attract screen. `musicEnabled` is what the
+   operator asked for in the settings panel. Both have to be true for the loop to
+   run, and they are kept apart so muting from the panel does not look to the
+   rest of the app like a return to attract. */
 let ambientDesired = false
+let musicEnabled = readStoredMusicEnabled()
 let ambientPlayback = null
 let masterVolume = readStoredVolume()
 
@@ -53,6 +63,35 @@ function readStoredVolume() {
     /* storage unavailable — ignore */
   }
   return 1
+}
+
+function readStoredMusicEnabled() {
+  try {
+    return window.localStorage.getItem(MUSIC_STORAGE_KEY) !== 'off'
+  } catch {
+    /* storage unavailable - ignore */
+    return true
+  }
+}
+
+export function isMusicEnabled() {
+  return musicEnabled
+}
+
+/* Turning music off fades the loop out but leaves `ambientDesired` alone, so
+   turning it back on mid-session picks the loop up again without waiting for the
+   visitor to return to the attract screen and come back in. */
+export function setMusicEnabled(next) {
+  const value = next !== false
+  if (value === musicEnabled) return
+  musicEnabled = value
+  try {
+    window.localStorage.setItem(MUSIC_STORAGE_KEY, value ? 'on' : 'off')
+  } catch {
+    /* storage unavailable - ignore */
+  }
+  if (value) void ensureAmbient()
+  else fadeOutAmbient()
 }
 
 export function getVolume() {
@@ -177,7 +216,8 @@ export function startAmbient() {
 async function ensureAmbient() {
   if (!audioContext) return
   await Promise.all([audioContext.resume(), loadBuffers()])
-  if (!ambientDesired || ambientPlayback || audioContext.state !== 'running') return
+  if (!ambientDesired || !musicEnabled) return
+  if (ambientPlayback || audioContext.state !== 'running') return
   const buffer = buffers.get('ambient')
   if (!buffer) return
   const source = audioContext.createBufferSource()
@@ -198,6 +238,10 @@ async function ensureAmbient() {
 /* Fade the loop back out when the kiosk returns to attract mode. */
 export function stopAmbient() {
   ambientDesired = false
+  fadeOutAmbient()
+}
+
+function fadeOutAmbient() {
   if (!ambientPlayback || !audioContext) return
   const { source, gain } = ambientPlayback
   ambientPlayback = null
@@ -390,6 +434,10 @@ export const sound = {
   /* Reward moments: heal, confetti. */
   chime() {
     play('chime')
+  },
+  /* The whole task landing, not a step of it. */
+  bonus() {
+    play('bonus')
   },
   /* A coin flicked into the air. */
   coinFlip() {

@@ -24,8 +24,8 @@ const requiredFetchAssets = Object.freeze([
     minimumBytes: 200_000
   },
   {
-    path: '/assets/modules/differences/coins/TwentyFive_Cent_Color.png',
-    minimumBytes: 7_000_000
+    path: '/assets/modules/differences/coins/TwentyFive_Cent_Color.bmp',
+    minimumBytes: 8_000_000
   }
 ])
 

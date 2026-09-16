@@ -1,4 +1,8 @@
 import { assetUrl } from '../../core/asset-url.js'
+import { ensureRectAreaLightUniformsInitialized } from '../../core/rect-area-light-uniforms.js'
+import { leaseWebGLRenderer } from '../../core/webgl-renderer-pool.js'
+import { disposeObject3DResources } from '../../core/three-resource-disposal.js'
+import { visibleFramebufferRegion } from '../../core/visible-framebuffer-region.js'
 import {
   calculateStageAwarePixelRatio,
   elementCssScale
@@ -34,11 +38,7 @@ const MAX_PERFORMANCE_WINDOWS = 2
 const PRESENTATION_OFFSET_X = 0.8
 const BASE_SCENE_LAYER = 0
 const MAGNETIC_BLUR_LAYER = 1
-/* Ceiling on the framebuffer copy the blur pass makes each frame. Raised with
-   the canvas: at 2.7M the wider canvas tipped just over and the blur switched
-   itself off silently, which is a worse outcome than the extra 8 percent of
-   copy this allows. Still far below anything a kiosk-class GPU strains at, and
-   the drawing buffer is separately held near 2.6M by the render budget. */
+/* Ceiling on the visible-region copy, independent of the full canvas budget. */
 const MAX_MAGNETIC_BLUR_PIXELS = 3_000_000
 
 const VOLTAGE_PACKET_GLSL = `
@@ -99,6 +99,8 @@ function damp(current, target, delta, durationTo95Percent) {
   if (durationTo95Percent <= 0) return target
   return target + ((current - target) * Math.exp((-2.995732 * delta) / durationTo95Percent))
 }
+
+const OVERVOLTAGE_EVACUATION_DURATION = 0.6
 
 function percentile(values, percentileValue) {
   if (!values.length) return 0
@@ -1382,6 +1384,7 @@ function createParticleGeometry(THREE, data) {
   geometry.setAttribute('position', new THREE.BufferAttribute(data.basePosition, 3))
   geometry.setAttribute('aThermal', new THREE.BufferAttribute(data.thermal, 4))
   geometry.setAttribute('aVoltageDisplacement', new THREE.BufferAttribute(data.voltageDisplacement, 3))
+  geometry.setAttribute('aOvervoltageDisplacement', new THREE.BufferAttribute(data.overvoltageDisplacement, 3))
   geometry.setAttribute('aMagneticDisplacement', new THREE.BufferAttribute(data.magneticDisplacement, 3))
   geometry.setAttribute('aRole', new THREE.BufferAttribute(data.role, 1))
   geometry.setAttribute('aMinTier', new THREE.BufferAttribute(data.minTier, 1))
@@ -1397,6 +1400,7 @@ function createParticleMaterial(THREE) {
       uVisualTime: { value: 0 },
       uTemperature: { value: 0 },
       uVoltage: { value: 0 },
+      uVoltageOverdrive: { value: 0 },
       uMagnetic: { value: 0 },
       uCompletion: { value: 0 },
       uDetailLevel: { value: PARTICLE_TIER_LEVELS.high },
@@ -1405,6 +1409,7 @@ function createParticleMaterial(THREE) {
     vertexShader: `
       attribute vec4 aThermal;
       attribute vec3 aVoltageDisplacement;
+      attribute vec3 aOvervoltageDisplacement;
       attribute vec3 aMagneticDisplacement;
       attribute float aRole;
       attribute float aMinTier;
@@ -1412,6 +1417,7 @@ function createParticleMaterial(THREE) {
       uniform float uVisualTime;
       uniform float uTemperature;
       uniform float uVoltage;
+      uniform float uVoltageOverdrive;
       uniform float uMagnetic;
       uniform float uCompletion;
       uniform float uDetailLevel;
@@ -1462,6 +1468,12 @@ function createParticleMaterial(THREE) {
         vec3 effectPosition = position +
           (aVoltageDisplacement * uVoltage) +
           (aMagneticDisplacement * uMagnetic);
+        vec3 overvoltagePosition = position + aOvervoltageDisplacement;
+        effectPosition = mix(
+          effectPosition,
+          overvoltagePosition,
+          reserve * clamp(uVoltageOverdrive, 0.0, 1.0)
+        );
         float pqiEdgeAttenuation = smoothstep(
           0.0,
           ${PARTICLE_FOOTPRINT.edgeAttenuationDistance},
@@ -1974,12 +1986,14 @@ function createMagneticAuroraRibbons(THREE) {
       uWidthScale: { value: 0.9 },
       uFrame: { value: null },
       uInvFramebufferSize: { value: new THREE.Vector2(1, 1) },
+      uFrameOrigin: { value: new THREE.Vector2() },
       uBlurRadiusPx: { value: 8 }
     },
     vertexShader: material.vertexShader,
     fragmentShader: /* glsl */ `
       uniform sampler2D uFrame;
       uniform vec2 uInvFramebufferSize;
+      uniform vec2 uFrameOrigin;
       uniform float uBlurRadiusPx;
       uniform float uStrength;
       varying float vEdge;
@@ -1987,10 +2001,24 @@ function createMagneticAuroraRibbons(THREE) {
       varying float vSweepFade;
 
       void main() {
-        vec2 uv = gl_FragCoord.xy * uInvFramebufferSize;
+        // Zero contribution with depth writes disabled: reject before the
+        // framebuffer reads. Keep every nonzero feather value unchanged.
+        float edgeFade = 1.0 - smoothstep(0.36, 0.98, abs(vEdge));
+        float centeredProgress = abs((vProgress * 2.0) - 1.0);
+        float visibleLength = 1.0 - centeredProgress;
+        float endFeather = smoothstep(0.0, 0.26, visibleLength);
+        float field = edgeFade * endFeather * vSweepFade *
+          min(uStrength, 1.0) * 0.72;
+        if (field <= 0.0) discard;
+
+        vec2 uv = (gl_FragCoord.xy - uFrameOrigin) * uInvFramebufferSize;
+        vec4 center = texture2D(uFrame, uv);
+        field *= smoothstep(0.002, 0.035, center.a);
+        // The original alpha mask makes these fragments exact no-ops, even
+        // if neighbours contain color. Avoid the remaining sixteen taps.
+        if (field <= 0.0) discard;
         vec2 offset = uInvFramebufferSize * uBlurRadiusPx;
         vec2 halfOffset = offset * 0.5;
-        vec4 center = texture2D(uFrame, uv);
         vec4 blurred = center * 0.2;
         blurred += (
           texture2D(uFrame, uv + vec2(halfOffset.x, 0.0)) +
@@ -2016,14 +2044,6 @@ function createMagneticAuroraRibbons(THREE) {
           texture2D(uFrame, uv + vec2(offset.x, -offset.y)) +
           texture2D(uFrame, uv + vec2(-offset.x, offset.y))
         ) * 0.01;
-
-        float edgeFade = 1.0 - smoothstep(0.36, 0.98, abs(vEdge));
-        float centeredProgress = abs((vProgress * 2.0) - 1.0);
-        float visibleLength = 1.0 - centeredProgress;
-        float endFeather = smoothstep(0.0, 0.26, visibleLength);
-        float field = edgeFade * endFeather * vSweepFade *
-          min(uStrength, 1.0) * 0.72;
-        field *= smoothstep(0.002, 0.035, center.a);
 
         vec3 straightBlur = blurred.rgb / max(blurred.a, 0.0001);
         vec3 replacementPremultiplied = straightBlur * center.a;
@@ -2189,7 +2209,7 @@ export async function createProtectingInformationScene(host, {
     import('three/addons/environments/RoomEnvironment.js')
   ])
   if (signal?.aborted) throw createAbortError()
-  RectAreaLightUniformsLib.init()
+  ensureRectAreaLightUniformsInitialized(RectAreaLightUniformsLib)
 
   const mediaQuery = window.matchMedia?.('(prefers-reduced-motion: reduce)')
   let reducedMotion = typeof reducedMotionOption === 'boolean'
@@ -2260,13 +2280,14 @@ export async function createProtectingInformationScene(host, {
 
   applyCameraAlignment()
 
-  const renderer = new THREE.WebGLRenderer({
+  const rendererLease = leaseWebGLRenderer(THREE, {
     alpha: true,
     antialias: true,
     depth: true,
     stencil: true,
     powerPreference: 'high-performance'
   })
+  const { renderer } = rendererLease
   renderer.outputColorSpace = THREE.SRGBColorSpace
   renderer.toneMapping = THREE.ACESFilmicToneMapping
   renderer.toneMappingExposure = 1.04
@@ -2277,12 +2298,11 @@ export async function createProtectingInformationScene(host, {
 
   const loadingManager = new THREE.LoadingManager()
   const pmrem = new THREE.PMREMGenerator(renderer)
-  pmrem.compileEquirectangularShader()
   const environmentScene = new RoomEnvironment()
   let environmentTarget = pmrem.fromScene(environmentScene, 0.04)
   scene.environment = environmentTarget.texture
   scene.environmentIntensity = 0.42
-  environmentScene.dispose?.()
+  disposeObject3DResources(environmentScene)
   const reflectionEnvironmentPromise = new HDRLoader(loadingManager)
     .setDataType(THREE.FloatType)
     .loadAsync(assetUrl(REFLECTION_ENVIRONMENT_PATH))
@@ -2342,6 +2362,17 @@ export async function createProtectingInformationScene(host, {
 
   const magneticAuroraRibbons = createMagneticAuroraRibbons(THREE)
   deviceRoot.add(magneticAuroraRibbons)
+  // The blur pass needs only this mesh, not another traversal and matrix
+  // update of the complete device/particle/light scene. Share GPU resources;
+  // the original ribbon owns their disposal. Copy its world transform below.
+  const magneticBlurScene = new THREE.Scene()
+  const magneticBlurSource = magneticAuroraRibbons.userData.blurMesh
+  const magneticBlurMesh = new THREE.Mesh(magneticBlurSource.geometry, magneticBlurSource.material)
+  magneticBlurMesh.layers.set(MAGNETIC_BLUR_LAYER)
+  magneticBlurMesh.frustumCulled = false
+  magneticBlurMesh.matrixAutoUpdate = false
+  magneticBlurMesh.matrixWorldAutoUpdate = false
+  magneticBlurScene.add(magneticBlurMesh)
 
   let particleData = createProtectingParticleData()
   const particleMaterial = createParticleMaterial(THREE)
@@ -2449,6 +2480,7 @@ export async function createProtectingInformationScene(host, {
   let voltageQualityStrength = 0
   let temperatureStrength = 0
   let voltageStrength = 0
+  let voltageOverdriveStrength = 0
   let voltageVisualStrength = 0
   let magneticStrength = 0
   let magneticVisualStrength = 0
@@ -2484,6 +2516,9 @@ export async function createProtectingInformationScene(host, {
   let performanceWindows = 0
   const performanceMetrics = []
   const magneticFramebufferSize = new THREE.Vector2()
+  const magneticFrameOrigin = new THREE.Vector2()
+  const savedMagneticScissor = new THREE.Vector4()
+  let magneticCopyRegion = null
   let magneticFrameTexture = null
   let magneticBlurFailed = false
 
@@ -2495,8 +2530,13 @@ export async function createProtectingInformationScene(host, {
 
   const ensureMagneticFrameTexture = () => {
     renderer.getDrawingBufferSize(magneticFramebufferSize)
-    const width = Math.max(1, Math.floor(magneticFramebufferSize.x))
-    const height = Math.max(1, Math.floor(magneticFramebufferSize.y))
+    const region = magneticCopyRegion ?? {
+      x: 0, y: 0, width: magneticFramebufferSize.x, height: magneticFramebufferSize.y
+    }
+    const { width, height } = region
+    if (width <= 0 || height <= 0) return null
+    magneticFrameOrigin.set(region.x, region.y)
+    magneticAuroraRibbons.userData.blurMaterial.uniforms.uFrameOrigin.value.copy(magneticFrameOrigin)
     if (
       width > renderer.capabilities.maxTextureSize ||
       height > renderer.capabilities.maxTextureSize ||
@@ -2534,7 +2574,10 @@ export async function createProtectingInformationScene(host, {
       width,
       height,
       cssScale: elementCssScale(host),
-      devicePixelRatio: window.devicePixelRatio || 1
+      devicePixelRatio: window.devicePixelRatio || 1,
+      // The overscanned kiosk canvas needs a lower floor to stay within the
+      // pixel budget; 0.55 would exceed it and disable the magnetic blur pass.
+      minPixelRatio: 0.25
     })
     /* The framing is authored against the video's composition box, and the
        canvas is allowed to be larger than that box so the pass has somewhere to
@@ -2563,6 +2606,15 @@ export async function createProtectingInformationScene(host, {
     camera.updateProjectionMatrix()
     renderer.setPixelRatio(pixelRatio)
     renderer.setSize(width, height, false)
+    renderer.getDrawingBufferSize(magneticFramebufferSize)
+    // The overscanned canvas extends far above the kiosk. Retain a full-size
+    // base render, but copy/filter only pixels the visitor can see, plus all
+    // neighbouring samples used by the unchanged eight-pixel blur kernel.
+    const stage = host.closest('#kiosk-stage')
+    magneticCopyRegion = visibleFramebufferRegion(
+      magneticFramebufferSize.x, magneticFramebufferSize.y,
+      renderer.domElement.getBoundingClientRect(), stage?.getBoundingClientRect(), 9
+    )
     particleMaterial.uniforms.uPixelRatio.value = pixelRatio
     if (magneticFrameTexture) ensureMagneticFrameTexture()
   }
@@ -2637,6 +2689,7 @@ export async function createProtectingInformationScene(host, {
   const isSettled = () => Math.max(
     Math.abs(temperatureStrength - effectDrives.temperature),
     Math.abs(voltageStrength - effectDrives.voltage),
+    Math.abs(voltageOverdriveStrength - effectDrives.voltageOverdrive),
     Math.abs(voltageVisualStrength - effectDrives.voltageVisual),
     Math.abs(magneticStrength - effectDrives.magnetic),
     Math.abs(magneticVisualStrength - effectDrives.magneticVisual),
@@ -2651,6 +2704,8 @@ export async function createProtectingInformationScene(host, {
     const previousCameraLayerMask = camera.layers.mask
     const previousAutoClear = renderer.autoClear
     const previousRenderTarget = renderer.getRenderTarget()
+    const previousScissorTest = renderer.getScissorTest()
+    renderer.getScissor(savedMagneticScissor)
     try {
       camera.layers.set(BASE_SCENE_LAYER)
       renderer.autoClear = true
@@ -2661,14 +2716,26 @@ export async function createProtectingInformationScene(host, {
         !magneticBlurFailed &&
         magneticVisualStrength > 0.02
       if (!blurEligible) return
+      for (let object = magneticBlurSource; object; object = object.parent) {
+        if (!object.visible) return
+      }
 
       try {
         const frameTexture = ensureMagneticFrameTexture()
         if (!frameTexture) return
-        renderer.copyFramebufferToTexture(frameTexture)
+        renderer.copyFramebufferToTexture(frameTexture, magneticFrameOrigin)
+        const ratio = renderer.getPixelRatio()
+        renderer.setScissor(
+          (magneticFrameOrigin.x + 0.01) / ratio,
+          (magneticFrameOrigin.y + 0.01) / ratio,
+          (frameTexture.image.width + 0.01) / ratio,
+          (frameTexture.image.height + 0.01) / ratio
+        )
+        renderer.setScissorTest(true)
         camera.layers.set(MAGNETIC_BLUR_LAYER)
         renderer.autoClear = false
-        renderer.render(scene, camera)
+        magneticBlurMesh.matrixWorld.copy(magneticBlurSource.matrixWorld)
+        renderer.render(magneticBlurScene, camera)
       } catch (error) {
         magneticBlurFailed = true
         releaseMagneticFrameTexture()
@@ -2678,6 +2745,8 @@ export async function createProtectingInformationScene(host, {
       camera.layers.mask = previousCameraLayerMask
       renderer.autoClear = previousAutoClear
       renderer.setRenderTarget(previousRenderTarget)
+      renderer.setScissor(savedMagneticScissor)
+      renderer.setScissorTest(previousScissorTest)
     }
   }
 
@@ -2708,6 +2777,15 @@ export async function createProtectingInformationScene(host, {
       reducedMotion ? 0.2 : 0.75
     )
     voltageStrength = damp(voltageStrength, effectDrives.voltage, delta, reducedMotion ? 0.22 : 0.9)
+    // The over-voltage state itself is binary, so every corridor particle
+    // leaves together. Ease only their travel to the evacuation positions so
+    // crossing the threshold reads as motion rather than a visibility cut.
+    voltageOverdriveStrength = damp(
+      voltageOverdriveStrength,
+      effectDrives.voltageOverdrive,
+      delta,
+      reducedMotion ? 0.12 : OVERVOLTAGE_EVACUATION_DURATION
+    )
     voltageVisualStrength = damp(
       voltageVisualStrength,
       effectDrives.voltageVisual,
@@ -2742,6 +2820,7 @@ export async function createProtectingInformationScene(host, {
     particleUniforms.uVisualTime.value = visualTime
     particleUniforms.uTemperature.value = temperatureStrength
     particleUniforms.uVoltage.value = voltageStrength
+    particleUniforms.uVoltageOverdrive.value = voltageOverdriveStrength
     particleUniforms.uMagnetic.value = magneticStrength
     particleUniforms.uCompletion.value = completionStrength
     particleUniforms.uDetailLevel.value = detailLevel
@@ -2838,6 +2917,7 @@ export async function createProtectingInformationScene(host, {
     mediaQuery?.removeEventListener?.('change', handleMotionPreference)
     signal?.removeEventListener?.('abort', dispose)
     releaseMagneticFrameTexture()
+    magneticBlurScene.clear()
 
     const geometries = new Set()
     const materials = new Set()
@@ -2858,9 +2938,7 @@ export async function createProtectingInformationScene(host, {
     scene.environment = null
     environmentTarget.dispose()
     pmrem.dispose()
-    renderer.dispose()
-    renderer.forceContextLoss?.()
-    renderer.domElement.remove()
+    rendererLease.release()
   }
 
   signal?.addEventListener('abort', dispose, { once: true })

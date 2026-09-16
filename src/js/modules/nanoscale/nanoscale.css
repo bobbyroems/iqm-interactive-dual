@@ -57,6 +57,17 @@
   inset: 0;
   overflow: hidden;
   pointer-events: none;
+  /* Rubber-band for a drag pushed past either end of the journey. The offset is
+     written by the gesture and the camera never sees it, so the artwork can
+     give a little where the timeline cannot. */
+  transform: translate3d(var(--nz-overscroll-x, 0px), var(--nz-overscroll-y, 0px), 0);
+  transition: transform 420ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* While a finger is down the artwork tracks it directly; the transition is only
+   wanted for the release, when clearing the offset becomes the spring back. */
+.nz.is-zooming .nz__stack {
+  transition: none;
 }
 
 /* Each handoff owns one nested, bounded camera. Completed cameras keep a 2D
@@ -199,7 +210,10 @@
   top: 0;
   left: 0;
   width: 100%;
-  background: rgb(255 255 255 / 0.7);
+  /* Solid, like the header on every other module. It was 70% white so the
+     zoom journey showed through behind it, but the artwork passing under the
+     brand bar reads as the header fading rather than as depth. */
+  background: var(--color-panel);
   box-shadow:
     0 2px 4px rgb(0 0 0 / 0.14),
     0 0 2px rgb(0 0 0 / 0.12);
@@ -228,7 +242,6 @@
   height: 66px;
   gap: 12px;
   padding: 12px 16px;
-  background: rgb(244 243 245 / 0.5);
 }
 
 .nz__header .microsoft-header__action:first-child {
@@ -327,6 +340,7 @@
 }
 
 .nz__identity .kiosk-explainer__title,
+.nz__identity .kiosk-explainer__subtitle,
 .nz__identity .kiosk-explainer__body {
   position: absolute;
   display: block;
@@ -346,6 +360,20 @@
   font-weight: var(--nz-identity-title-weight, 600);
   letter-spacing: var(--nz-identity-title-tracking, -0.02em);
   line-height: var(--nz-identity-title-leading, 80.2671px);
+}
+
+/* The qualifier under the heading. Sits at the box the layout gives it, which
+   is the title's box end — the two read as one heading in two sizes. */
+.nz__identity .kiosk-explainer__subtitle {
+  top: var(--nz-identity-subtitle-y, 140px);
+  left: var(--nz-identity-subtitle-x, 60px);
+  width: var(--nz-identity-subtitle-width, 500px);
+  height: var(--nz-identity-subtitle-height, 96px);
+  font-family: var(--font-display);
+  font-size: var(--nz-identity-subtitle-size, 36px);
+  font-weight: var(--nz-identity-subtitle-weight, 600);
+  letter-spacing: var(--nz-identity-subtitle-tracking, -0.02em);
+  line-height: var(--nz-identity-subtitle-leading, 48px);
 }
 
 .nz__identity .kiosk-explainer__body {
@@ -459,6 +487,77 @@
     visibility 0s linear 0s;
 }
 
+/* The direction is the one thing a visitor has to guess, so it is drawn as well
+   as written. Sits after the words inside the pill's centred flex row. */
+.nz__instruction-arrow {
+  width: 30px;
+  height: 37px;
+  margin-left: 0.5em;
+  flex: 0 0 auto;
+  animation: nz-swipe-arrow-nudge 2200ms cubic-bezier(0.16, 1, 0.3, 1) infinite;
+}
+
+/* Ambient until it has been missed three times over. Then the pill leans on the
+   shoulder: it shifts off its resting offset, the arrow doubles its travel and
+   loses the pauses between beats. */
+.nz.is-misdirected .nz__instruction.kiosk-tooltip {
+  /* The colour shift carries the escalation on its own where motion is refused,
+     so the third miss is answered there too. Brand blue against the grey the
+     pill rests at, matching the arrow it is asking to be read with. */
+  background: #eaf4fc;
+  box-shadow: 0 4px 20px rgb(0 120 212 / 0.28);
+  animation: nz-instruction-insist 720ms cubic-bezier(0.36, 0.07, 0.19, 0.97) 2;
+}
+
+.nz.is-misdirected .nz__instruction .kiosk-tooltip__text {
+  color: #0078d4;
+}
+
+.nz.is-misdirected .nz__instruction-arrow {
+  animation-name: nz-swipe-arrow-insist;
+  animation-duration: 900ms;
+}
+
+@keyframes nz-swipe-arrow-nudge {
+  0%,
+  22%,
+  100% {
+    transform: translateY(0);
+  }
+
+  50% {
+    transform: translateY(-14px);
+  }
+}
+
+@keyframes nz-swipe-arrow-insist {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+
+  50% {
+    transform: translateY(-28px);
+  }
+}
+
+/* Keeps the pill's own translateX(-50%) centring — a bare translateY here would
+   drop it back to the left edge for the length of the shake. */
+@keyframes nz-instruction-insist {
+  0%,
+  100% {
+    transform: translateX(-50%) translateY(0);
+  }
+
+  25% {
+    transform: translateX(-50%) translateY(-10px);
+  }
+
+  75% {
+    transform: translateX(-50%) translateY(6px);
+  }
+}
+
 /* ---------- Figma-authored scrollytelling finale ---------- */
 
 .nz__finale {
@@ -479,7 +578,7 @@
   top: 0;
   left: 0;
   width: 2160px;
-  height: 7680px;
+  height: 3840px;
   contain: layout paint style;
 }
 
@@ -491,51 +590,19 @@
   overflow: hidden;
 }
 
-.nz__finale-section--impact {
+.nz__finale-section--scale {
   top: 0;
   background: transparent;
 }
 
-.nz__finale-section--scale {
-  top: 3840px;
-  background: transparent;
-}
-
-.nz__finale-atmosphere {
-  position: absolute;
-  z-index: 0;
-  inset: 0;
-  width: 2160px;
-  height: 3840px;
-  overflow: hidden;
-  background: #f2f4f5;
-  opacity: 0;
-}
-
-.nz__finale-atmosphere::before {
-  content: '';
-  position: absolute;
-  top: 111px;
-  left: -2px;
-  width: 2164px;
-  height: 3729px;
-  background: radial-gradient(
-    circle at 50% 40%,
-    rgb(255 255 255 / 0.96) 0%,
-    rgb(242 244 245 / 0.8) 42%,
-    rgb(215 233 245 / 0.58) 72%,
-    rgb(242 244 245 / 0) 100%
-  );
-  filter: blur(25px);
-}
-
-/* Authored vertical connector from the top edge to the impact statement. */
+/* The top-edge connector that carries the visitor into the built-to-scale
+   screen. */
 .nz__finale-guide {
   position: absolute;
   top: 0;
   left: 1070px;
   width: 20px;
-  height: 970px;
+  height: 470px;
   overflow: visible;
   fill: #408bf5;
 }
@@ -558,13 +625,6 @@
   padding: 80px;
   color: var(--nz-navy);
   text-align: center;
-}
-
-.nz__finale-copy--impact {
-  top: 1000px;
-  left: 378.5px;
-  width: 1403px;
-  height: 828px;
 }
 
 .nz__finale-copy--scale {
@@ -602,31 +662,6 @@
   font-weight: 600;
   letter-spacing: -0.02em;
   line-height: 80px;
-}
-
-.nz__finale-prompt.kiosk-tooltip {
-  position: absolute;
-  top: 2000px;
-  left: 1080px;
-  box-sizing: border-box;
-  width: 487px;
-  height: 92px;
-  padding: 20px 30px;
-  background-color: rgb(198 226 242 / 0.96);
-  box-shadow: 0 4px 20px rgb(31 55 80 / 0.18);
-  color: var(--nz-blue);
-  transform: translateX(-50%);
-}
-
-.nz__finale-prompt .kiosk-tooltip__text {
-  color: var(--nz-blue);
-  font-size: 36px;
-  font-weight: 600;
-  line-height: 48px;
-}
-
-body.is-kiosk .nz__finale-prompt.kiosk-tooltip {
-  background-color: rgb(198 226 242 / 0.96) !important;
 }
 
 .nz__finale-figure {
@@ -746,6 +781,11 @@ body.is-kiosk .nz__finale-prompt.kiosk-tooltip {
    earlier, and it sits above the timeline rather than over the artwork so it
    never lands on the thing it is asking to be scrolled past. */
 .nz__scroll-cue.kiosk-tooltip {
+  /* Barely breathes. The shared pulse dips to 0.72, which on a cue that sits
+     over live artwork read as the prompt going away and coming back; this
+     keeps the movement as a flicker of life rather than a fade. */
+  --kiosk-tooltip-breathe-floor: 0.92;
+
   position: absolute;
   z-index: 9;
   top: 2660px;
@@ -753,9 +793,12 @@ body.is-kiosk .nz__finale-prompt.kiosk-tooltip {
   box-sizing: border-box;
   width: max-content;
   padding: 20px 40px;
-  background-color: rgb(198 226 242 / 0.96);
-  box-shadow: 0 4px 20px rgb(31 55 80 / 0.18);
-  color: var(--nz-blue);
+  /* A step greyer than the splash instruction and the finale prompt. This one
+     asks for something while the artwork is still on screen behind it, where
+     the near-white pill those two use had too little to sit against. */
+  background: #e6e9ea;
+  box-shadow: 0 4px 20px rgb(31 55 80 / 0.22);
+  color: #7c8282;
   /* Opacity is written inline by the render pass, the way every other fading
      part of this module is driven — it has to follow the timeline's curve as
      the visitor scrolls, which a class alone cannot express. */
@@ -768,7 +811,7 @@ body.is-kiosk .nz__finale-prompt.kiosk-tooltip {
 }
 
 .nz__scroll-cue .kiosk-tooltip__text {
-  color: var(--nz-blue);
+  color: #7c8282;
   font-size: 36px;
   font-weight: 600;
   line-height: 48px;
@@ -781,10 +824,6 @@ body.is-kiosk .nz__finale-prompt.kiosk-tooltip {
   visibility: visible;
   transform: translateX(-50%) translateY(0);
   transition-delay: 0s;
-}
-
-body.is-kiosk .nz__scroll-cue.kiosk-tooltip {
-  background-color: rgb(198 226 242 / 0.96) !important;
 }
 
 /* ---------- Five-stop scrubber ---------- */
@@ -812,7 +851,10 @@ body.is-kiosk .nz__scroll-cue.kiosk-tooltip {
   content: '';
   position: absolute;
   inset: -46px -120px;
-  border-radius: 124px;
+  /* 16px, the radius the Figma Button component uses for every CTA in the app.
+     Half the plate's height read as a stadium pill, which made the scrim look
+     like a control the visitor could press rather than a ground behind one. */
+  border-radius: 16px;
   /* Both the tint and the blur radius are written per frame from the zoom
      position, so neither needs a transition of its own. The element itself is
      never faded: element opacity would dilute the backdrop filter along with
@@ -887,16 +929,24 @@ body.is-kiosk .nz__scroll-cue.kiosk-tooltip {
   .nz__intro,
   .nz__instruction,
   .nz__finale-track,
-  .nz__finale-atmosphere,
   .nz__finale-guide,
   .nz__finale-copy h2,
   .nz__finale-copy p,
-  .nz__finale-prompt,
   .nz__finale-figure,
   .nz__scrubber,
   .nz__scrubber-marker,
   .nz__scrubber-number {
     transition-duration: 1ms;
     transition-delay: 0ms;
+  }
+
+  /* The direction still has to be legible without motion, so the arrow stays
+     and only its travel goes. The stretch keeps its transition — the spring
+     back is the part that says the drag was refused, and snapping the artwork
+     home instantly would read as a jump. */
+  .nz__instruction-arrow,
+  .nz.is-misdirected .nz__instruction-arrow,
+  .nz.is-misdirected .nz__instruction.kiosk-tooltip {
+    animation: none;
   }
 }

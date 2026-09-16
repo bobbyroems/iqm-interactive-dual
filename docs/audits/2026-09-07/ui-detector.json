@@ -1,0 +1,95 @@
+[
+  {
+    "antipattern": "bounce-easing",
+    "name": "Bounce or elastic easing",
+    "description": "Bounce and elastic easing feel dated and tacky. Real objects decelerate smoothly — use exponential easing (ease-out-quart/quint/expo) instead.",
+    "severity": "warning",
+    "category": "slop",
+    "file": "/Users/robertciurus/SoftwareDev/iqm-kiosk/src/js/modules/build-nanowire/build-nanowire.css",
+    "line": 545,
+    "snippet": "cubic-bezier(0.175, 0.885, 0.32, 1.275)"
+  },
+  {
+    "antipattern": "broken-image",
+    "name": "Broken or placeholder image",
+    "description": "<img> tags with empty src, missing src, or placeholder values ship as broken-image boxes. Use real images, generated assets, or remove the tag.",
+    "severity": "warning",
+    "category": "quality",
+    "file": "/Users/robertciurus/SoftwareDev/iqm-kiosk/src/js/modules/nanoscale/nanoscale-assets.js",
+    "line": 210,
+    "snippet": "<img>",
+    "importedBy": [
+      "index.js"
+    ]
+  },
+  {
+    "antipattern": "layout-transition",
+    "name": "Layout property animation",
+    "description": "Animating width, height, padding, or margin causes layout thrash and janky performance. Use transform and opacity instead, or grid-template-rows for height animations.",
+    "severity": "warning",
+    "category": "quality",
+    "file": "/Users/robertciurus/SoftwareDev/iqm-kiosk/src/js/modules/states-of-matter/styles.css",
+    "line": 210,
+    "snippet": "transition: height"
+  },
+  {
+    "antipattern": "flat-type-hierarchy",
+    "name": "Flat type hierarchy",
+    "description": "Font sizes are too close together — no clear visual hierarchy. Use fewer sizes with more contrast (aim for at least a 1.25 ratio between steps).",
+    "severity": "warning",
+    "category": "slop",
+    "file": "/Users/robertciurus/SoftwareDev/iqm-kiosk/src/playground/alpha-video-bench.html",
+    "line": 12,
+    "snippet": "Sizes: 11px, 12px, 13px, 14px, 19px (ratio 1.7:1)"
+  },
+  {
+    "antipattern": "flat-type-hierarchy",
+    "name": "Flat type hierarchy",
+    "description": "Font sizes are too close together — no clear visual hierarchy. Use fewer sizes with more contrast (aim for at least a 1.25 ratio between steps).",
+    "severity": "warning",
+    "category": "slop",
+    "file": "/Users/robertciurus/SoftwareDev/iqm-kiosk/src/playground/alpha-video.html",
+    "line": 43,
+    "snippet": "Sizes: 11px, 12px, 13px, 15px (ratio 1.4:1)"
+  },
+  {
+    "antipattern": "flat-type-hierarchy",
+    "name": "Flat type hierarchy",
+    "description": "Font sizes are too close together — no clear visual hierarchy. Use fewer sizes with more contrast (aim for at least a 1.25 ratio between steps).",
+    "severity": "warning",
+    "category": "slop",
+    "file": "/Users/robertciurus/SoftwareDev/iqm-kiosk/src/quantum-model-debug.html",
+    "line": 19,
+    "snippet": "Sizes: 13px, 14px, 15px (ratio 1.2:1)"
+  },
+  {
+    "antipattern": "gradient-text",
+    "name": "Gradient text",
+    "description": "Gradient text is decorative rather than meaningful — a common AI tell, especially on headings and metrics. Use solid colors for text.",
+    "severity": "warning",
+    "category": "slop",
+    "file": "/Users/robertciurus/SoftwareDev/iqm-kiosk/src/styles/app.css",
+    "line": 612,
+    "snippet": "background-clip: text + gradient"
+  },
+  {
+    "antipattern": "gradient-text",
+    "name": "Gradient text",
+    "description": "Gradient text is decorative rather than meaningful — a common AI tell, especially on headings and metrics. Use solid colors for text.",
+    "severity": "warning",
+    "category": "slop",
+    "file": "/Users/robertciurus/SoftwareDev/iqm-kiosk/src/styles/app.css",
+    "line": 1280,
+    "snippet": "background-clip: text + gradient"
+  },
+  {
+    "antipattern": "codex-grid-background",
+    "name": "Decorative grid-line background",
+    "description": "A decorative grid or line-field background drawn with hairline linear-gradient layers tiled by a fixed pixel cell is a recurring generated-UI signature. Reserve grid overlays for actual canvas, map, blueprint, or measurement surfaces; elsewhere use product structure or a plain surface.",
+    "severity": "advisory",
+    "category": "slop",
+    "file": "/Users/robertciurus/SoftwareDev/iqm-kiosk/src/styles/app.css",
+    "line": 2232,
+    "snippet": "two-axis grid-line gradient background"
+  }
+]

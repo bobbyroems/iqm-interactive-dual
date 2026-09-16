@@ -7,14 +7,15 @@
  */
 
 import { assetUrl } from '../../core/asset-url.js'
+import { disposeObject3DResources } from '../../core/three-resource-disposal.js'
 
 export const QVC_COIN_ACCENT_COLOR = '#5a9bff'
 export const ENTANGLEMENT_COIN_MATERIAL_SEEDS = Object.freeze([41, 42])
 
 const COIN_DIR = 'assets/modules/differences/coins/'
 const OBJ_URL = `${COIN_DIR}US Coins OBj.obj`
-const COLOR_URL = `${COIN_DIR}TwentyFive_Cent_Color.png`
-const BUMP_URL = `${COIN_DIR}TwentyFive_Cent_Bump.png`
+const COLOR_URL = `${COIN_DIR}TwentyFive_Cent_Color.bmp`
+const BUMP_URL = `${COIN_DIR}TwentyFive_Cent_Bump.bmp`
 /* Photographed quarter variants — assigned per seed so a pile of coins
    never shows the same face twice in a row. */
 const COLOR_VARIANT_URLS = Object.freeze([
@@ -254,9 +255,14 @@ export function createStudioRig(assets, renderer, scene, { RoomEnvironment }) {
   function restoreEnvironment() {
     environmentTarget?.dispose()
     const pmrem = new THREE.PMREMGenerator(renderer)
-    environmentTarget = pmrem.fromScene(new RoomEnvironment(), 0.04)
-    scene.environment = environmentTarget.texture
-    pmrem.dispose()
+    const roomEnvironment = new RoomEnvironment()
+    try {
+      environmentTarget = pmrem.fromScene(roomEnvironment, 0.04)
+      scene.environment = environmentTarget.texture
+    } finally {
+      disposeObject3DResources(roomEnvironment)
+      pmrem.dispose()
+    }
   }
   restoreEnvironment()
 
@@ -286,6 +292,13 @@ export function createStudioRig(assets, renderer, scene, { RoomEnvironment }) {
       scene.environment = null
       environmentTarget?.dispose()
       environmentTarget = null
+      /* The key light is built casting shadows, and every caller currently
+         turns that off before the first render — so no map is allocated. The
+         renderer is pooled and never disposed, though, so if one caller ever
+         drops that line the 2048x2048 depth target would outlive the scene
+         with nothing to release it. Releasing it here removes that trap. */
+      keyLight.shadow?.map?.dispose()
+      if (keyLight.shadow) keyLight.shadow.map = null
     }
   }
 }

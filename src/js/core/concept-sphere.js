@@ -12,6 +12,8 @@ import {
   BALL_ACCENT_LIGHTS,
   BALL_KEY_LIGHT
 } from './error-correction-ball.js'
+import { disposeObject3DResources } from './three-resource-disposal.js'
+import { leaseWebGLRenderer } from './webgl-renderer-pool.js'
 
 const ROTATION_SPEED = 0.1
 
@@ -32,13 +34,14 @@ export async function mountConceptSphere(host) {
 
   if (!host.isConnected) return () => {}
 
-  let renderer
+  let rendererLease
   try {
-    renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true })
+    rendererLease = leaseWebGLRenderer(THREE, { antialias: true, alpha: true })
   } catch (error) {
     console.warn('Concept sphere: WebGL is unavailable.', error)
     return () => {}
   }
+  const { renderer } = rendererLease
 
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2))
   renderer.toneMapping = THREE.ACESFilmicToneMapping
@@ -52,7 +55,10 @@ export async function mountConceptSphere(host) {
   camera.lookAt(0, 0, 0)
 
   const pmrem = new THREE.PMREMGenerator(renderer)
-  scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture
+  const roomEnvironment = new RoomEnvironment()
+  const environmentTarget = pmrem.fromScene(roomEnvironment, 0.04)
+  disposeObject3DResources(roomEnvironment)
+  scene.environment = environmentTarget.texture
   scene.environmentIntensity = 0.35
 
   const keyLight = new THREE.DirectionalLight(BALL_KEY_LIGHT.color, BALL_KEY_LIGHT.intensity)
@@ -66,12 +72,12 @@ export async function mountConceptSphere(host) {
   }
 
   const template = createBallTemplate(THREE, BufferGeometryUtils)
-  const brushedEnv = createBrushedEnv(THREE, pmrem)
+  const brushedEnvironment = createBrushedEnv(THREE, pmrem)
   const ball = createErrorCorrectionBall({
     THREE,
     SubsurfaceScatteringShader,
     template,
-    brushedEnv,
+    brushedEnv: brushedEnvironment.texture,
     viewDir: camera.position.clone().normalize()
   })
   scene.add(ball.group)
@@ -210,23 +216,24 @@ export async function mountConceptSphere(host) {
   /* ---- loop ---- */
   const clock = new THREE.Clock()
   let disposed = false
+  let animationFrame = null
   const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)')
 
   function frame() {
     if (disposed) return
-    window.requestAnimationFrame(frame)
+    animationFrame = window.requestAnimationFrame(frame)
     const dt = Math.min(clock.getDelta(), 0.05)
     if (!reducedMotion.matches) ball.group.rotation.y += dt * ROTATION_SPEED
     ball.update(clock.elapsedTime)
     renderContactShadow()
     renderer.render(scene, camera)
   }
-  window.requestAnimationFrame(frame)
+  animationFrame = window.requestAnimationFrame(frame)
 
   return function dispose() {
     disposed = true
+    if (animationFrame !== null) window.cancelAnimationFrame(animationFrame)
     resizeObserver.disconnect()
-    renderer.domElement.remove()
     ball.dispose()
     template.dispose()
     gridMesh.geometry.dispose()
@@ -238,8 +245,10 @@ export async function mountConceptSphere(host) {
     vBlurMat.dispose()
     shadowRT.dispose()
     shadowRTBlur.dispose()
-    brushedEnv.dispose()
+    scene.environment = null
+    brushedEnvironment.dispose()
+    environmentTarget.dispose()
     pmrem.dispose()
-    renderer.dispose()
+    rendererLease.release()
   }
 }

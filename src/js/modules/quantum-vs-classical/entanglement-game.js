@@ -1,3 +1,4 @@
+import { withSceneSetup } from '../../core/scene-setup.js'
 /*
  * Entanglement — "Two bodies. One state."
  * Port of the client's module-01b coin-entanglement prototype (ref/3js):
@@ -17,10 +18,12 @@ import {
   createGridFloor,
   createStudioRig
 } from './coin-assets.js'
-import { assetUrl } from '../../core/asset-url.js'
 import { sound } from '../../core/kiosk-audio.js'
-import { createUpNextCard, UP_NEXT_DELAY_MS } from './up-next-card.js'
+import { createKioskTooltip, updateKioskTooltip } from '../../core/kiosk-tooltip.js'
+import { createUpNextPopup, UP_NEXT_POPUP_DELAY_MS } from '../../core/up-next-popup.js'
 import { areUpNextCardsEnabled } from '../../core/kiosk-settings.js'
+import { disposeObject3DResources } from '../../core/three-resource-disposal.js'
+import { leaseWebGLRenderer } from '../../core/webgl-renderer-pool.js'
 
 const ENTANGLE_DURATION = 1.15
 const SPHERE_MEASURE_FADE_DURATION = 0.5
@@ -70,7 +73,7 @@ const STAGE_COPY = Object.freeze({
     lead: 'Entanglement',
     leadIsTitle: true,
     title: 'Independent phase',
-    body: 'Normally, separate qubits act completely on their own spinning with no connection to one another—just like these two coins above.',
+    body: 'Normally, separate qubits act completely on their own spinning with no connection to one another — just like these two coins above.',
     emphasis: '',
     action: 'Entangle the coins',
     hint: ''
@@ -85,7 +88,10 @@ const STAGE_COPY = Object.freeze({
     hint: ''
   }),
   measured: Object.freeze({
-    lead: 'Measure one, know both',
+    /* Broken where the board breaks it, the same way module 07 carries its
+       two-line headings: the phrase is a pair of halves, and letting 128px type
+       find its own wrap put "know" up with the first half. */
+    lead: 'Measure one,\nknow both',
     leadIsTitle: true,
     leadBody: 'Measuring one coin determines the outcome of both. The moment one coin lands, its entangled pair reveals the same result.',
     title: '',
@@ -100,15 +106,6 @@ function gameMarkup() {
   return `
     <div class="qvc-game qvc-pair" data-state="independent" data-stage="independent" data-measured="false">
       <div class="qvc-game__scene" data-game-scene></div>
-      <!-- Unlocked by the first measurement: once the visitor has taken the
-           pair all the way through, there is somewhere to go next. -->
-      <button class="qvc-up-next" type="button" data-up-next-action>
-        <span class="qvc-up-next__chip">Up next</span>
-        <span class="qvc-up-next__title">Interference</span>
-        <span class="qvc-up-next__icon">
-          <img src="${assetUrl('assets/ui/chevron-right-light.svg')}" alt="" draggable="false">
-        </span>
-      </button>
       <!-- The board's upper block: names the idea over the coins, while the
            phase label below stays with the thing it labels. -->
       <div class="qvc-pair__lead" data-pair-lead>
@@ -127,16 +124,17 @@ function gameMarkup() {
         <span class="qvc-pair__outcome-join">+</span>
         <span class="qvc-pair__outcome-side" data-outcome-right>Heads</span>
       </div>
-      <div class="qvc-pair__hint" data-pair-hint>
-        <p class="qvc-pair__hint-text" data-pair-hint-text></p>
-      </div>
       <button class="qvc-pair__action" type="button" data-action>Entangle the coins</button>
       <p class="qvc__sr" data-announce aria-live="polite"></p>
     </div>
   `
 }
 
-export async function createEntanglementGame(host, { assets, RoomEnvironment, onActivity, openGame, onGameComplete }) {
+export function createEntanglementGame(host, options) {
+  return withSceneSetup(defer => buildEntanglementGame(host, options, defer))
+}
+
+async function buildEntanglementGame(host, { assets, RoomEnvironment, onActivity, openGame, onGameComplete, band, popupHost }, defer) {
   const { THREE, geometry } = assets
   const TAU = Math.PI * 2
 
@@ -144,6 +142,7 @@ export async function createEntanglementGame(host, { assets, RoomEnvironment, on
   wrapper.innerHTML = gameMarkup().trim()
   const root = wrapper.firstElementChild
   host.replaceChildren(root)
+  defer(() => root.remove())
 
   const lead = root.querySelector('[data-pair-lead]')
   const leadTitle = root.querySelector('[data-pair-lead-title]')
@@ -153,51 +152,99 @@ export async function createEntanglementGame(host, { assets, RoomEnvironment, on
   const sceneHost = root.querySelector('[data-game-scene]')
   const copyTitle = root.querySelector('[data-pair-title]')
   const copyBody = root.querySelector('[data-pair-body]')
-  const hintText = root.querySelector('[data-pair-hint-text]')
+  const flipHint = createKioskTooltip({
+    className: 'kiosk-tooltip--light qvc-pair__hint',
+    hidden: true
+  })
+  copyBlock.after(flipHint.element)
   const outcomeLeft = root.querySelector('[data-outcome-left]')
   const outcomeRight = root.querySelector('[data-outcome-right]')
   const announce = root.querySelector('[data-announce]')
   const actionButton = root.querySelector('[data-action]')
 
-  /* Offered once the pair resolves, then replaced by the band at the top for
-     the rest of the visit — see up-next-card.js for why the two are sequenced
-     rather than shown together. Built here, before the frame loop that opens
-     it, so the reference exists by the time the coins can land. */
+  /* The band belongs to the module, which mounts the 1-2-3 on it and takes it
+     back when the view changes. A game only borrows it to offer what follows —
+     it must not clear it on the way out, because disposal is deferred by a
+     frame and the next game has already put its own step up by then. */
   let upNextOffered = false
-  const upNextCard = createUpNextCard({
+  const upNextBanner = band
+
+  /* The popup is armed by each settled result rather than once alongside the
+     band's offer.
+
+     Starting another round drops it — one landing over a pair already
+     spinning is what that guard is for — and only a result can put it back.
+     Arming it once with the offer meant the first restart inside the
+     five-second window cancelled it for the rest of the visit: the offer is
+     one-shot, so nothing ever re-armed it. */
+  let popupTimer = null
+  let popupDeclined = false
+
+  function cancelUpNextPopup () {
+    if (popupTimer !== null) window.clearTimeout(popupTimer)
+    popupTimer = null
+  }
+
+  /* Closing the popup is an answer, so it is not asked again. Starting
+     another round is not: that withdraws it without reaching onDismiss. */
+  function armUpNextPopup ({ immediate = false } = {}) {
+    cancelUpNextPopup()
+    if (popupDeclined || !areUpNextCardsEnabled()) return
+    if (immediate) {
+      upNextCard.raise(0)
+      return
+    }
+    popupTimer = window.setTimeout(() => {
+      popupTimer = null
+      upNextCard.raise(0)
+    }, UP_NEXT_POPUP_DELAY_MS)
+  }
+
+  /* The last beat, and the only one that interrupts. It now follows the band
+     rather than preceding it: the quiet offer gets first refusal and the popup
+     only asks outright if that goes unanswered, which is the order the rest of
+     the floor runs. Settings can still switch it off, and then the band is the
+     whole offer. */
+  const upNextCard = createUpNextPopup({
     title: 'Interference',
-    visual: 'assets/modules/differences/up-next/up-next-interference.webp',
-    visualAlt: 'A buoy marking one answer in the field.',
-    replayHint: 'Or tap to entangle the coins again',
-    reducedMotion: window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false,
+    /* A full-bleed plate rather than a cutout on white, so it fills the visual
+       area instead of floating inside it. */
+    visual: {
+      src: 'assets/modules/differences/up-next/up-next-interference.webp',
+      alt: 'A buoy marking one answer in the field.',
+      fit: 'cover'
+    },
+    restartLabel: 'Entangle the coins again',
     onContinue() {
       onActivity?.()
       openGame?.('interference')
     },
-    onReplay() {
+    onRestart() {
       onActivity?.()
       resetScene()
     },
-    onShow() {
-      upNextOffered = true
-    },
     onDismiss() {
-      root.dataset.stayed = 'true'
+      onActivity?.()
+      popupDeclined = true
     }
   })
-  root.append(upNextCard.element)
+  defer(() => upNextCard.dispose())
+  popupHost.append(upNextCard.element)
 
   /* Transparent scene: the kiosk's aurora backdrop shows through. */
   const scene = new THREE.Scene()
+  defer(() => disposeObject3DResources(scene, { preserve: new Set([geometry, assets.bumpMap, ...assets.colorMaps, ...assets.roughnessMaps]) }))
   scene.fog = new THREE.Fog('#f4f3f5', 12, 30)
 
   const camera = new THREE.PerspectiveCamera(29, 1, 0.1, 60)
 
-  const renderer = new THREE.WebGLRenderer({
+  const rendererLease = leaseWebGLRenderer(THREE, {
     antialias: true,
     alpha: true,
     powerPreference: 'high-performance'
   })
+  defer(() => rendererLease.release())
+  const { renderer } = rendererLease
   renderer.setClearColor(0x000000, 0)
   renderer.shadowMap.enabled = true
   renderer.shadowMap.type = THREE.PCFSoftShadowMap
@@ -205,6 +252,10 @@ export async function createEntanglementGame(host, { assets, RoomEnvironment, on
   sceneHost.append(renderer.domElement)
 
   const rig = createStudioRig(assets, renderer, scene, { RoomEnvironment })
+  defer(() => rig.dispose())
+  /* These coins use authored contact shadows and explicitly do not cast real
+     shadows, so do not allocate a new GPU shadow target for every visit. */
+  rig.keyLight.castShadow = false
 
   /* Blue accent that breathes while the pair shares a phase (prototype). */
   const phaseLight = new THREE.PointLight(QVC_COIN_ACCENT_COLOR, 0, 8, 2)
@@ -222,10 +273,12 @@ export async function createEntanglementGame(host, { assets, RoomEnvironment, on
   floor.receiveShadow = true
   scene.add(floor)
 
-  /* The main-menu grid grounds the game in the same visual system. */
+  /* The main-menu grid grounds the game in the same visual system, held at 80%
+     of the shared default so it sits back from the coins. */
   scene.add(createGridFloor(assets, {
     size: 26,
     spacing: 0.6,
+    opacity: 0.32,
     fadeRadius: 4.6,
     y: FLOOR_Y + 0.003
   }))
@@ -477,6 +530,7 @@ export async function createEntanglementGame(host, { assets, RoomEnvironment, on
   let measurementRollVelocity = 0
   let measurementDuration = 1
   let measurementApexY = HOVER_Y
+  let measurementPass = 0
   let impactElapsed = 0
   let spinPlayback = null
   let disposed = false
@@ -577,7 +631,7 @@ export async function createEntanglementGame(host, { assets, RoomEnvironment, on
     lead.hidden = !stage.lead
     /* Nothing sits below the coins on the measured stage; the result does. */
     copyBlock.hidden = !stage.title && !stage.body
-    hintText.textContent = stage.hint
+    updateKioskTooltip(flipHint, { text: stage.hint, visible: Boolean(stage.hint) })
     /* The measured stage has no button, so it carries no label to apply. */
     if (stage.action) actionButton.textContent = stage.action
     root.dataset.stage = stageId
@@ -626,6 +680,28 @@ export async function createEntanglementGame(host, { assets, RoomEnvironment, on
   function setOutcome(result) {
     outcomeLeft.textContent = result
     outcomeRight.textContent = result
+    positionOutcomeLabels()
+  }
+
+  /* Each word names one coin, so it is placed over that coin rather than by a
+     centred row. A row centred on the stage is laid out by its own text widths,
+     which puts "Tails + Tails" somewhere different to "Heads + Heads" and
+     leaves neither above the thing it names. Projecting the coins is also what
+     keeps the pair right when they close from `spread` to `linkedSpread`. */
+  const outcomeProjection = new THREE.Vector3()
+
+  function positionOutcomeLabels() {
+    /* Layout pixels, not client pixels: the stage is CSS-scaled to the panel
+       and these labels are positioned in its own 2160-wide space. */
+    const stageWidth = sceneHost.offsetWidth
+    if (!stageWidth) return
+    const labels = [outcomeLeft, outcomeRight]
+    coins.forEach((coin, index) => {
+      coin.root.getWorldPosition(outcomeProjection)
+      outcomeProjection.project(camera)
+      const stageX = (outcomeProjection.x * 0.5 + 0.5) * stageWidth
+      labels[index].style.left = `${stageX.toFixed(1)}px`
+    })
   }
 
   function setIndependentPositions() {
@@ -649,10 +725,12 @@ export async function createEntanglementGame(host, { assets, RoomEnvironment, on
   }
 
   function resetScene() {
-    /* Starting another round inside the card's delay means they are not
-       finished, so the pending offer is dropped rather than landing over a pair
-       already spinning. The next result schedules it afresh. */
-    upNextCard.cancelPending()
+    /* Starting another round inside the popup's delay means they are not
+       finished, so it is dropped rather than landing over a pair already
+       spinning. The next result arms it afresh. The band keeps its offer: it
+       does not interrupt, so it can stand through another round. */
+    cancelUpNextPopup()
+    upNextCard.withdraw()
     coins[0].angle = 0
     coins[1].angle = Math.PI * 0.68
     coins[0].rollAngle = 0
@@ -715,6 +793,7 @@ export async function createEntanglementGame(host, { assets, RoomEnvironment, on
 
   function beginMeasurement() {
     if (state !== STATE.ENTANGLED) return
+    measurementPass += 1
     measuredResult = Math.random() < 0.5 ? 'Heads' : 'Tails'
     measurementStartAngle = sharedAngle
     measurementStartRollAngle = sharedRollAngle
@@ -741,17 +820,14 @@ export async function createEntanglementGame(host, { assets, RoomEnvironment, on
     setState(STATE.MEASURING)
   }
 
-  root.querySelector('[data-up-next-action]').addEventListener('click', () => {
-    onActivity?.()
-    openGame?.('interference')
-  })
-
+  const listeners = new AbortController()
+  defer(() => listeners.abort())
   actionButton.addEventListener('click', () => {
     onActivity?.()
     if (state === STATE.INDEPENDENT) beginEntanglement()
     else if (state === STATE.ENTANGLED) beginMeasurement()
     else if (state === STATE.MEASURED) resetScene()
-  })
+  }, { signal: listeners.signal })
 
   const coinRaycaster = new THREE.Raycaster()
   const coinPointer = new THREE.Vector2()
@@ -783,7 +859,7 @@ export async function createEntanglementGame(host, { assets, RoomEnvironment, on
     if (!clickedCoin) return
     if (state === STATE.INDEPENDENT) beginClickSpin(clickedCoin)
     else if (state === STATE.ENTANGLED) beginMeasurement()
-  })
+  }, { signal: listeners.signal })
 
   /* The authored measured screen drops the button for "Tap to restart", so a
      tap anywhere on the stage has to do that. The upward swipe keeps working
@@ -826,10 +902,10 @@ export async function createEntanglementGame(host, { assets, RoomEnvironment, on
     }
   }
 
-  renderer.domElement.addEventListener('pointerdown', onRestartStart)
-  renderer.domElement.addEventListener('pointermove', onRestartMove)
-  renderer.domElement.addEventListener('pointerup', finishRestart)
-  renderer.domElement.addEventListener('pointercancel', finishRestart)
+  renderer.domElement.addEventListener('pointerdown', onRestartStart, { signal: listeners.signal })
+  renderer.domElement.addEventListener('pointermove', onRestartMove, { signal: listeners.signal })
+  renderer.domElement.addEventListener('pointerup', finishRestart, { signal: listeners.signal })
+  renderer.domElement.addEventListener('pointercancel', finishRestart, { signal: listeners.signal })
 
   function updateIndependent(delta, elapsed) {
     coins.forEach((coin, index) => {
@@ -1010,20 +1086,25 @@ export async function createEntanglementGame(host, { assets, RoomEnvironment, on
          gets the screen to itself first. Later rounds do not re-offer it; by
          then the band at the top is carrying the same invitation quietly. */
       if (!upNextOffered) {
-        /* With the card switched off there is nothing to decline, so the band
-           it would have handed over to unlocks on the result instead. Only the
-           interruption is gone; the way on is not. */
-        if (areUpNextCardsEnabled()) upNextCard.show(UP_NEXT_DELAY_MS)
-        else {
-          root.dataset.stayed = 'true'
-          upNextOffered = true
-        }
-        /* Finishing is landing the result, not a card appearing. It used to be
-           reported from the card's onShow, so switching the cards off left the
-           principle never marked complete — and the next one stayed locked
-           behind it, which made the band that did appear refuse to open. */
+        upNextOffered = true
+        upNextBanner.offerNext({
+          title: 'Interference',
+          /* No delay: the band is the quiet half and does not cover the pair
+             the visitor has just landed. */
+          delayMs: 0,
+          onContinue() {
+            onActivity?.()
+            openGame?.('interference')
+          }
+        })
+        /* Finishing is landing the result, not the offer appearing. Reporting
+           it from the offer is what once left the principle never marked
+           complete when the popups were switched off, locking the next one. */
         onGameComplete?.('entanglement')
       }
+      /* Give the first result its authored pause. On a repeated measurement,
+         make the route onward explicit as soon as the coins land. */
+      armUpNextPopup({ immediate: measurementPass > 1 })
     }
   }
 
@@ -1053,6 +1134,9 @@ export async function createEntanglementGame(host, { assets, RoomEnvironment, on
     camera.position.set(0, 2.25, 15.4)
     camera.updateProjectionMatrix()
     camera.lookAt(0, -0.45, 0)
+    /* The labels are placed by projecting the coins, so they have to be redone
+       whenever the projection changes. */
+    positionOutcomeLabels()
     renderer.setSize(rect.width, rect.height, false)
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
     renderer.domElement.style.width = '100%'
@@ -1079,9 +1163,11 @@ export async function createEntanglementGame(host, { assets, RoomEnvironment, on
   const resizeObserver = new ResizeObserver(resize)
   resizeObserver.observe(sceneHost)
   window.addEventListener('resize', resize)
+  defer(() => { resizeObserver.disconnect(); window.removeEventListener('resize', resize) })
 
   const clock = new THREE.Clock()
   let animationFrame = 0
+  defer(() => cancelAnimationFrame(animationFrame))
   function animate() {
     if (disposed) return
     animationFrame = requestAnimationFrame(animate)
@@ -1111,27 +1197,40 @@ export async function createEntanglementGame(host, { assets, RoomEnvironment, on
          the between-rounds reset, where the unlock has to survive. */
       root.dataset.measured = 'false'
       root.classList.remove('is-entangled')
-      /* The next visitor should meet the card as the first visitor did, so the
-         offer and the band it unlocks both go back to their starting state. */
-      root.dataset.stayed = 'false'
+      /* The next visitor should meet this as the first visitor did, so the band
+         drops its offer and goes back to carrying the 1-2-3. */
+      upNextBanner.withdrawOffer()
       upNextOffered = false
-      upNextCard.close()
+      popupDeclined = false
+      measurementPass = 0
+      cancelUpNextPopup()
+      upNextCard.withdraw()
       resetScene()
     },
     dispose() {
       if (disposed) return
       disposed = true
+      listeners.abort()
       /* Leaving the module mid-wind-up would otherwise leave it droning. */
       spinPlayback?.stop()
       spinPlayback = null
+      cancelUpNextPopup()
+      upNextCard.dispose()
       window.clearTimeout(copySwap)
       cancelAnimationFrame(animationFrame)
       resizeObserver.disconnect()
       window.removeEventListener('resize', resize)
       rig.dispose()
-      renderer.domElement.remove()
-      renderer.dispose()
-      renderer.forceContextLoss()
+      disposeObject3DResources(scene, {
+        preserve: new Set([
+          geometry,
+          assets.bumpMap,
+          ...assets.colorMaps,
+          ...assets.roughnessMaps
+        ])
+      })
+      scene.clear()
+      rendererLease.release()
       root.remove()
     }
   }

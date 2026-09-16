@@ -1,0 +1,442 @@
+[
+  {
+    "target": "quantum-vs-classical",
+    "kind": "module",
+    "cycles": 3,
+    "glDelta": {
+      "texture": 0,
+      "buffer": 0,
+      "program": 0,
+      "shader": 0,
+      "framebuffer": 0,
+      "renderbuffer": 0,
+      "vao": 0
+    },
+    "glLeakPerCycle": {
+      "texture": 0,
+      "buffer": 0,
+      "program": 0,
+      "shader": 0,
+      "framebuffer": 0,
+      "renderbuffer": 0,
+      "vao": 0
+    },
+    "newContexts": 0,
+    "nodesDelta": 0,
+    "listenersDelta": 0,
+    "documentsDelta": 0,
+    "taggedListenerDelta": {},
+    "leakingListenerSites": {},
+    "retainedVideosBefore": 0,
+    "retainedVideosAfter": 0,
+    "retainedVideoDetail": [],
+    "jsHeapMB": [
+      27.3,
+      27.9
+    ],
+    "rendererMB": [
+      888.1,
+      750.8
+    ]
+  },
+  {
+    "target": "states-of-matter",
+    "kind": "module",
+    "cycles": 3,
+    "glDelta": {
+      "texture": 0,
+      "buffer": 0,
+      "program": 0,
+      "shader": 0,
+      "framebuffer": 0,
+      "renderbuffer": 0,
+      "vao": 0
+    },
+    "glLeakPerCycle": {
+      "texture": 0,
+      "buffer": 0,
+      "program": 0,
+      "shader": 0,
+      "framebuffer": 0,
+      "renderbuffer": 0,
+      "vao": 0
+    },
+    "newContexts": 0,
+    "nodesDelta": 3,
+    "listenersDelta": 3,
+    "documentsDelta": 0,
+    "taggedListenerDelta": {},
+    "leakingListenerSites": {},
+    "retainedVideosBefore": 0,
+    "retainedVideosAfter": 0,
+    "retainedVideoDetail": [],
+    "jsHeapMB": [
+      40.5,
+      40.3
+    ],
+    "rendererMB": [
+      317.3,
+      204.2
+    ]
+  },
+  {
+    "target": "qubit-explorer",
+    "kind": "module",
+    "cycles": 3,
+    "glDelta": {
+      "texture": 0,
+      "buffer": 0,
+      "program": 0,
+      "shader": 0,
+      "framebuffer": 0,
+      "renderbuffer": 0,
+      "vao": 0
+    },
+    "glLeakPerCycle": {
+      "texture": 0,
+      "buffer": 0,
+      "program": 0,
+      "shader": 0,
+      "framebuffer": 0,
+      "renderbuffer": 0,
+      "vao": 0
+    },
+    "newContexts": 0,
+    "nodesDelta": 0,
+    "listenersDelta": 0,
+    "documentsDelta": 0,
+    "taggedListenerDelta": {},
+    "leakingListenerSites": {},
+    "retainedVideosBefore": 0,
+    "retainedVideosAfter": 0,
+    "retainedVideoDetail": [],
+    "jsHeapMB": [
+      40.7,
+      41.5
+    ],
+    "rendererMB": [
+      203.7,
+      211.4
+    ]
+  },
+  {
+    "target": "protecting-information",
+    "kind": "module",
+    "cycles": 3,
+    "glDelta": {
+      "texture": 0,
+      "buffer": 0,
+      "program": 0,
+      "shader": 0,
+      "framebuffer": 0,
+      "renderbuffer": 0,
+      "vao": 0
+    },
+    "glLeakPerCycle": {
+      "texture": 0,
+      "buffer": 0,
+      "program": 0,
+      "shader": 0,
+      "framebuffer": 0,
+      "renderbuffer": 0,
+      "vao": 0
+    },
+    "newContexts": 0,
+    "nodesDelta": 0,
+    "listenersDelta": 0,
+    "documentsDelta": 0,
+    "taggedListenerDelta": {},
+    "leakingListenerSites": {},
+    "retainedVideosBefore": 0,
+    "retainedVideosAfter": 0,
+    "retainedVideoDetail": [],
+    "jsHeapMB": [
+      42.4,
+      42.5
+    ],
+    "rendererMB": [
+      278.3,
+      341.8
+    ]
+  },
+  {
+    "target": "build-nanowire",
+    "kind": "module",
+    "cycles": 3,
+    "glDelta": {
+      "texture": 0,
+      "buffer": 0,
+      "program": 0,
+      "shader": 0,
+      "framebuffer": 0,
+      "renderbuffer": 0,
+      "vao": 0
+    },
+    "glLeakPerCycle": {
+      "texture": 0,
+      "buffer": 0,
+      "program": 0,
+      "shader": 0,
+      "framebuffer": 0,
+      "renderbuffer": 0,
+      "vao": 0
+    },
+    "newContexts": 0,
+    "nodesDelta": 0,
+    "listenersDelta": 0,
+    "documentsDelta": 0,
+    "taggedListenerDelta": {},
+    "leakingListenerSites": {},
+    "retainedVideosBefore": 0,
+    "retainedVideosAfter": 0,
+    "retainedVideoDetail": [],
+    "jsHeapMB": [
+      43.5,
+      43.2
+    ],
+    "rendererMB": [
+      353.1,
+      246.2
+    ]
+  },
+  {
+    "target": "build-majorana-2",
+    "kind": "module",
+    "cycles": 3,
+    "glDelta": {
+      "texture": 0,
+      "buffer": 0,
+      "program": 0,
+      "shader": 0,
+      "framebuffer": 0,
+      "renderbuffer": 0,
+      "vao": 0
+    },
+    "glLeakPerCycle": {
+      "texture": 0,
+      "buffer": 0,
+      "program": 0,
+      "shader": 0,
+      "framebuffer": 0,
+      "renderbuffer": 0,
+      "vao": 0
+    },
+    "newContexts": 0,
+    "nodesDelta": 0,
+    "listenersDelta": 0,
+    "documentsDelta": 0,
+    "taggedListenerDelta": {},
+    "leakingListenerSites": {},
+    "retainedVideosBefore": 0,
+    "retainedVideosAfter": 0,
+    "retainedVideoDetail": [],
+    "jsHeapMB": [
+      43.4,
+      44.1
+    ],
+    "rendererMB": [
+      576.3,
+      971.4
+    ]
+  },
+  {
+    "target": "measurement-based",
+    "kind": "module",
+    "cycles": 3,
+    "glDelta": {
+      "texture": 0,
+      "buffer": 0,
+      "program": 0,
+      "shader": 0,
+      "framebuffer": 0,
+      "renderbuffer": 0,
+      "vao": 0
+    },
+    "glLeakPerCycle": {
+      "texture": 0,
+      "buffer": 0,
+      "program": 0,
+      "shader": 0,
+      "framebuffer": 0,
+      "renderbuffer": 0,
+      "vao": 0
+    },
+    "newContexts": 0,
+    "nodesDelta": 0,
+    "listenersDelta": 0,
+    "documentsDelta": 0,
+    "taggedListenerDelta": {},
+    "leakingListenerSites": {},
+    "retainedVideosBefore": 0,
+    "retainedVideosAfter": 0,
+    "retainedVideoDetail": [],
+    "jsHeapMB": [
+      45.4,
+      44.6
+    ],
+    "rendererMB": [
+      753.8,
+      704.3
+    ]
+  },
+  {
+    "target": "nanoscale",
+    "kind": "module",
+    "cycles": 3,
+    "glDelta": {
+      "texture": 0,
+      "buffer": 0,
+      "program": 0,
+      "shader": 0,
+      "framebuffer": 0,
+      "renderbuffer": 0,
+      "vao": 0
+    },
+    "glLeakPerCycle": {
+      "texture": 0,
+      "buffer": 0,
+      "program": 0,
+      "shader": 0,
+      "framebuffer": 0,
+      "renderbuffer": 0,
+      "vao": 0
+    },
+    "newContexts": 0,
+    "nodesDelta": 0,
+    "listenersDelta": 0,
+    "documentsDelta": 0,
+    "taggedListenerDelta": {},
+    "leakingListenerSites": {},
+    "retainedVideosBefore": 0,
+    "retainedVideosAfter": 0,
+    "retainedVideoDetail": [],
+    "jsHeapMB": [
+      44.7,
+      44.9
+    ],
+    "rendererMB": [
+      917.5,
+      552.4
+    ]
+  },
+  {
+    "target": "superposition",
+    "kind": "sub-scene",
+    "cycles": 3,
+    "glDelta": {
+      "texture": 0,
+      "buffer": 0,
+      "program": 0,
+      "shader": 0,
+      "framebuffer": 0,
+      "renderbuffer": 0,
+      "vao": 0
+    },
+    "glLeakPerCycle": {
+      "texture": 0,
+      "buffer": 0,
+      "program": 0,
+      "shader": 0,
+      "framebuffer": 0,
+      "renderbuffer": 0,
+      "vao": 0
+    },
+    "newContexts": 0,
+    "nodesDelta": 0,
+    "listenersDelta": 0,
+    "documentsDelta": 0,
+    "taggedListenerDelta": {},
+    "leakingListenerSites": {},
+    "retainedVideosBefore": 0,
+    "retainedVideosAfter": 0,
+    "retainedVideoDetail": [],
+    "jsHeapMB": [
+      45.5,
+      45.7
+    ],
+    "rendererMB": [
+      419.9,
+      359.1
+    ]
+  },
+  {
+    "target": "entanglement",
+    "kind": "sub-scene",
+    "cycles": 3,
+    "glDelta": {
+      "texture": 0,
+      "buffer": 0,
+      "program": 0,
+      "shader": 0,
+      "framebuffer": 0,
+      "renderbuffer": 0,
+      "vao": 0
+    },
+    "glLeakPerCycle": {
+      "texture": 0,
+      "buffer": 0,
+      "program": 0,
+      "shader": 0,
+      "framebuffer": 0,
+      "renderbuffer": 0,
+      "vao": 0
+    },
+    "newContexts": 0,
+    "nodesDelta": 0,
+    "listenersDelta": 0,
+    "documentsDelta": 0,
+    "taggedListenerDelta": {},
+    "leakingListenerSites": {},
+    "retainedVideosBefore": 0,
+    "retainedVideosAfter": 0,
+    "retainedVideoDetail": [],
+    "jsHeapMB": [
+      44.3,
+      44.8
+    ],
+    "rendererMB": [
+      353.4,
+      265.5
+    ]
+  },
+  {
+    "target": "interference",
+    "kind": "sub-scene",
+    "cycles": 3,
+    "glDelta": {
+      "texture": 0,
+      "buffer": 0,
+      "program": 0,
+      "shader": 0,
+      "framebuffer": 0,
+      "renderbuffer": 0,
+      "vao": 0
+    },
+    "glLeakPerCycle": {
+      "texture": 0,
+      "buffer": 0,
+      "program": 0,
+      "shader": 0,
+      "framebuffer": 0,
+      "renderbuffer": 0,
+      "vao": 0
+    },
+    "newContexts": 0,
+    "nodesDelta": 0,
+    "listenersDelta": 0,
+    "documentsDelta": 0,
+    "taggedListenerDelta": {},
+    "leakingListenerSites": {},
+    "retainedVideosBefore": 0,
+    "retainedVideosAfter": 0,
+    "retainedVideoDetail": [],
+    "jsHeapMB": [
+      45.3,
+      45.2
+    ],
+    "rendererMB": [
+      254.8,
+      249.3
+    ]
+  }
+]

@@ -55,8 +55,12 @@
   transition: opacity 420ms ease, transform 420ms ease;
 }
 
+/* Wide enough for the heading to hold one line. It needs 1645 at the authored
+   96px in Segoe Sans, so 1500 broke "matter." onto a line of its own; 1800 also
+   clears the widest fallback in the stack (Inter, ~1753) and still leaves 180
+   each side of the 2160 stage. */
 .qe__intro-copy h2 {
-  width: 1500px;
+  width: 1800px;
   margin: 0 auto;
   color: var(--qe-ink);
   font-family: var(--font-text);
@@ -66,8 +70,12 @@
   line-height: 1.2;
 }
 
+/* The shared body measure at 60px type: .qvc-pair__body and .qvc-flip__body in
+   module 01, .som__info-copy p in module 03. Nothing here was holding it to
+   940 -- .qe__intro spans the stage and the heading above it runs to 1800 --
+   so it was just narrower than everywhere else the same copy size appears. */
 .qe__intro-copy p {
-  width: 940px;
+  width: 1080px;
   margin: 80px auto 0;
   color: var(--qe-ink);
   font-family: var(--font-display);
@@ -135,6 +143,10 @@
   --kiosk-explainer-border-radius: 24px;
   --kiosk-explainer-box-shadow: 0 30px 80px rgba(21, 38, 64, 0.1);
   --kiosk-explainer-content-gap: 60px;
+  --kiosk-explainer-body-color: var(--qe-ink);
+  --kiosk-explainer-body-size: 40px;
+  --kiosk-explainer-body-white-space: normal;
+  --kiosk-explainer-ink: var(--qe-ink);
   --kiosk-explainer-enter-opacity-duration: 360ms;
   --kiosk-explainer-enter-opacity-easing: ease;
   --kiosk-explainer-enter-transform-duration: 480ms;
@@ -151,10 +163,10 @@
   /* Figma 895:4033: the lesson begins at y=600 in the full 3840px frame.
      .qe__experience starts below the 120px header, hence the 480px offset. */
   top: 480px;
-  left: 211px;
+  right: 0;
+  left: 0;
   width: 1806px;
-  align-items: center;
-  text-align: left;
+  margin-inline: auto;
 }
 
 .qe__panel .kiosk-explainer__media {
@@ -181,32 +193,29 @@
 }
 
 .qe__panel .kiosk-explainer__copy {
-  align-items: flex-start;
-  gap: 40px;
-  text-align: left;
+  flex: 1;
+  min-width: 0;
+  align-items: stretch;
+  /* Keep the heading and lead anchored when the longer lesson replaces the
+     shorter one; centering the whole copy column makes both jump vertically. */
+  justify-content: flex-start;
+  gap: 45px;
 }
 
 .qe__panel .kiosk-explainer__title {
-  color: var(--qe-ink);
-  font-family: var(--font-display);
-  font-size: 96px;
-  font-weight: 600;
-  letter-spacing: -1.92px;
   line-height: 1.1;
+  /* Both material names begin with S: compensate its display-font sidebearing
+     so the visible letter aligns with the paragraph's A, not just its box. */
+  text-indent: -0.04em;
 }
 
 .qe__panel .kiosk-explainer__body {
   display: flex;
   flex-direction: column;
-  gap: 40px;
-  color: var(--qe-ink);
+  gap: 32px;
   font-family: var(--font-text);
-  font-size: 40px;
-  font-weight: 400;
   letter-spacing: -0.4px;
   line-height: 48px;
-  text-align: left;
-  white-space: normal;
 }
 
 .qe__panel-lead,
@@ -362,8 +371,8 @@
 .qe .qe__continue {
   position: absolute;
   z-index: 8;
-  top: 2358px;
-  left: calc(50% - 6.5px);
+  top: var(--qe-action-prompt-top, 2358px);
+  left: 50%;
   display: block;
   width: 510px;
   height: 92px;
@@ -379,8 +388,8 @@
 .qe .qe__continue-tooltip {
   position: absolute;
   z-index: 8;
-  top: 2358px;
-  left: calc(50% - 6.5px);
+  top: var(--qe-action-prompt-top, 2358px);
+  left: 50%;
   opacity: 1;
   pointer-events: none;
   transform: translateX(-50%);
@@ -418,7 +427,7 @@
 .qe .qe__drag-hint {
   position: absolute;
   z-index: 8;
-  top: 2358px;
+  top: var(--qe-action-prompt-top, 2358px);
   left: calc(50% - 6.5px);
   transform: translateX(-50%);
 }
@@ -448,8 +457,9 @@
 .qe__tuning-copy {
   position: absolute;
   top: 540px;
-  left: 480px;
-  width: 1200px;
+  /* Give the closing title one line while paragraphs keep their own measure. */
+  left: 120px;
+  width: 1920px;
   color: var(--qe-ink);
   filter: blur(0);
   opacity: 1;
@@ -518,6 +528,7 @@
   font-weight: 600;
   letter-spacing: -1.92px;
   line-height: 1.2;
+  white-space: nowrap;
 }
 
 .qe__tuning-description {
@@ -558,24 +569,4 @@
     transition-delay: 0s;
     animation-duration: 1ms;
   }
-}
-
-/* The next-module band is purple because it arrives once the material has
-   turned purple; a blue band there reads as part of the experiment instead. */
-.qe .kiosk-up-next {
-  background-image:
-    linear-gradient(
-      101deg,
-      transparent 38%,
-      rgba(255, 255, 255, 0.05) 44%,
-      rgba(255, 255, 255, 0.2) 50%,
-      rgba(255, 255, 255, 0.05) 56%,
-      transparent 62%
-    ),
-    linear-gradient(101deg, #4a3570 0%, #533e7a 26%, #6f50a4 68%, #8a63c8 100%);
-}
-
-.qe .kiosk-up-next__chip {
-  background: #c3aee6;
-  color: #3d2a63;
 }

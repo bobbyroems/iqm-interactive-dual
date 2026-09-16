@@ -1,5 +1,4 @@
 const TARGET_FEATHER_DEGREES = 16
-const TEMPERATURE_BACKGROUND_BASELINE = 0.38
 
 function parameter({
   id,
@@ -32,27 +31,31 @@ export const PROTECTION_PARAMETERS = Object.freeze({
     id: 'temperature',
     label: 'Temperature',
     title: 'Freezing temperature',
-    description: 'Extreme cold calms thermal noise, slowing chaotic electrons down to a near standstill.',
-    prompt: 'Turn dial to chill the device',
-    startDeg: 95,
-    endDeg: 149
+    description: 'Extremely low temperature slows down electrons to better control them.',
+    prompt: 'Lower the temperature',
+    startDeg: 300,
+    /* Runs to the end of the sweep: colder is always better here, so the top of
+       the dial's travel belongs inside the target rather than past it. Stopping
+       at 354 left the last six degrees — including a fully wound dial — reading
+       as mistuned, which is the one place this dial cannot be wrong. */
+    endDeg: 360
   }),
   voltage: parameter({
     id: 'voltage',
     label: 'Voltage',
-    title: 'Tuning voltage',
-    description: 'Electric gates push excess electrons away from the center, clearing space along the wire.',
-    prompt: 'Turn dial to guide electrons into place',
+    title: 'Voltage',
+    description: 'Voltage adjusts the behavior of electrons.',
+    prompt: 'Apply voltage',
     startDeg: 175,
     endDeg: 244
   }),
   magnetic: parameter({
     id: 'magnetic',
-    label: 'Magnetic Field',
-    shortLabel: 'Magnetic\nField',
+    label: 'Magnetic field',
+    shortLabel: 'Magnetic\nfield',
     title: 'Magnetic field',
-    description: 'A precise magnetic field locks the remaining electrons into synchronized Cooper pairs.',
-    prompt: 'Turn dial to pair the electrons',
+    description: 'A magnetic field changes how electrons organize themselves.',
+    prompt: 'Apply magnetic field',
     startDeg: 147,
     endDeg: 216
   })
@@ -62,13 +65,13 @@ export const PROTECTION_PARAMETER_IDS = Object.freeze(Object.keys(PROTECTION_PAR
 
 export const PROTECTION_INTRO_COPY = Object.freeze({
   title: 'Protecting quantum information',
-  description: 'To keep qubits stable, this device uses three precise controls to tame chaotic particles.',
-  prompt: 'Turn the dials into their green zones to activate the device'
+  description: 'Building a topoconductor is only the beginning. The right conditions are needed to help shield quantum information from noise.',
+  prompt: 'Adjust all three conditions'
 })
 
 export const PROTECTION_SUCCESS_COPY = Object.freeze({
   title: 'Topoconductor activated!',
-  description: 'With all three conditions aligned, the device enters a topological phase, shielding quantum information from errors.',
+  description: 'When all three are tuned right, the topoconductor switches on and creates protected quantum states.',
   prompt: ''
 })
 
@@ -81,19 +84,19 @@ export function normalizeDegrees(value) {
   return ((degrees % 360) + 360) % 360
 }
 
-function circularDegreeDistance(first, second) {
-  const directDistance = Math.abs(normalizeDegrees(first) - normalizeDegrees(second))
-  return Math.min(directDistance, 360 - directDistance)
+/*
+ * These dials sweep 0-360 and stop at both ends — the value behind them is
+ * clamped to one turn, so they cannot wrap. Measuring them circularly folded a
+ * full turn back onto zero, which put the very top of Temperature's travel at
+ * the bottom of its own dial and therefore outside its target: winding it all
+ * the way up read as not tuned. Both are plain ranges on the sweep.
+ */
+function degreeDistance(first, second) {
+  return Math.abs(first - second)
 }
 
 function angleIsInsideArc(angle, { startDeg, endDeg }) {
-  const normalizedAngle = normalizeDegrees(angle)
-  const normalizedStart = normalizeDegrees(startDeg)
-  const normalizedEnd = normalizeDegrees(endDeg)
-  if (normalizedStart <= normalizedEnd) {
-    return normalizedAngle >= normalizedStart && normalizedAngle <= normalizedEnd
-  }
-  return normalizedAngle >= normalizedStart || normalizedAngle <= normalizedEnd
+  return angle >= startDeg && angle <= endDeg
 }
 
 function smoothstep01(value) {
@@ -110,8 +113,8 @@ export function getProtectionParameterQuality(parameterId, value) {
   if (angleIsInsideArc(angle, targetArc)) return 1
 
   const distanceFromArc = Math.min(
-    circularDegreeDistance(angle, targetArc.startDeg),
-    circularDegreeDistance(angle, targetArc.endDeg)
+    degreeDistance(angle, targetArc.startDeg),
+    degreeDistance(angle, targetArc.endDeg)
   )
   if (distanceFromArc >= targetArc.featherDeg) return 0
   return smoothstep01(1 - (distanceFromArc / targetArc.featherDeg))
@@ -138,6 +141,10 @@ function targetStartTurn(parameterId) {
   return PROTECTION_PARAMETERS[parameterId].targetArc.startDeg / 360
 }
 
+function targetEndTurn(parameterId) {
+  return PROTECTION_PARAMETERS[parameterId].targetArc.endDeg / 360
+}
+
 export function getProtectionEffectDrives(stateOrValues = {}) {
   const values = stateOrValues?.values || stateOrValues
   const temperature = clampUnit(values.temperature)
@@ -147,6 +154,7 @@ export function getProtectionEffectDrives(stateOrValues = {}) {
   const voltageTargetCenter = targetCenterTurn('voltage')
   const magneticTargetCenter = targetCenterTurn('magnetic')
   const voltageTargetStart = targetStartTurn('voltage')
+  const voltageTargetEnd = targetEndTurn('voltage')
   const magneticTargetStart = targetStartTurn('magnetic')
 
   return {
@@ -154,6 +162,9 @@ export function getProtectionEffectDrives(stateOrValues = {}) {
     // state as the knob enters its target instead of requiring a full turn.
     temperature: smoothstep01(temperature / temperatureTargetStart),
     voltage: smoothstep01(voltage / voltageTargetStart),
+    // Crossing the upper target boundary is a fault state, not another
+    // analogue effect: any over-voltage fully clears the energized corridors.
+    voltageOverdrive: Number(voltage > voltageTargetEnd),
     voltageVisual: Math.pow(voltage / voltageTargetCenter, 1.4),
     magnetic: smoothstep01(magnetic / magneticTargetStart),
     magneticVisual: Math.pow(magnetic / magneticTargetCenter, 1.5)
@@ -163,20 +174,10 @@ export function getProtectionEffectDrives(stateOrValues = {}) {
 export function getProtectionBackgroundDrives(stateOrValues = {}) {
   const values = stateOrValues?.values || stateOrValues
   const temperature = clampUnit(values.temperature)
-  const temperatureReferenceTurn = targetCenterTurn('temperature')
-  const temperatureGain = TEMPERATURE_BACKGROUND_BASELINE + (
-    (1 - TEMPERATURE_BACKGROUND_BASELINE) * (temperature / temperatureReferenceTurn)
-  )
 
-  // The initial blue wash keeps the white copy legible. At the centre of
-  // Temperature's green arc the stack still recreates the original treatment,
-  // then keeps intensifying above the target rather than flattening.
+  // Reach the cold blue gradient as Temperature enters its green target zone.
   return {
-    temperatureGain,
-    temperatureBaseTopAlpha: clampUnit(0.8 * temperatureGain),
-    temperatureBaseMidAlpha: clampUnit(0.24 * temperatureGain),
-    temperatureCoolingTopAlpha: clampUnit(0.1296 * temperatureGain),
-    temperatureCoolingMidAlpha: clampUnit(0.054 * temperatureGain)
+    cooling: smoothstep01(temperature / targetStartTurn('temperature'))
   }
 }
 

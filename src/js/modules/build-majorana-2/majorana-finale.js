@@ -2,18 +2,21 @@ import { assetUrl } from '../../core/asset-url.js'
 import {
   composeNanoscaleSimilarities,
   interpolateNanoscaleSimilarityAroundAnchor,
+  invertNanoscaleSimilarity,
   NANOSCALE_CAMERA_GEOMETRY,
   NANOSCALE_CAMERA_HANDOFFS,
   NANOSCALE_CAMERA_SCENES,
   nanoscaleCameraCssTransform,
+  nanoscaleSimilarityFromRects,
   sampleNanoscaleCamera,
-  sampleNanoscalePresentationSegment
+  sampleNanoscalePresentationSegment,
+  transformNanoscaleRect
 } from '../nanoscale/nanoscale-camera.js'
 
-const UI_CLEAR_MS = 420
-const ENCLOSURE_REVEAL_MS = 780
-const CHIP_SWAP_MS = 720
-const CHIP_HOLD_MS = 420
+const UI_CLEAR_MS = 300
+const ENCLOSURE_REVEAL_MS = 1_100
+const CHIP_SWAP_START_MS = 180
+const CHIP_SWAP_MS = 1_100
 const PULLOUT_MS = 4_800
 
 const CRYOSTAT_STOP = 1
@@ -42,27 +45,66 @@ export const MAJORANA_FINALE_END_FRAME = Object.freeze({
   y: -FIGMA_HEADER_HEIGHT
 })
 
-/* The replacement still begins in the same registered position as the former
-   straight-on package: 1300 intrinsic pixels were rendered at 2270px wide,
-   with its full bitmap beginning at (-57, -1360). Resolve that placement
-   against module 08's own art transform, then remove the correction while its
-   exact 02 -> 01 camera handoff runs in reverse. */
-const registeredMajoranaAssetScale = 2270 / majoranaArt.assetSize.width
 const finalCryostatAssetScale = (
   MAJORANA_FINALE_END_FRAME.height / cryostatArt.assetSize.height
 )
 
-export const MAJORANA_FINALE_START_REGISTRATION = Object.freeze({
-  scale: registeredMajoranaAssetScale / majoranaArt.assetToScene.scale,
-  translateX: -57 - (
-    (registeredMajoranaAssetScale / majoranaArt.assetToScene.scale) *
-    majoranaArt.assetToScene.translateX
-  ),
-  translateY: -1360 - (
-    (registeredMajoranaAssetScale / majoranaArt.assetToScene.scale) *
-    majoranaArt.assetToScene.translateY
-  )
+/*
+ * The cold finger the package hangs from, as its own plate.
+ *
+ * The pull-out starts hard against the arm's tip and ends on the whole
+ * chandelier, so at the start the cryostat plate is magnified about five times.
+ * The package survives that because it has a close-up plate of its own; the
+ * gold tube above it did not, and it was the softest thing on the screen.
+ *
+ * `M2_Coldfinger_8k.png` is that tube and package rendered again at 4608 x 8192.
+ * Matching its gradients against the cryostat plate across scale and offset —
+ * the same method stop 01 was registered with — puts it on
+ * (778, 2678) 245 x 436 of that plate, 18.8 master pixels per plate pixel, at a
+ * correlation of 0.78 against 0.47 for the next candidate. Nothing here is
+ * authored: the plate is laid out in the cryostat plate's own pixels and pushed
+ * through the same transform, so it lands wherever the chandelier's arm lands
+ * and no registration moves.
+ *
+ * Baked to 1536px wide, which is 1:1 at the closest the camera comes and 17 MB
+ * of decoded bitmap; the tube needs about 1200 stage pixels there and the plate
+ * gives it 245 today.
+ */
+const COLDFINGER_PLATE = Object.freeze({
+  src: 'assets/modules/nanoscale/coldfinger.webp',
+  assetRect: Object.freeze({ x: 778, y: 2678, width: 245, height: 436 })
 })
+
+/*
+ * Where the registered package stands when the live board dissolves into it,
+ * before the 02 -> 01 camera handoff runs in reverse and pulls it back into the
+ * cryostat. It has to match the board, or the crossfade jumps.
+ *
+ * Figma authored this against the flat arm-and-package render module 08's
+ * stop 02 used to paint: that plate's 1300 intrinsic pixels were drawn 2270px
+ * wide with its bitmap starting at (-57, -1360). Stop 02 now paints a
+ * different plate -- the package alone, at a different size and framing, and
+ * fitted to the chandelier's arm rather than to where the old render sat -- so
+ * neither those bitmap numbers nor the plate's stage placement can be reused
+ * as they are.
+ *
+ * What the Figma numbers actually pinned is where the package's circuit board
+ * fell in this frame. So that board is recovered from the retired plate and its
+ * placement, the same board is measured on the current plate (both as the
+ * blue-mask extent at half alpha), and the start is the similarity that lays
+ * one on the other. Stop 02 can refit its plate however it likes; the board
+ * still lands on the live one.
+ */
+const RETIRED_PLATE_PLACEMENT = Object.freeze({ scale: 2270 / 1300, translateX: -57, translateY: -1360 })
+const RETIRED_PLATE_BOARD = Object.freeze({ x: 295, y: 1461, width: 707, height: 957 })
+const PLATE_BOARD = Object.freeze({ x: 564, y: 210, width: 2735, height: 3706 })
+
+const BOARD_IN_FRAME = transformNanoscaleRect(RETIRED_PLATE_PLACEMENT, RETIRED_PLATE_BOARD)
+
+export const MAJORANA_FINALE_START_REGISTRATION = composeNanoscaleSimilarities(
+  nanoscaleSimilarityFromRects(BOARD_IN_FRAME, PLATE_BOARD),
+  invertNanoscaleSimilarity(majoranaArt.assetToScene)
+)
 
 /* Settle the complete module-08 bitmap in the higher Figma-authored frame. */
 export const MAJORANA_FINALE_END_REGISTRATION = Object.freeze({
@@ -148,6 +190,14 @@ export function createMajoranaFinale({ reducedMotion = false, stage } = {}) {
   const chipCamera = document.createElement('div')
   chipCamera.className = 'majorana-finale__chip-camera'
 
+  /* Both plates are placed by transforms that map their own intrinsic pixels
+     onto the shared stage, so each element has to be laid out at exactly the
+     size the camera believes its bitmap to be. */
+  const sizeToArt = (image, art) => {
+    image.style.width = `${art.assetSize.width}px`
+    image.style.height = `${art.assetSize.height}px`
+  }
+
   const pullout = document.createElement('img')
   pullout.className = 'majorana-finale__pullout'
   pullout.src = assetUrl('assets/modules/nanoscale/cryostat.webp')
@@ -155,6 +205,19 @@ export function createMajoranaFinale({ reducedMotion = false, stage } = {}) {
   pullout.draggable = false
   pullout.decoding = 'async'
   pullout.dataset.finaleArt = 'module-08-cryostat'
+  sizeToArt(pullout, cryostatArt)
+
+  /* Sits above the chandelier and below the package close-up, so the package
+     plate still owns the package and this only replaces the tube behind it. */
+  const coldfinger = document.createElement('img')
+  coldfinger.className = 'majorana-finale__coldfinger'
+  coldfinger.src = assetUrl(COLDFINGER_PLATE.src)
+  coldfinger.alt = ''
+  coldfinger.draggable = false
+  coldfinger.decoding = 'async'
+  coldfinger.dataset.finaleArt = 'module-08-coldfinger'
+  coldfinger.style.width = `${COLDFINGER_PLATE.assetRect.width}px`
+  coldfinger.style.height = `${COLDFINGER_PLATE.assetRect.height}px`
 
   const chip = document.createElement('img')
   chip.className = 'majorana-finale__chip'
@@ -163,8 +226,9 @@ export function createMajoranaFinale({ reducedMotion = false, stage } = {}) {
   chip.draggable = false
   chip.decoding = 'async'
   chip.dataset.finaleArt = 'module-08-majorana-2'
+  sizeToArt(chip, majoranaArt)
 
-  camera.append(pullout)
+  camera.append(pullout, coldfinger)
   chipCamera.append(chip)
   chipElement.append(chipCamera)
   element.append(camera)
@@ -175,9 +239,14 @@ export function createMajoranaFinale({ reducedMotion = false, stage } = {}) {
   let pulloutReveal = 0
   let chipReveal = 0
   let cryostatLayerOpacity = 0
+  let preparation = null
+  let disposed = false
 
   function applyLayerOpacities() {
-    pullout.style.opacity = String(clamp01(pulloutReveal * cryostatLayerOpacity))
+    const cryostatOpacity = clamp01(pulloutReveal * cryostatLayerOpacity)
+    pullout.style.opacity = String(cryostatOpacity)
+    /* It is part of the chandelier plate, so it comes and goes with it. */
+    coldfinger.style.opacity = String(cryostatOpacity)
     chip.style.opacity = String(clamp01(chipReveal))
   }
 
@@ -191,11 +260,19 @@ export function createMajoranaFinale({ reducedMotion = false, stage } = {}) {
 
     cryostatLayerOpacity = cryostatLayer?.opacity ?? 0
     if (cryostatLayer) {
-      pullout.style.transform = nanoscaleCameraCssTransform(
-        composeNanoscaleSimilarities(
-          cryostatLayer.cameraTransform,
-          cryostatArt.assetToScene
-        )
+      const cryostatToStage = composeNanoscaleSimilarities(
+        cryostatLayer.cameraTransform,
+        cryostatArt.assetToScene
+      )
+      pullout.style.transform = nanoscaleCameraCssTransform(cryostatToStage)
+      /* The same chain plus the plate-space offset of the rect this was cut
+         from, so the tube rides the chandelier exactly. */
+      coldfinger.style.transform = nanoscaleCameraCssTransform(
+        composeNanoscaleSimilarities(cryostatToStage, {
+          scale: 1,
+          translateX: COLDFINGER_PLATE.assetRect.x,
+          translateY: COLDFINGER_PLATE.assetRect.y
+        })
       )
     }
     chip.style.transform = nanoscaleCameraCssTransform(
@@ -215,18 +292,36 @@ export function createMajoranaFinale({ reducedMotion = false, stage } = {}) {
   function renderChipSwap(progress) {
     const eased = easeInOutCubic(progress)
     chipReveal = eased
-    chip.style.filter = `blur(${lerp(10, 0, eased)}px)`
     stage.style.setProperty('--majorana-finale-live-opacity', String(1 - eased))
-    stage.style.setProperty('--majorana-finale-live-blur', `${lerp(0, 10, eased)}px`)
     applyLayerOpacities()
   }
 
   async function decode() {
-    await Promise.all([pullout, chip].map(image => (
+    await Promise.all([pullout, coldfinger, chip].map(image => (
       typeof image.decode === 'function'
         ? image.decode().catch(() => undefined)
         : undefined
     )))
+  }
+
+  function prepare() {
+    preparation ??= (async () => {
+      await decode()
+      if (disposed) return
+      // Paint the registered plates while the visitor is assembling the board.
+      // Decoding alone does not prepare Chromium's compositor textures.
+      renderComposition(0)
+      pullout.style.opacity = coldfinger.style.opacity = chip.style.opacity = '1'
+      element.style.opacity = chipElement.style.opacity = '0.001'
+      element.hidden = chipElement.hidden = false
+      await new Promise(resolve => requestAnimationFrame(resolve))
+      await new Promise(resolve => requestAnimationFrame(resolve))
+      element.hidden = chipElement.hidden = true
+      element.style.removeProperty('opacity')
+      chipElement.style.removeProperty('opacity')
+      applyLayerOpacities()
+    })()
+    return preparation
   }
 
   function cancel(result = false) {
@@ -238,9 +333,10 @@ export function createMajoranaFinale({ reducedMotion = false, stage } = {}) {
   }
 
   async function play() {
+    if (disposed) return false
     cancel(false)
     const token = playToken
-    await decode()
+    await prepare()
     if (token !== playToken) return false
 
     renderComposition(0)
@@ -265,9 +361,10 @@ export function createMajoranaFinale({ reducedMotion = false, stage } = {}) {
 
     return new Promise(resolve => {
       pendingResolve = resolve
-      const chipSwapStartMs = UI_CLEAR_MS + ENCLOSURE_REVEAL_MS
+      // Enclosure and board dissolve overlap; no stationary intermediate plate.
+      const chipSwapStartMs = CHIP_SWAP_START_MS
       const chipSwapEndMs = chipSwapStartMs + CHIP_SWAP_MS
-      const pulloutStartMs = chipSwapEndMs + CHIP_HOLD_MS
+      const pulloutStartMs = chipSwapEndMs
       const totalMs = pulloutStartMs + PULLOUT_MS
       const startedAt = performance.now()
 
@@ -280,14 +377,10 @@ export function createMajoranaFinale({ reducedMotion = false, stage } = {}) {
         renderPulloutOpacity(easeInOutCubic(enclosureProgress))
         renderChipSwap(clamp01((elapsedMs - chipSwapStartMs) / CHIP_SWAP_MS))
 
-        if (elapsedMs < UI_CLEAR_MS) {
+        if (elapsedMs < chipSwapStartMs) {
           element.dataset.finalePhase = 'clearing'
-        } else if (elapsedMs < chipSwapStartMs) {
-          element.dataset.finalePhase = 'enclosing'
         } else if (elapsedMs < chipSwapEndMs) {
           element.dataset.finalePhase = 'chip-swap'
-        } else if (elapsedMs < pulloutStartMs) {
-          element.dataset.finalePhase = 'registered-still'
         } else {
           element.dataset.finalePhase = 'pulling-out'
           renderComposition(clamp01((elapsedMs - pulloutStartMs) / PULLOUT_MS))
@@ -326,11 +419,12 @@ export function createMajoranaFinale({ reducedMotion = false, stage } = {}) {
   }
 
   function dispose() {
+    disposed = true
     cancel(false)
     element.remove()
     chipElement.remove()
   }
 
   reset()
-  return { chipElement, element, play, reset, dispose }
+  return { chipElement, element, prepare, play, reset, dispose }
 }

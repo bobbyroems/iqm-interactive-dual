@@ -1,0 +1,288 @@
+
+> iqm-kiosk@0.7.0 build
+> npm run check && npm run build:renderer
+
+
+> iqm-kiosk@0.7.0 check
+> node scripts/check-syntax.mjs && npm test && npm run check:nanoscale && npm run check:assets
+
+Syntax checked: 149 files
+
+> iqm-kiosk@0.7.0 test
+> node --test test/*.test.mjs
+
+TAP version 13
+# Subtest: protocol retries file opening, preserves ranges, and closes cancelled streams
+ok 1 - protocol retries file opening, preserves ranges, and closes cancelled streams
+  ---
+  duration_ms: 60.458459
+  ...
+# [protocol] microsoft-logo.png could not be opened: EIO
+# Subtest: permanent open failure is 503 before a successful response is committed
+ok 2 - permanent open failure is 503 before a successful response is committed
+  ---
+  duration_ms: 1.549583
+  ...
+# Subtest: configured defaults are returned when storage is empty
+ok 3 - configured defaults are returned when storage is empty
+  ---
+  duration_ms: 1.000417
+  ...
+# Subtest: valid stored values override defaults independently
+ok 4 - valid stored values override defaults independently
+  ---
+  duration_ms: 0.162583
+  ...
+# Subtest: empty, malformed, infinite and out-of-range stored values are rejected
+ok 5 - empty, malformed, infinite and out-of-range stored values are rejected
+  ---
+  duration_ms: 0.113875
+  ...
+# Subtest: setIdleTimeout clamps both ends and ignores invalid keys and values
+ok 6 - setIdleTimeout clamps both ends and ignores invalid keys and values
+  ---
+  duration_ms: 0.185875
+  ...
+# Subtest: storage failures preserve defaults and do not break updates
+ok 7 - storage failures preserve defaults and do not break updates
+  ---
+  duration_ms: 0.437042
+  ...
+# Subtest: formatIdleTimeout covers seconds, whole minutes and mixed values
+ok 8 - formatIdleTimeout covers seconds, whole minutes and mixed values
+  ---
+  duration_ms: 0.191292
+  ...
+# Subtest: IdleController rearms an enabled controller without duplicating listeners
+ok 9 - IdleController rearms an enabled controller without duplicating listeners
+  ---
+  duration_ms: 0.178417
+  ...
+# Subtest: IdleController activity resets the active timeout and stop detaches activity
+ok 10 - IdleController activity resets the active timeout and stop detaches activity
+  ---
+  duration_ms: 0.164958
+  ...
+# Subtest: settings bind both sliders in seconds, update readouts and notify the app
+ok 11 - settings bind both sliders in seconds, update readouts and notify the app
+  ---
+  duration_ms: 0.45125
+  ...
+# Subtest: idle navigation arms the active tier and only rearms enabled timers
+ok 12 - idle navigation arms the active tier and only rearms enabled timers
+  ---
+  duration_ms: 0.241166
+  ...
+# Subtest: idle navigation routes a module to menu and menu to home
+ok 13 - idle navigation routes a module to menu and menu to home
+  ---
+  duration_ms: 0.089667
+  ...
+# Subtest: idle navigation keeps the active tier alive while an experience is opening
+ok 14 - idle navigation keeps the active tier alive while an experience is opening
+  ---
+  duration_ms: 0.0685
+  ...
+# Subtest: runtime config and settings markup expose both idle-return stages
+ok 15 - runtime config and settings markup expose both idle-return stages
+  ---
+  duration_ms: 5.034333
+  ...
+# Subtest: turning off up-next cards cancels pending or visible shared popups
+ok 16 - turning off up-next cards cancels pending or visible shared popups
+  ---
+  duration_ms: 0.162042
+  ...
+# Subtest: every playable module uses the shared outro that applies the up-next setting
+ok 17 - every playable module uses the shared outro that applies the up-next setting
+  ---
+  duration_ms: 2.293542
+  ...
+# Module “stalled” failed to mount. DOMException [TimeoutError]: The experience took too long to prepare. Please try again.
+#     at new DOMException (node:internal/per_context/domexception:53:5)
+#     at taskTimeout (file:///Users/robertciurus/SoftwareDev/iqm-kiosk/src/js/core/abortable-task.js:31:10)
+#     at Timeout._onTimeout (file:///Users/robertciurus/SoftwareDev/iqm-kiosk/src/js/core/module-host.js:271:29)
+#     at listOnTimeout (node:internal/timers:594:17)
+#     at process.processTimers (node:internal/timers:529:7)
+# Subtest: stalled loader becomes a retryable error and can recover
+ok 18 - stalled loader becomes a retryable error and can recover
+  ---
+  duration_ms: 28.697584
+  ...
+# Module “late” failed to mount. DOMException [TimeoutError]: The experience took too long to prepare. Please try again.
+#     at new DOMException (node:internal/per_context/domexception:53:5)
+#     at taskTimeout (file:///Users/robertciurus/SoftwareDev/iqm-kiosk/src/js/core/abortable-task.js:31:10)
+#     at Timeout._onTimeout (file:///Users/robertciurus/SoftwareDev/iqm-kiosk/src/js/core/module-host.js:271:29)
+#     at listOnTimeout (node:internal/timers:594:17)
+#     at process.processTimers (node:internal/timers:529:7)
+# Subtest: a controller arriving after the deadline is disposed without replacing the error
+ok 19 - a controller arriving after the deadline is disposed without replacing the error
+  ---
+  duration_ms: 26.952125
+  ...
+# Module “presentation” failed to mount. DOMException [TimeoutError]: The experience took too long to prepare. Please try again.
+#     at new DOMException (node:internal/per_context/domexception:53:5)
+#     at taskTimeout (file:///Users/robertciurus/SoftwareDev/iqm-kiosk/src/js/core/abortable-task.js:31:10)
+#     at Timeout._onTimeout (file:///Users/robertciurus/SoftwareDev/iqm-kiosk/src/js/core/module-host.js:271:29)
+#     at listOnTimeout (node:internal/timers:594:17)
+#     at process.processTimers (node:internal/timers:529:7)
+# Subtest: a stalled presentation is disposed and cannot hold the host indefinitely
+ok 20 - a stalled presentation is disposed and cannot hold the host indefinitely
+  ---
+  duration_ms: 27.135209
+  ...
+# Module “game” interaction failed. Error: GPU unavailable
+#     at TestContext.<anonymous> (file:///Users/robertciurus/SoftwareDev/iqm-kiosk/test/module-recovery.test.mjs:66:10)
+#     at async Test.run (node:internal/test_runner/test:980:9)
+#     at async Test.processPendingSubtests (node:internal/test_runner/test:677:7)
+# Module “asset-timeout” failed to mount. DOMException [AbortError]: fetch timed out
+#     at new DOMException (node:internal/per_context/domexception:53:5)
+#     at Object.load (file:///Users/robertciurus/SoftwareDev/iqm-kiosk/test/module-recovery.test.mjs:77:85)
+#     at ModuleHost.mount (file:///Users/robertciurus/SoftwareDev/iqm-kiosk/src/js/core/module-host.js:275:54)
+#     at TestContext.<anonymous> (file:///Users/robertciurus/SoftwareDev/iqm-kiosk/test/module-recovery.test.mjs:77:29)
+#     at Test.runInAsyncScope (node:async_hooks:211:14)
+#     at Test.run (node:internal/test_runner/test:979:25)
+#     at Test.processPendingSubtests (node:internal/test_runner/test:677:18)
+#     at Test.postRun (node:internal/test_runner/test:1090:19)
+#     at Test.run (node:internal/test_runner/test:1018:12)
+#     at async Test.processPendingSubtests (node:internal/test_runner/test:677:7)
+# Subtest: leaving a stalled mount settles promptly and disposes its late result
+ok 21 - leaving a stalled mount settles promptly and disposes its late result
+  ---
+  duration_ms: 1.324
+  ...
+# Subtest: interaction errors dispose the active module; stale callbacks cannot fail its successor
+ok 22 - interaction errors dispose the active module; stale callbacks cannot fail its successor
+  ---
+  duration_ms: 0.666875
+  ...
+# Subtest: a dependency abort without host cancellation still presents a recoverable error
+ok 23 - a dependency abort without host cancellation still presents a recoverable error
+  ---
+  duration_ms: 0.220166
+  ...
+# Subtest: production packaging emits the one-click client release kit
+ok 24 - production packaging emits the one-click client release kit
+  ---
+  duration_ms: 1.24225
+  ...
+# Subtest: full removal restores kiosk-owned state before removing the application
+ok 25 - full removal restores kiosk-owned state before removing the application
+  ---
+  duration_ms: 0.254833
+  ...
+# Subtest: application updates preserve the old installation and never recursively delete Program Files
+ok 26 - application updates preserve the old installation and never recursively delete Program Files
+  ---
+  duration_ms: 0.090959
+  ...
+# Subtest: release integrity and installed executable are verified before kiosk restart
+ok 27 - release integrity and installed executable are verified before kiosk restart
+  ---
+  duration_ms: 0.084167
+  ...
+# Subtest: Shell Launcher reuse requires the exact production command
+ok 28 - Shell Launcher reuse requires the exact production command
+  ---
+  duration_ms: 0.088625
+  ...
+1..28
+# tests 28
+# suites 0
+# pass 28
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 129.677375
+
+> iqm-kiosk@0.7.0 check:nanoscale
+> node scripts/check-nanoscale-camera.mjs
+
+Nanoscale camera checked: 1001 samples, 0.00e+0px max visual feature error, 0.20% max registered extent mismatch, 1.02e-12px max path deviation, 0.00e+0px viewport overflow, 0.00e+0px camera-group coverage gap, 1.000 minimum backdrop coverage, 5 max active layers, 407.82x max retained scale
+
+> iqm-kiosk@0.7.0 check:assets
+> node scripts/check-media-assets.mjs public
+
+Media checked: 70 required assets in /Users/robertciurus/SoftwareDev/iqm-kiosk/public
+
+> iqm-kiosk@0.7.0 prebuild:renderer
+> npm run build:water && node scripts/check-media-assets.mjs public
+
+
+> iqm-kiosk@0.7.0 build:water
+> npm run build:lib --workspace threejs-water-pro
+
+
+> threejs-water-pro@3.3.0 build:lib
+> vite build --config vite.lib.config.ts && tsc --project tsconfig.lib.json
+
+vite v6.4.3 building for production...
+transforming...
+✓ 147 modules transformed.
+rendering chunks...
+computing gzip size...
+build/index.js  6,382.92 kB │ gzip: 4,381.87 kB │ map: 7,363.23 kB
+✓ built in 939ms
+Media checked: 70 required assets in /Users/robertciurus/SoftwareDev/iqm-kiosk/public
+
+> iqm-kiosk@0.7.0 build:renderer
+> vite build
+
+vite v7.3.6 building client environment for production...
+transforming...
+✓ 156 modules transformed.
+rendering chunks...
+computing gzip size...
+../dist/index.html                                      14.79 kB │ gzip:   2.90 kB
+../dist/assets/draco_wasm_wrapper-fZCQGLGb.js           58.46 kB
+../dist/assets/draco_wasm_wrapper-DxJM36Ib.js           58.76 kB
+../dist/assets/draco_decoder-Z1_iN-Ht.wasm             192.42 kB │ gzip:  63.46 kB
+../dist/assets/draco_decoder-C32yEggz.wasm             285.75 kB │ gzip:  88.64 kB
+../dist/assets/draco_decoder-fzg4nYZr.js               719.41 kB
+../dist/assets/index-ejdMZq4l.css                      228.07 kB │ gzip:  42.30 kB
+../dist/assets/media-lifecycle-421kujs4.js               0.38 kB │ gzip:   0.25 kB
+../dist/assets/WebGPU-DxYsIO9C.js                        0.63 kB │ gzip:   0.42 kB
+../dist/assets/VerticalBlurShader-D2lGQVuS.js            1.09 kB │ gzip:   0.37 kB
+../dist/assets/HorizontalBlurShader-BhxUUzqk.js          1.10 kB │ gzip:   0.38 kB
+../dist/assets/kiosk-tooltip-D3LoN__x.js                 1.73 kB │ gzip:   0.69 kB
+../dist/assets/RoundedBoxGeometry-BUjd8Ps_.js            1.77 kB │ gzip:   0.83 kB
+../dist/assets/curlNoise-DI1o6i-B.js                     1.86 kB │ gzip:   0.95 kB
+../dist/assets/RoomEnvironment-4V9O4BqV.js               2.10 kB │ gzip:   0.91 kB
+../dist/assets/SubsurfaceScatteringShader-Bo4I5DME.js    2.22 kB │ gzip:   0.80 kB
+../dist/assets/HDRLoader-BF-qW1bx.js                     3.40 kB │ gzip:   1.62 kB
+../dist/assets/concept-sphere-qHrvsiN0.js                5.66 kB │ gzip:   2.41 kB
+../dist/assets/kiosk-explainer-LmV-W0cx.js               6.11 kB │ gzip:   2.32 kB
+../dist/assets/DRACOLoader-CTi_b2Et.js                   7.57 kB │ gzip:   3.09 kB
+../dist/assets/OBJLoader-Dg_S0OXB.js                     8.77 kB │ gzip:   2.94 kB
+../dist/assets/module-outro-Bdu5JkVn.js                  9.64 kB │ gzip:   3.38 kB
+../dist/assets/BufferGeometryUtils-Be_lmfVu.js          13.40 kB │ gzip:   4.61 kB
+../dist/assets/nanoscale-camera-CvS4-QV6.js             17.73 kB │ gzip:   6.16 kB
+../dist/assets/MarchingCubes-DLpLeJmW.js                19.40 kB │ gzip:   5.58 kB
+../dist/assets/index-CI8dFSTX.js                        19.55 kB │ gzip:   6.64 kB
+../dist/assets/OrbitControls-C6Z_4Hnb.js                19.78 kB │ gzip:   4.49 kB
+../dist/assets/three.tsl-ChSkkA-v.js                    23.63 kB │ gzip:   6.61 kB
+../dist/assets/EXRLoader-C5dPTQjN.js                    33.40 kB │ gzip:  11.99 kB
+../dist/assets/index-B5d4SFtA.js                        37.93 kB │ gzip:  14.34 kB
+../dist/assets/index-CeJ47KX2.js                        40.27 kB │ gzip:  13.59 kB
+../dist/assets/GLTFLoader-BGDIXDUV.js                   43.84 kB │ gzip:  13.22 kB
+../dist/assets/index-U_hCoD0v.js                        62.12 kB │ gzip:  22.64 kB
+../dist/assets/index-CWxZes9n.js                        64.77 kB │ gzip:  20.51 kB
+../dist/assets/index-B_oJOoVV.js                        84.58 kB │ gzip:  22.13 kB
+../dist/assets/index-NtPSfh7Q.js                       105.32 kB │ gzip:  35.12 kB
+../dist/assets/index-E9uOdVV5.js                       140.80 kB │ gzip:  45.47 kB
+../dist/assets/RectAreaLightUniformsLib-Dyw4gAys.js    247.31 kB │ gzip: 101.22 kB
+../dist/assets/three.module-DkRRShCc.js                360.38 kB │ gzip:  90.54 kB
+../dist/assets/index-DVMtUFlS.js                       668.14 kB │ gzip: 198.82 kB
+../dist/assets/three.webgpu-DOdDngOo.js                673.59 kB │ gzip: 190.10 kB
+
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+✓ built in 3.23s
+
+> iqm-kiosk@0.7.0 postbuild:renderer
+> node scripts/check-media-assets.mjs dist
+
+Media checked: 70 required assets in /Users/robertciurus/SoftwareDev/iqm-kiosk/dist

@@ -1,3 +1,5 @@
+import { withSceneSetup } from '../../core/scene-setup.js'
+import { warmSceneVariants } from '../../core/warm-scene-variants.js'
 /*
  * Superposition — "One toss. Two possibilities."
  * Port of the client's module-01a coin bullet-time prototype (ref/3js):
@@ -7,11 +9,12 @@
  * materials and lighting are the kiosk's quarter + studio rig.
  */
 
-import { assetUrl } from '../../core/asset-url.js'
 import { sound } from '../../core/kiosk-audio.js'
 import { createKioskTooltip } from '../../core/kiosk-tooltip.js'
-import { createUpNextCard, UP_NEXT_DELAY_MS } from './up-next-card.js'
+import { createUpNextPopup, UP_NEXT_POPUP_DELAY_MS } from '../../core/up-next-popup.js'
 import { areUpNextCardsEnabled } from '../../core/kiosk-settings.js'
+import { disposeObject3DResources } from '../../core/three-resource-disposal.js'
+import { leaseWebGLRenderer } from '../../core/webgl-renderer-pool.js'
 import {
   COIN_RADIUS,
   ENTANGLEMENT_COIN_MATERIAL_SEEDS,
@@ -74,21 +77,21 @@ export function getSuperpositionResultText(state, selectedResult) {
  */
 const STAGE_COPY = Object.freeze({
   ready: Object.freeze({
-    title: 'Heads or Tails?',
+    title: 'Heads or tails?',
     body: ['This is a regular coin.', 'It can be heads or tails.'],
     emphasis: '',
     hint: 'Swipe up to flip the coin',
     place: 'high'
   }),
-  /* Between the passes: the coin has landed like any coin, and is reframed
-     before it is thrown again. */
+  /* Between the passes: the coin has landed like any coin, and is reframed as a
+     qubit before it is thrown again. No `emphasis`: the copy runs in one ink. */
   reframed: Object.freeze({
     title: '',
     body: [
       'Now think of the coin as a qubit. A qubit is where quantum information is stored.',
       'A qubit can hold both possibilities of heads and tails simultaneously.'
     ],
-    emphasis: 'qubit',
+    emphasis: '',
     hint: 'Swipe up to flip the coin again',
     place: 'high'
   }),
@@ -101,11 +104,12 @@ const STAGE_COPY = Object.freeze({
     hint: '',
     place: 'low'
   }),
+  /* Bullet time: the coin is held in the air. No `emphasis` here either. */
   bullet: Object.freeze({
     title: 'Superposition',
-    body: 'The coin in the air represents superposition, a quantum state in which heads and tails exist together as possibilities until measurement.',
-    emphasis: 'superposition',
-    hint: 'Watch both outcomes coexist until time resumes.',
+    body: ['The coin in the air represents superposition, a quantum state in which heads and tails exist together as possibilities until measurement.'],
+    emphasis: '',
+    hint: 'Watch both outcomes coexist until time resumes',
     place: 'low'
   }),
   landed: Object.freeze({
@@ -121,26 +125,9 @@ function gameMarkup() {
   return `
     <div class="qvc-game qvc-flip" data-state="ready" data-place="high" data-flipped="false">
       <div class="qvc-game__scene" data-game-scene></div>
-      <!-- Unlocked by the first completed flip: once the visitor has seen a
-           result there is somewhere to go next, and not before. -->
-      <button class="qvc-up-next" type="button" data-up-next-action>
-        <span class="qvc-up-next__chip">Up next</span>
-        <span class="qvc-up-next__title">Entanglement</span>
-        <span class="qvc-up-next__icon">
-          <img src="${assetUrl('assets/ui/chevron-right-light.svg')}" alt="" draggable="false">
-        </span>
-      </button>
       <div class="qvc-flip__copy" data-flip-copy>
         <h2 class="qvc-flip__title" data-flip-title>Superposition</h2>
         <p class="qvc-flip__body" data-flip-body></p>
-      </div>
-      <!-- Bullet time made legible: the countdown the visitor cannot otherwise
-           see, as a filling bar rather than a numeric readout. -->
-      <div class="qvc-flip__measure" data-flip-measure aria-hidden="true">
-        <p class="qvc-flip__measure-label">Measuring...</p>
-        <div class="qvc-flip__measure-track">
-          <span class="qvc-flip__measure-fill" data-flip-measure-fill></span>
-        </div>
       </div>
       <div class="qvc-flip__result" data-result aria-hidden="true">Heads</div>
       <section class="qvc-flip__tally" aria-label="Running tally">
@@ -160,7 +147,11 @@ function gameMarkup() {
   `
 }
 
-export async function createSuperpositionGame(host, { assets, RoomEnvironment, onActivity, openGame, onGameComplete }) {
+export function createSuperpositionGame(host, options) {
+  return withSceneSetup(defer => buildSuperpositionGame(host, options, defer))
+}
+
+async function buildSuperpositionGame(host, { assets, RoomEnvironment, onActivity, openGame, onGameComplete, band, popupHost, signal }, defer) {
   const { THREE, geometry } = assets
   const TAU = Math.PI * 2
 
@@ -168,6 +159,7 @@ export async function createSuperpositionGame(host, { assets, RoomEnvironment, o
   wrapper.innerHTML = gameMarkup().trim()
   const root = wrapper.firstElementChild
   host.replaceChildren(root)
+  defer(() => root.remove())
 
   const sceneHost = root.querySelector('[data-game-scene]')
   const copyPanel = root.querySelector('[data-flip-copy]')
@@ -179,36 +171,76 @@ export async function createSuperpositionGame(host, { assets, RoomEnvironment, o
   copyPanel.after(flipHint.element)
   const hintText = flipHint.copy
 
-  /* Offered once the first flip lands, then replaced by the band at the top for
-     the rest of the visit — see up-next-card.js for why the two are sequenced
-     rather than shown together. Built here, before the frame loop that opens
-     it, so the reference exists by the time a coin can land. */
+  /* The band belongs to the module, which mounts the 1-2-3 on it and takes it
+     back when the view changes. A game only borrows it to offer what follows —
+     it must not clear it on the way out, because disposal is deferred by a
+     frame and the next game has already put its own step up by then. */
   let upNextOffered = false
-  const upNextCard = createUpNextCard({
+  const upNextBanner = band
+
+  /* The popup is armed by each settled result rather than once alongside the
+     band's offer.
+
+     Flipping again drops it — one landing over a coin already back in the
+     air is what that guard is for — and only a result can put it back. Arming
+     it once with the offer meant the first re-flip inside the five-second
+     window cancelled it for the rest of the visit: the offer is one-shot, so
+     nothing ever re-armed it. */
+  let popupTimer = null
+  let popupDeclined = false
+
+  function cancelUpNextPopup () {
+    if (popupTimer !== null) window.clearTimeout(popupTimer)
+    popupTimer = null
+  }
+
+  /* Closing the popup is an answer, so it is not asked again. Flipping is
+     not: that withdraws it without ever reaching onDismiss. */
+  function armUpNextPopup ({ immediate = false } = {}) {
+    cancelUpNextPopup()
+    if (popupDeclined || !areUpNextCardsEnabled()) return
+    if (immediate) {
+      upNextCard.raise(0)
+      return
+    }
+    popupTimer = window.setTimeout(() => {
+      popupTimer = null
+      upNextCard.raise(0)
+    }, UP_NEXT_POPUP_DELAY_MS)
+  }
+
+  /* The last beat, and the only one that interrupts. It now follows the band
+     rather than preceding it: the quiet offer gets first refusal and the popup
+     only asks outright if that goes unanswered, which is the order the rest of
+     the floor runs. Settings can still switch it off, and then the band is the
+     whole offer. */
+  const upNextCard = createUpNextPopup({
     title: 'Entanglement',
-    visual: 'assets/modules/differences/up-next/up-next-entanglement.webp',
-    visualAlt: 'Two linked Bloch spheres sharing one state.',
-    replayHint: 'Or tap here to flip the coin again',
-    reducedMotion: window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false,
+    /* A full-bleed plate rather than a cutout on white, so it fills the visual
+       area instead of floating inside it. */
+    visual: {
+      src: 'assets/modules/differences/up-next/up-next-entanglement.webp',
+      alt: 'Two linked Bloch spheres sharing one state.',
+      fit: 'cover'
+    },
+    restartLabel: 'Flip the coin again',
     onContinue() {
       onActivity?.()
       openGame?.('entanglement')
     },
-    /* Only steps out of the way. The line reads "tap here to flip the coin
-       again", and flipping it for them would skip the gesture the whole game is
-       teaching — it puts them back in front of the coin, ready to swipe. */
-    onReplay() {
+    /* Only steps out of the way. Flipping it for them would skip the gesture
+       the whole game is teaching — it puts them back in front of the coin,
+       ready to swipe. */
+    onRestart() {
       onActivity?.()
     },
-    onShow() {
-      upNextOffered = true
-    },
     onDismiss() {
-      root.dataset.stayed = 'true'
+      onActivity?.()
+      popupDeclined = true
     }
   })
-  root.append(upNextCard.element)
-  const measureFill = root.querySelector('[data-flip-measure-fill]')
+  defer(() => upNextCard.dispose())
+  popupHost.append(upNextCard.element)
   const resultLabel = root.querySelector('[data-result]')
   const announce = root.querySelector('[data-announce]')
   const tallyCells = {
@@ -219,15 +251,18 @@ export async function createSuperpositionGame(host, { assets, RoomEnvironment, o
 
   /* Transparent scene: the kiosk's aurora backdrop shows through. */
   const scene = new THREE.Scene()
+  defer(() => disposeObject3DResources(scene, { preserve: new Set([geometry, assets.bumpMap, ...assets.colorMaps, ...assets.roughnessMaps]) }))
   scene.fog = new THREE.Fog('#f4f3f5', 12, 26)
 
   const camera = new THREE.PerspectiveCamera(29, 1, 0.1, 60)
 
-  const renderer = new THREE.WebGLRenderer({
+  const rendererLease = leaseWebGLRenderer(THREE, {
     antialias: true,
     alpha: true,
     powerPreference: 'high-performance'
   })
+  defer(() => rendererLease.release())
+  const { renderer } = rendererLease
   renderer.setClearColor(0x000000, 0)
   renderer.shadowMap.enabled = true
   renderer.shadowMap.type = THREE.PCFSoftShadowMap
@@ -235,16 +270,19 @@ export async function createSuperpositionGame(host, { assets, RoomEnvironment, o
   sceneHost.append(renderer.domElement)
 
   const rig = createStudioRig(assets, renderer, scene, { RoomEnvironment })
+  defer(() => rig.dispose())
 
   /* Electric-blue accent that swells during bullet time (prototype). */
   const blueLight = new THREE.PointLight(QVC_COIN_ACCENT_COLOR, 0, 8, 2)
   blueLight.position.set(0, 1.8, 2.8)
   scene.add(blueLight)
 
-  /* The main-menu grid grounds the game in the same visual system. */
+  /* The main-menu grid grounds the game in the same visual system, held at 80%
+     of the shared default so it sits back from the coin. */
   scene.add(createGridFloor(assets, {
     size: 26,
     spacing: 0.6,
+    opacity: 0.32,
     fadeRadius: 4.6,
     y: FLOOR_Y + 0.003
   }))
@@ -581,17 +619,18 @@ export async function createSuperpositionGame(host, { assets, RoomEnvironment, o
     updateSphereOverlay(0)
     blueLight.intensity = 0
     contactShadow.material.opacity = SHADOW_REST_OPACITY
-    measureFill.style.width = '0%'
     setState(STATE.READY)
   }
 
   function launch(strength = 1) {
     if (state !== STATE.READY && state !== STATE.LANDED) return
     if (state === STATE.LANDED) reset()
-    /* Throwing again inside the card's delay means they are not finished, so
-       the pending offer is dropped rather than landing over a coin already back
-       in the air. The next result schedules it afresh. */
-    upNextCard.cancelPending()
+    /* Throwing again inside the popup's delay means they are not finished, so
+       it is dropped rather than landing over a coin already back in the air.
+       The next result arms it afresh. The band keeps its offer: it does not
+       interrupt, so it can stand while they flip again. */
+    cancelUpNextPopup()
+    upNextCard.withdraw()
 
     flipPass += 1
     selectedResult = Math.random() > 0.5 ? 'Heads' : 'Tails'
@@ -708,7 +747,6 @@ export async function createSuperpositionGame(host, { assets, RoomEnvironment, o
 
     ghostMaterial.opacity = bulletBlend * 0.72
     blueLight.intensity = bulletBlend * 2.8
-    measureFill.style.width = `${Math.min(100, (bulletElapsed / BULLET_DURATION) * 100)}%`
 
     if (bulletElapsed >= BULLET_DURATION) resolveOutcome()
   }
@@ -755,26 +793,34 @@ export async function createSuperpositionGame(host, { assets, RoomEnvironment, o
          came and went between flips would read as a glitch rather than as
          progress. */
       root.dataset.flipped = 'true'
-      /* The first result is the moment there is somewhere to go next, so the
-         card is offered once, here — but held back, so the coin they just
-         landed gets the screen to itself first. Later flips do not re-offer it;
-         by then the band at the top is carrying the same invitation quietly. */
-      /* Not after the ordinary coin: at that point the visitor has seen a coin
+      /* The first quantum result is the moment there is somewhere to go next,
+         so the band turns into the offer once, here. Later flips do not
+         re-offer it — it is already standing.
+
+         Not after the ordinary coin: at that point the visitor has seen a coin
          fall, which is not the thing this game exists to show them. */
-      if (!upNextOffered && flipPass > 1) {
-        /* With the card switched off there is nothing to decline, so the band
-           it would have handed over to unlocks on the result instead. The way
-           on is never removed, only the interruption. */
-        if (areUpNextCardsEnabled()) upNextCard.show(UP_NEXT_DELAY_MS)
-        else {
-          root.dataset.stayed = 'true'
+      if (flipPass > 1) {
+        if (!upNextOffered) {
           upNextOffered = true
+          upNextBanner.offerNext({
+            title: 'Entanglement',
+            /* No delay: the band is the quiet half and does not cover the
+               result the visitor has just produced. */
+            delayMs: 0,
+            onContinue() {
+              onActivity?.()
+              openGame?.('entanglement')
+            }
+          })
+          /* Finishing is landing the result, not the offer appearing. Reporting
+             it from the offer is what once left the principle never marked
+             complete when the popups were switched off, locking the next one. */
+          onGameComplete?.('superposition')
         }
-        /* Finishing is landing the result, not a card appearing. It used to be
-           reported from the card's onShow, so switching the cards off left the
-           principle never marked complete — and the next one stayed locked
-           behind it, which made the band that did appear refuse to open. */
-        onGameComplete?.('superposition')
+        /* The first quantum result keeps the authored breathing room. If the
+           visitor repeats it before noticing the route onward, the second
+           quantum result raises that route immediately. */
+        armUpNextPopup({ immediate: flipPass > 2 })
       }
     }
   }
@@ -813,15 +859,12 @@ export async function createSuperpositionGame(host, { assets, RoomEnvironment, o
     }
   }
 
-  root.querySelector('[data-up-next-action]').addEventListener('click', () => {
-    onActivity?.()
-    openGame?.('entanglement')
-  })
-
-  renderer.domElement.addEventListener('pointerdown', onPointerDown)
-  renderer.domElement.addEventListener('pointermove', onPointerMove)
-  renderer.domElement.addEventListener('pointerup', finishPointer)
-  renderer.domElement.addEventListener('pointercancel', finishPointer)
+  const listeners = new AbortController()
+  defer(() => listeners.abort())
+  renderer.domElement.addEventListener('pointerdown', onPointerDown, { signal: listeners.signal })
+  renderer.domElement.addEventListener('pointermove', onPointerMove, { signal: listeners.signal })
+  renderer.domElement.addEventListener('pointerup', finishPointer, { signal: listeners.signal })
+  renderer.domElement.addEventListener('pointercancel', finishPointer, { signal: listeners.signal })
 
   function resize() {
     const rect = sceneHost.getBoundingClientRect()
@@ -839,9 +882,11 @@ export async function createSuperpositionGame(host, { assets, RoomEnvironment, o
   const resizeObserver = new ResizeObserver(resize)
   resizeObserver.observe(sceneHost)
   window.addEventListener('resize', resize)
+  defer(() => { resizeObserver.disconnect(); window.removeEventListener('resize', resize) })
 
   const clock = new THREE.Clock()
   let animationFrame = 0
+  defer(() => cancelAnimationFrame(animationFrame))
   function animate() {
     if (disposed) return
     animationFrame = requestAnimationFrame(animate)
@@ -864,6 +909,9 @@ export async function createSuperpositionGame(host, { assets, RoomEnvironment, o
   paintTally('Heads')
   paintTally('Tails')
   reset()
+  // Include the hidden ghost coin, physical sphere, rings and arrow before
+  // is-ready reveals the canvas. The ordinary first toss never draws them.
+  await warmSceneVariants(renderer, scene, camera, { signal })
   animate()
 
   return {
@@ -875,28 +923,40 @@ export async function createSuperpositionGame(host, { assets, RoomEnvironment, o
       paintTally('Heads')
       paintTally('Tails')
       root.dataset.flipped = 'false'
-      /* The next visitor should meet the card as the first visitor did, so the
-         offer and the band it unlocks both go back to their starting state. */
-      root.dataset.stayed = 'false'
+      /* The next visitor should meet this as the first visitor did, so the band
+         drops its offer and goes back to carrying the 1-2-3. */
+      upNextBanner.withdrawOffer()
       upNextOffered = false
+      popupDeclined = false
+      cancelUpNextPopup()
       /* Back to the ordinary coin. reset() cannot do this — launch() calls it
          between flips, where the pass has to survive — so the count is cleared
          here with the tally, for the same reason. */
       flipPass = 0
-      upNextCard.close()
+      upNextCard.withdraw()
       reset()
     },
     dispose() {
       if (disposed) return
       disposed = true
+      listeners.abort()
       window.clearTimeout(copySwap)
       cancelAnimationFrame(animationFrame)
+      cancelUpNextPopup()
+      upNextCard.dispose()
       resizeObserver.disconnect()
       window.removeEventListener('resize', resize)
       rig.dispose()
-      renderer.domElement.remove()
-      renderer.dispose()
-      renderer.forceContextLoss()
+      disposeObject3DResources(scene, {
+        preserve: new Set([
+          geometry,
+          assets.bumpMap,
+          ...assets.colorMaps,
+          ...assets.roughnessMaps
+        ])
+      })
+      scene.clear()
+      rendererLease.release()
       root.remove()
     }
   }
