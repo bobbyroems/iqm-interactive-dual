@@ -35,6 +35,7 @@
      Every screen and module keeps its own header classes — those carry the
      per-module state and animation hooks — but they all draw the control
      itself from these values, so the chrome reads as one control set. */
+  --header-height: clamp(56px, 6vw + 38px, 88px);
   --header-action-min-height: clamp(48px, 3vw + 38px, 72px);
   --header-action-padding: clamp(8px, 1vw + 6px, 12px) clamp(16px, 3vw + 8px, 28px);
   --header-action-gap: clamp(8px, 1.5vw + 4px, 16px);
@@ -107,13 +108,14 @@
   --band-deep-teal: #2e5e63;
   --band-bright-teal: #60c5b2;
 
-  /* The band butts against the header a module draws for itself, which is
-     120px here — Figma's 160px is the shell header, which modules hide. */
-  --band-top: 120px;
+  /* The band butts against the header a module draws for itself. Ties to the
+     same fluid height token the header itself uses, so the two never drift
+     apart as the viewport changes. */
+  --band-top: var(--header-height);
 
   /* The bar's own height. Modules that clear the bar rather than run under it
      offset their content by exactly this. */
-  --band-height: 205px;
+  --band-height: clamp(80px, 9vw + 50px, 120px);
 
   --font-display: "Segoe Sans Display", "Segoe Sans", "Segoe UI Variable Display", "Segoe UI Variable", "Segoe UI", Inter, Helvetica, Arial, sans-serif;
   --font-text: "Segoe Sans", "Segoe UI Variable Text", "Segoe UI Variable", "Segoe UI", Inter, Helvetica, Arial, sans-serif;

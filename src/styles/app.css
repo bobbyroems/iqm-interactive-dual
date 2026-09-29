@@ -51,8 +51,8 @@
 .microsoft-header {
   position: relative;
   z-index: 20;
-  min-height: clamp(56px, 6vw + 38px, 88px);
-  flex: 0 0 clamp(56px, 6vw + 38px, 88px);
+  min-height: var(--header-height);
+  flex: 0 0 var(--header-height);
   justify-content: space-between;
   padding: 0 clamp(16px, 6vw, 64px);
   background: var(--color-panel);
@@ -1055,10 +1055,10 @@
    interference bubbles this generalises. */
 .kiosk-hint {
   display: flex;
-  gap: 26px;
+  gap: clamp(10px, 1.5vw, 18px);
   align-items: center;
-  padding: 12px 48px;
-  border-radius: 24px;
+  padding: clamp(8px, 1vw, 14px) clamp(16px, 3vw, 32px);
+  border-radius: clamp(14px, 2vw, 20px);
   background: rgba(255, 255, 255, 0.94);
   box-shadow:
     0 2px 6px rgba(21, 38, 64, 0.1),
@@ -1068,7 +1068,7 @@
 .kiosk-hint p {
   margin: 0;
   color: var(--color-ink);
-  font-size: 40px;
+  font-size: clamp(14px, 1.2vw + 10px, 18px);
   font-weight: 600;
   line-height: 1.4;
   text-align: center;
@@ -1079,9 +1079,9 @@
 .kiosk-hint__gesture {
   display: block;
   flex: 0 0 auto;
-  width: 132px;
-  height: 132px;
-  margin: -14px 0;
+  width: clamp(48px, 5vw + 24px, 72px);
+  height: clamp(48px, 5vw + 24px, 72px);
+  margin: clamp(-8px, -0.6vw, -6px) 0;
 }
 
 .kiosk-hint__gesture svg {
@@ -1107,8 +1107,8 @@
   --kiosk-tooltip-breathe-floor: 0.72;
 
   display: grid;
-  min-height: 92px;
-  padding: 20px 30px;
+  min-height: clamp(48px, 5vw, 68px);
+  padding: clamp(10px, 1.2vw, 16px) clamp(16px, 2vw, 24px);
   border-radius: 12px;
   /* background-color rather than the shorthand: the wipe lives in
      background-image, and a variant re-declaring `background` would drop it. */
@@ -1160,7 +1160,7 @@
   margin: 0;
   color: #fff;
   font-family: var(--font-text);
-  font-size: 36px;
+  font-size: clamp(14px, 1.2vw + 10px, 18px);
   font-weight: 600;
   letter-spacing: 0;
   /* Tall enough to contain descenders. The sheen below paints the glyphs by
@@ -1345,26 +1345,23 @@
   min-height: var(--band-height);
   align-items: center;
   justify-content: space-between;
-  padding: 60px;
+  padding: clamp(16px, 4vw, 32px);
   background-image: var(--band-gradient);
   touch-action: manipulation;
 }
 
 /* Every state is the same bar at the same height — one chrome, not one that
-   resizes under the visitor. The 1-2-3 is 151 tall against a title line’s 85,
-   so it takes the difference out of its own padding: 27 + 151 + 27 is the same
-   205. (The board draws this one at 271 with the full 60; the bar holding still
-   is worth more here than matching that number.) */
+   resizes under the visitor. */
 .kiosk-module-band[data-state='pagination'] {
-  padding-top: 27px;
-  padding-bottom: 27px;
+  padding-top: clamp(8px, 1.5vw, 16px);
+  padding-bottom: clamp(8px, 1.5vw, 16px);
 }
 
 .kiosk-module-band__where {
   margin: 0;
   color: #fff;
   font-family: var(--font-display);
-  font-size: 64px;
+  font-size: clamp(20px, 2.5vw + 12px, 28px);
   font-weight: 600;
   letter-spacing: -0.02em;
   line-height: 1.33;
@@ -1392,7 +1389,7 @@
   padding: 0;
   border: 0;
   background: none;
-  gap: 40px;
+  gap: clamp(16px, 2.5vw, 28px);
 }
 
 /* A row here, unlike the pop-up's stacked version: the bar keeps the height of
@@ -1400,7 +1397,7 @@
 .kiosk-module-band__label {
   display: flex;
   align-items: center;
-  gap: 32px;
+  gap: clamp(10px, 2vw, 18px);
   text-align: left;
 }
 
@@ -1409,12 +1406,12 @@
    deepest stop as ink, the same pairing the restart action uses. */
 .kiosk-module-band__chip,
 .kiosk-up-next-popup__chip {
-  padding: 6px 24px;
-  border-radius: 12px;
+  padding: clamp(4px, 0.6vw, 6px) clamp(10px, 1.5vw, 16px);
+  border-radius: 10px;
   background: var(--band-bright);
   color: var(--band-deep);
   font-family: var(--font-text);
-  font-size: 32px;
+  font-size: clamp(12px, 1.2vw + 8px, 15px);
   font-weight: 600;
   line-height: 1.34;
   white-space: nowrap;
@@ -1424,7 +1421,7 @@
 .kiosk-up-next-popup__title {
   color: var(--band-offwhite);
   font-family: var(--font-display);
-  font-size: 64px;
+  font-size: clamp(20px, 2.5vw + 12px, 28px);
   font-weight: 600;
   letter-spacing: -0.02em;
   line-height: 1.33;
@@ -1448,8 +1445,8 @@
    way the home CTA's does. The band's does not — see .kiosk-continue-action. */
 .kiosk-up-next-popup__action {
   display: grid;
-  width: 84px;
-  height: 84px;
+  width: clamp(32px, 4vw + 18px, 44px);
+  height: clamp(32px, 4vw + 18px, 44px);
   flex: 0 0 auto;
   place-items: center;
   border-radius: 50%;
@@ -1459,8 +1456,8 @@
 
 .kiosk-up-next-popup__glyph {
   display: block;
-  width: 60px;
-  height: 60px;
+  width: clamp(20px, 3vw + 10px, 28px);
+  height: clamp(20px, 3vw + 10px, 28px);
 }
 
 /* The offer's own control, on the band and on every next-principle banner.
@@ -1488,8 +1485,8 @@
   flex: 0 0 auto;
   align-items: center;
   justify-content: center;
-  gap: 34px;
-  padding: 0 48px 0 54px;
+  gap: clamp(10px, 1.5vw, 16px);
+  padding: 0 clamp(16px, 2vw, 24px) 0 clamp(18px, 2.2vw, 28px);
   border: 2px solid rgb(255 255 255 / 0.45);
   border-radius: 16px;
   /* background-color rather than the shorthand: the shine lives in
@@ -1510,18 +1507,18 @@
   background-size: 260% 100%;
   color: var(--band-offwhite);
   font-family: var(--font-text);
-  font-size: 56px;
+  font-size: clamp(14px, 1.3vw + 9px, 17px);
   font-weight: 400;
-  line-height: 101px;
+  line-height: clamp(32px, 4vw + 20px, 44px);
   letter-spacing: -0.5px;
   white-space: nowrap;
 }
 
-/* The bar is 205 in every state and this one holds it: 50 + 105 + 50. Growing
-   the button is not worth a chrome that jumps the moment a module finishes. */
+/* The bar holds a constant height across states, so this state gives back out
+   of its own padding what the button's line-height takes up. */
 .kiosk-module-band[data-state='up-next'] {
-  padding-top: 50px;
-  padding-bottom: 50px;
+  padding-top: clamp(16px, 3vw, 28px);
+  padding-bottom: clamp(16px, 3vw, 28px);
 }
 
 /* Centring the chevron on the capsule centres it on the line box, which is not
@@ -1538,8 +1535,8 @@
 
 .kiosk-continue-action__glyph {
   display: block;
-  width: 24px;
-  height: 40px;
+  width: clamp(10px, 1vw + 6px, 14px);
+  height: clamp(16px, 1.5vw + 10px, 22px);
 }
 
 /* Three passes of the band the tooltips already carry — same angle, same
@@ -1591,7 +1588,8 @@
   --nav-soft: rgba(255, 255, 255, 0.2);
   --nav-rail: rgba(255, 255, 255, 0.5);
   --nav-locked: rgba(255, 255, 255, 0.7);
-  --nav-gap: 460px;
+  --nav-circle-size: clamp(40px, 6vw + 22px, 64px);
+  --nav-gap: clamp(24px, 10vw, 160px);
 
   width: 100%;
 }
@@ -1602,13 +1600,13 @@
   --nav-soft: rgba(34, 91, 98, 0.2);
   --nav-rail: rgba(34, 91, 98, 0.5);
   --nav-locked: rgba(34, 91, 98, 0.7);
-  --nav-gap: 560px;
+  --nav-gap: clamp(32px, 12vw, 200px);
 }
 
-/* 100 circle + 8 gap + 43 label. The label is positioned, so without this the
+/* Circle + gap + label. The label is positioned, so without this the
    track measures as the circle alone. */
 .kiosk-submodule-nav[data-labels='true'] .kiosk-submodule-nav__track {
-  min-height: 151px;
+  min-height: calc(var(--nav-circle-size) * 1.51);
 }
 
 .kiosk-submodule-nav__track {
@@ -1627,24 +1625,24 @@
 .kiosk-submodule-nav__step {
   position: relative;
   display: flex;
-  width: 100px;
+  width: var(--nav-circle-size);
   flex-direction: column;
   align-items: center;
 }
 
 .kiosk-submodule-nav__index {
   display: grid;
-  width: 100px;
-  height: 100px;
+  width: var(--nav-circle-size);
+  height: var(--nav-circle-size);
   place-items: center;
   /* Transparent on the steps that carry no ring, so taking the ring on and off
      never changes the circle's size. */
-  border: 4px solid transparent;
+  border: 3px solid transparent;
   border-radius: 50%;
   background: var(--nav-soft);
   color: var(--nav-ink);
   font-family: var(--font-text);
-  font-size: 40px;
+  font-size: clamp(14px, 2vw + 8px, 20px);
   font-weight: 600;
   letter-spacing: -0.01em;
   line-height: 1;
@@ -1663,8 +1661,8 @@
 
 .kiosk-submodule-nav__check {
   display: block;
-  width: 60px;
-  height: 60px;
+  width: calc(var(--nav-circle-size) * 0.6);
+  height: calc(var(--nav-circle-size) * 0.6);
 }
 
 .kiosk-submodule-nav__step:not([data-state='done']) .kiosk-submodule-nav__check,
@@ -1689,12 +1687,12 @@
 
 .kiosk-submodule-nav__label {
   position: absolute;
-  top: 108px;
+  top: calc(var(--nav-circle-size) + 8px);
   left: 50%;
   color: var(--nav-ink);
   transform: translateX(-50%);
   font-family: var(--font-text);
-  font-size: 32px;
+  font-size: clamp(12px, 1.5vw + 7px, 16px);
   font-weight: 600;
   letter-spacing: -0.01em;
   line-height: 1.34;
@@ -1714,9 +1712,9 @@
    full once the step behind it is done — 255:4301 draws both on one control. */
 .kiosk-submodule-nav__rail {
   width: var(--nav-gap);
-  height: 4px;
-  /* Half the 100px circle, less half the rail, so it meets the numbers. */
-  margin-top: 48px;
+  height: 3px;
+  /* Half the circle, less half the rail, so it meets the numbers. */
+  margin-top: calc((var(--nav-circle-size) / 2) - 1.5px);
   background-image: repeating-linear-gradient(
     to right,
     var(--nav-rail) 0 8px,
