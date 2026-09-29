@@ -109,7 +109,7 @@ architecture.
   viewport, since modules render inside a shared host and may not always
   occupy the full window.
 
-### Phase 1 — Foundation
+### Phase 1 — Foundation ✅ done
 
 - Remove the fixed-canvas scale entirely: `#viewport-shell` / `#kiosk-stage`
   become normal in-flow containers (`width: 100%`, no `transform: scale`);
@@ -126,14 +126,27 @@ architecture.
   in the three.js modules (canvas/camera aspect recalculated from its actual
   container, not a fixed 2160x3840 assumption).
 
-### Phase 2 — Shell first
+> **Note:** the Electron shell/packaging removal itself was deferred (large,
+> separate blast radius) — `electron/main.cjs`/`preload.cjs`,
+> `config/kiosk.config.json`, and packaging scripts are still present.
+> `window.kiosk` is `undefined` in a plain browser, so this doesn't block
+> anything; it's tracked as its own future cleanup, not part of the
+> responsive layout work.
+
+### Phase 2 — Shell first ✅ done
 
 Convert `base.css`, `app.css` (headers, screen shell, menu/carousel, settings
 panel) to Grid/Flexbox reflow layouts. This is shared by every module, so
 getting it right unblocks everything else and is the best place to validate
 the new pattern.
 
-### Phase 3 — Module-by-module migration
+All shell chrome (header/brand/CTA, attract screen, settings popover, touch
+hints, module header band, 1-2-3 sub-nav, up-next popup, concept/placeholder
+module view, dev HUD, screen transitions) is converted to fluid `clamp()`
+sizing. The module carousel — deferred here into Phase 3 because of its
+coupling to 3D camera/composition code — is also done (see below).
+
+### Phase 3 — Module-by-module migration (carousel done, per-module CSS not started)
 
 Tackle smallest to largest so the pattern is proven before the big ones:
 
@@ -149,6 +162,20 @@ Tackle smallest to largest so the pattern is proven before the big ones:
 
 Each module: rework CSS to fluid/reflowing layout, then adjust its JS/canvas
 sizing to match.
+
+**Done so far:** the shared module carousel (`.module-carousel`,
+`.module-card` and children in `app.css`) is fully converted — fixed
+2460px/2160px/1200px sizing replaced with `flex:1`, a content-safe fluid
+card width, `aspect-ratio: 9/5` on the visual, and a container-query-driven
+gap that pushes neighbouring cards off-screen so only the active card and
+nav arrows are visible. The 3D camera/render pipeline
+(`module-navigation-projection.js`, `shape-scene-3d.js`,
+`module-carousel.js`) turned out to already be aspect/DOM-size-driven, not
+canvas-pixel-driven, so it needed no changes.
+
+**Not started:** each of the 9 modules' own CSS files still hardcode
+`width: 2160px` internally and need their own conversion pass, one at a
+time in the order above.
 
 ### Phase 4 — Interaction/accessibility pass
 
