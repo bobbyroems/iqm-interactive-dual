@@ -338,6 +338,9 @@
   position: relative;
   flex: 1;
   min-height: 0;
+  /* Query container so the track's gap formula below can react to this
+     box's real width (cqi) rather than the full viewport. */
+  container-type: inline-size;
 }
 
 .module-carousel__viewport {
@@ -348,7 +351,14 @@
 }
 
 .module-carousel__track {
+  /* Keep the card itself at a content-safe width (its 3D visual has a fixed
+     aspect-ratio, so an oversized card would overflow the carousel's
+     available height) and instead grow the *gap* to push neighbouring
+     cards past the viewport edge: gap = half the leftover width plus a
+     small buffer, so card + 2*gap always exceeds the container width and
+     only the active card and arrows stay visible. */
   --carousel-card-width: clamp(240px, 34vw, 420px);
+  --carousel-gap: max(24px, calc((100cqi - var(--carousel-card-width)) / 2 + 24px));
   --carousel-drag: 0px;
   --carousel-offset: 0px;
 
@@ -359,7 +369,7 @@
   width: max-content;
   height: 100%;
   align-items: flex-start;
-  gap: clamp(20px, 4vw, 48px);
+  gap: var(--carousel-gap);
   transform: translate3d(
     calc((var(--carousel-card-width) / -2) - var(--carousel-offset) + var(--carousel-drag)),
     0,

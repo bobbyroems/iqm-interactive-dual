@@ -161,6 +161,28 @@ Test at real breakpoints (not just resizing a window) — phone, tablet,
 laptop, ultrawide — plus orientation change, since portrait-only assumptions
 are baked in throughout.
 
+## Nice-to-haves (stretch, not required for the core refactor)
+
+- **Deep-linking URLs** — the app currently has no URL/history integration;
+  screens are pure in-memory state (`ScreenRouter.show()` in
+  `screen-router.js`) with only a dev-only `sessionStorage` restore hack
+  (`rememberDevelopmentView`/`restoreDevelopmentView` in `app.js`). Add a
+  small hash-based router (`#/menu`, `#/module/<id>`) that:
+  - Parses `location.hash` on load and calls `openMenu()`/`openModule(id)`
+    accordingly (falling back to attract for anything invalid).
+  - Calls `history.pushState`/`replaceState` at the existing `openMenu()`,
+    `openModule()`, `goHome()` call sites to keep the URL in sync.
+  - Listens for `popstate`/`hashchange` for back/forward and pasted-URL
+    support while the app is already running.
+  - Adds a "cold open" path for modules opened directly via URL, since the
+    normal open plays a portal animation from the module's carousel card,
+    which doesn't exist when there's no prior screen to animate from.
+  - Replaces (rather than runs alongside) the existing sessionStorage
+    dev-restore hack, to keep this to one mechanism.
+  Estimated effort: half a day to a day. Not blocking any other phase; can
+  be picked up whenever, ideally after Phase 3 so module IDs/screens are
+  stable.
+
 ## Suggested starting point
 
 Start with **Phase 0** (a quick breakpoint/target decision) and then
