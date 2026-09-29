@@ -180,7 +180,10 @@ export class ModuleCarousel {
       }
 
       const visual = motion.preview.closest('.module-card__visual')
-      const sceneAspect = visual.offsetWidth / Math.max(1, visual.offsetHeight + 280)
+      /* .module-card__shape-scene overscans upward by 23.34% of the visual's
+         own height (see app.css) so the effective scene height used for the
+         frustum aspect needs the same proportional bump, not a fixed px add-on. */
+      const sceneAspect = visual.offsetWidth / Math.max(1, visual.offsetHeight * 1.2334)
       const frustumWidth = getModuleNavigationGridLayout({ aspect: sceneAspect }).frustumWidth
       const offsetX = (motion.spring.offset / frustumWidth) * visual.offsetWidth
       motion.preview.style.setProperty('--carousel-preview-motion-x', `${offsetX}px`)

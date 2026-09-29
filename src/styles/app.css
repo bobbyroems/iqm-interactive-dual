@@ -327,7 +327,7 @@
   flex: 1;
   flex-direction: column;
   overflow: hidden;
-  padding: 0 0 100px;
+  padding: 0 0 clamp(24px, 5vw, 48px);
 }
 
 .menu-heading__count {
@@ -336,8 +336,8 @@
 
 .module-carousel {
   position: relative;
-  flex: 0 0 auto;
-  height: 2460px;
+  flex: 1;
+  min-height: 0;
 }
 
 .module-carousel__viewport {
@@ -348,7 +348,7 @@
 }
 
 .module-carousel__track {
-  --carousel-card-width: 2160px;
+  --carousel-card-width: clamp(240px, 34vw, 420px);
   --carousel-drag: 0px;
   --carousel-offset: 0px;
 
@@ -359,7 +359,7 @@
   width: max-content;
   height: 100%;
   align-items: flex-start;
-  gap: 64px;
+  gap: clamp(20px, 4vw, 48px);
   transform: translate3d(
     calc((var(--carousel-card-width) / -2) - var(--carousel-offset) + var(--carousel-drag)),
     0,
@@ -374,15 +374,22 @@
   transition: none;
 }
 
+/* The card is a flex column (visual, then copy) rather than the old
+   absolute-position composition measured off a fixed 2460px-tall card:
+   centring the whole stack lets it reflow at any viewport height instead of
+   pinning the footer to a hand-measured pixel offset. */
 .module-card {
   position: relative;
   display: flex;
   width: var(--carousel-card-width);
-  height: 2460px;
+  height: 100%;
   min-width: var(--carousel-card-width);
   flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(16px, 3vw, 28px);
   overflow: visible;
-  padding: 380px 0 0;
+  padding: 0;
   border: 0;
   background: transparent;
   color: var(--color-ink);
@@ -416,13 +423,14 @@
 .module-card__visual {
   position: relative;
   display: block;
-  height: 1200px;
-  flex: 0 0 1200px;
+  width: 100%;
+  aspect-ratio: 9 / 5;
+  flex: 0 0 auto;
 }
 
 .module-card__visual[data-has-preview="true"]:not([data-preview-layout="portal"]) {
   overflow: hidden;
-  border-radius: 28px;
+  border-radius: clamp(12px, 2vw, 20px);
 }
 
 .module-card__preview-image {
@@ -505,7 +513,7 @@
 
 .module-card[data-module-id="build-majorana-2"] .module-card__preview-image {
   object-fit: contain;
-  transform: translateY(-100px) scale(0.76);
+  transform: translateY(-8.3%) scale(0.76);
   transform-origin: center;
 }
 
@@ -516,23 +524,22 @@
   position: relative;
   object-fit: contain;
   filter: drop-shadow(0 26px 22px rgba(42, 68, 111, 0.2));
-  transform: translateY(-260px) scale(0.34);
+  transform: translateY(-21.7%) scale(0.34);
   transform-origin: center;
 }
 
 /* Module 09's preview is a tall cutout rather than a plate that fills its box,
-   so it is contained rather than cropped, and lifted: the card's copy is set to
-   overlap the lower third of the visual, which a column filling the box would
-   run straight into. It ends up the same height as the Majorana model beside
-   it, which is what keeps the two reading as one set. */
+   so it is contained rather than cropped, and lifted, ending up the same
+   height as the Majorana model beside it — which is what keeps the two
+   reading as one set. */
 .module-card[data-module-id="quantum-platform"] .module-card__preview-image {
   object-fit: contain;
-  transform: translateY(-114px) scale(0.79);
+  transform: translateY(-9.5%) scale(0.79);
   transform-origin: center;
 }
 
 .module-card[data-module-id="build-majorana-2"] .module-card__3d-host {
-  bottom: 240px;
+  bottom: 20%;
 }
 
 .module-card.is-active[data-module-id="build-majorana-2"] .module-card__3d-host {
@@ -567,7 +574,7 @@
   inset: 0;
   display: block;
   overflow: hidden;
-  border-radius: 28px;
+  border-radius: clamp(12px, 2vw, 20px);
   background: var(--color-panel-hover);
   color: var(--color-subtle);
 }
@@ -578,9 +585,9 @@
   inset: 0;
   display: grid;
   place-items: center;
-  border-radius: 28px;
+  border-radius: clamp(12px, 2vw, 20px);
   background: var(--color-panel-hover);
-  font-size: 200px;
+  font-size: clamp(48px, 12vw, 96px);
   font-weight: 700;
   letter-spacing: 0.02em;
   background-image: linear-gradient(100deg, #e2409e 0%, #9567ff 100%);
@@ -606,9 +613,9 @@
 
 .module-card__preview-label {
   position: absolute;
-  top: 56px;
-  right: 64px;
-  font-size: 24px;
+  top: clamp(12px, 2vw, 20px);
+  right: clamp(14px, 2.5vw, 24px);
+  font-size: clamp(11px, 1.5vw, 14px);
   font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -616,11 +623,11 @@
 
 .module-card__preview-number {
   position: absolute;
-  right: 22px;
-  bottom: -150px;
+  right: 4%;
+  bottom: -12.5%;
   color: rgba(42, 68, 111, 0.08);
   font-family: var(--font-display);
-  font-size: 560px;
+  font-size: clamp(80px, 26vw, 180px);
   font-weight: 600;
   letter-spacing: -0.09em;
   line-height: 1;
@@ -629,10 +636,12 @@
 .module-card__shape-scene {
   position: absolute;
   z-index: 1;
-  /* Extends up into the card's top padding: the camera FOV is fixed, so a
+  /* Extends up into the card's visual box: the camera FOV is fixed, so a
      taller host buys vertical headroom for the scenes without resizing any
-     object on screen (compositions are sized in % of frustum width). */
-  top: -280px;
+     object on screen (compositions are sized in % of frustum width). Kept as
+     a percentage of the visual's own (aspect-ratio-locked) height so the
+     headroom scales with the card instead of a fixed pixel amount. */
+  top: -23.34%;
   right: 0;
   bottom: 0;
   left: 0;
@@ -662,15 +671,15 @@
   left: 50%;
   display: flex;
   align-items: center;
-  gap: 26px;
-  padding: 20px 46px;
+  gap: clamp(10px, 2vw, 18px);
+  padding: clamp(8px, 1.6vw, 14px) clamp(18px, 3.6vw, 32px);
   border: 1px solid rgba(0, 0, 0, 0.06);
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.55);
   backdrop-filter: blur(8px);
   color: #3a4150;
   font-family: var(--font-display);
-  font-size: 34px;
+  font-size: clamp(12px, 2vw, 18px);
   font-weight: 600;
   letter-spacing: 0.14em;
   text-transform: uppercase;
@@ -680,8 +689,8 @@
 }
 
 .module-card__ball-status-dot {
-  width: 24px;
-  height: 24px;
+  width: clamp(10px, 1.6vw, 14px);
+  height: clamp(10px, 1.6vw, 14px);
   border-radius: 50%;
   /* Same 0.4s as the tiles' own colour drift, so caption and ball turn together. */
   background: var(--ball-status-color, #2f63c9);
@@ -797,27 +806,27 @@
   position: relative;
   z-index: 2;
   display: flex;
-  min-height: 0;
-  flex: 1;
+  flex: 0 0 auto;
   flex-direction: column;
   align-items: center;
   justify-content: flex-start;
-  /* Pulled up ~15% of the card so the copy sits closer to the scene. */
-  margin-top: -370px;
-  padding: 160px 200px 0;
+  gap: clamp(10px, 1.6vw, 16px);
+  width: 100%;
+  padding: 0 clamp(16px, 4vw, 32px);
   text-align: center;
 }
 
 .module-card__copy {
   display: block;
-  max-width: 1760px;
+  width: 100%;
+  max-width: min(90%, 340px);
 }
 
 .module-card h3 {
   margin: 0;
   color: var(--color-headline);
   font-family: var(--font-display);
-  font-size: 120px;
+  font-size: clamp(16px, 2.4vw, 24px);
   font-weight: 600;
   letter-spacing: -0.02em;
   line-height: 1.33;
@@ -829,34 +838,24 @@
   display: -webkit-box;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
-  max-width: 950px;
-  height: calc(2 * 48px * 1.33);
-  margin: 60px auto 0;
+  max-width: min(85%, 260px);
+  height: 2.66em;
+  margin: clamp(8px, 1.6vw, 14px) auto 0;
   overflow: hidden;
   color: var(--color-navy);
   font-family: var(--font-display);
-  font-size: 48px;
+  font-size: clamp(12px, 1.5vw, 16px);
   font-weight: 600;
   letter-spacing: -0.02em;
   line-height: 1.33;
 }
 
 .module-card__footer {
-  position: absolute;
-  /* Three of the eight titles run to two lines on the 25 Aug board, and a
-     second line is 160px here — 120px type at 1.33 — which used to land the
-     summary underneath the button.
-
-     The offset is measured off the board rather than guessed. There the button
-     occupies the same rows on all eight cards while the titles all start on the
-     same row, so the button is fixed and the summaries ride down under the
-     taller titles. Taking the ratio of the two gaps it draws — summary bottom
-     to button, on a two-line card against a one-line card — gives 0.571, and
-     the offset that reproduces it here is 879. Working from the ratio avoids
-     having to know the scale of the screenshot it was measured from. */
-  top: 880px;
-  left: 50%;
-  transform: translateX(-50%);
+  /* Now a normal in-flow element after the summary: the footer shifts with
+     the copy above it instead of pinning to a pixel offset measured off the
+     old fixed 2460px-tall card. */
+  position: relative;
+  margin-top: clamp(4px, 1vw, 10px);
 }
 
 .module-card.is-active:active .module-card__footer {
@@ -867,10 +866,10 @@
 .module-carousel__arrow {
   position: absolute;
   z-index: 6;
-  top: 980px;
+  top: 50%;
   display: grid;
-  width: 120px;
-  height: 120px;
+  width: clamp(40px, 5.5vw, 60px);
+  height: clamp(40px, 5.5vw, 60px);
   place-items: center;
   border: 0;
   border-radius: 50%;
@@ -886,16 +885,16 @@
 }
 
 .module-carousel__arrow--previous {
-  left: 120px;
+  left: clamp(8px, 2vw, 24px);
 }
 
 .module-carousel__arrow--next {
-  right: 120px;
+  right: clamp(8px, 2vw, 24px);
 }
 
 .module-carousel__arrow img {
-  width: 25px;
-  height: 46px;
+  width: clamp(9px, 1.2vw, 13px);
+  height: clamp(16px, 2.2vw, 24px);
   filter: brightness(0) invert(1);
 }
 
@@ -916,22 +915,18 @@
 /* Pagination dots (Figma Pagination). */
 .module-carousel__pagination {
   display: flex;
-  flex: 0 0 64px;
+  flex: 0 0 auto;
   align-items: center;
-  gap: 20px;
+  gap: clamp(8px, 1.4vw, 14px);
   justify-content: center;
-  /* The board sets the dots 3.47 button-heights below the button — measured off
-     it, button at rows 176-190 and dots at 242-244 — which is 555px here. They
-     used to sit 165px under it, so this is that difference applied to the pull
-     the copy block already had. */
-  margin-top: 344px;
-  padding: 0 118px;
+  margin-top: clamp(12px, 2.4vw, 24px);
+  padding: 0 clamp(24px, 6vw, 64px);
 }
 
 .module-carousel__indicator {
   display: grid;
-  width: 64px;
-  height: 64px;
+  width: clamp(28px, 3.4vw, 40px);
+  height: clamp(28px, 3.4vw, 40px);
   place-items: center;
   border: 0;
   padding: 0;
@@ -940,8 +935,8 @@
 
 .module-carousel__indicator span {
   display: block;
-  width: 24px;
-  height: 24px;
+  width: clamp(8px, 1.2vw, 13px);
+  height: clamp(8px, 1.2vw, 13px);
   border-radius: 50%;
   background: rgba(42, 68, 111, 0.18);
   transition:
