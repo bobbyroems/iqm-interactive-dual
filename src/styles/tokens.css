@@ -1,8 +1,4 @@
 :root {
-  --design-width: 2160;
-  --design-height: 3840;
-  --stage-scale: 1;
-
   /* Microsoft Quantum light palette (Figma "reimagine/day") */
   --color-background: #ffffff;
   --color-background-deep: #ececec;
@@ -39,20 +35,20 @@
      Every screen and module keeps its own header classes — those carry the
      per-module state and animation hooks — but they all draw the control
      itself from these values, so the chrome reads as one control set. */
-  --header-action-min-height: 72px;
-  --header-action-padding: 12px 28px;
-  --header-action-gap: 16px;
+  --header-action-min-height: clamp(48px, 3vw + 38px, 72px);
+  --header-action-padding: clamp(8px, 1vw + 6px, 12px) clamp(16px, 3vw + 8px, 28px);
+  --header-action-gap: clamp(8px, 1.5vw + 4px, 16px);
   --header-action-radius: 8px;
   --header-action-border: 2px solid var(--color-navy);
   --header-action-color: var(--color-navy);
   --header-action-bg: var(--color-panel);
   --header-action-bg-active: var(--color-panel-hover);
-  --header-action-font-size: 32px;
+  --header-action-font-size: clamp(14px, 1vw + 12px, 18px);
   --header-action-font-weight: 600;
   --header-action-tracking: -0.015em;
-  --header-action-icon-box: 36px;
-  --header-action-icon-size: 30px;
-  --header-actions-gap: 24px;
+  --header-action-icon-box: clamp(22px, 2vw + 16px, 30px);
+  --header-action-icon-size: clamp(18px, 2vw + 12px, 26px);
+  --header-actions-gap: clamp(8px, 2vw + 4px, 20px);
 
   /* Navy, applied to monochrome control icons so they track --color-navy. */
   --header-action-icon-filter: brightness(0) saturate(100%) invert(24%) sepia(21%)

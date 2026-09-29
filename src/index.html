@@ -171,7 +171,7 @@
              exempts interactive dialogs, and this one owns a launcher, an
              open/closed state and focusable controls the explainer never
              models. -->
-        <aside class="kiosk-settings" id="kiosk-settings" data-open="false" data-layout="top">
+        <aside class="kiosk-settings" id="kiosk-settings" data-open="false">
           <div
             class="kiosk-settings__panel"
             id="kiosk-settings-panel"
@@ -240,47 +240,6 @@
                     <line x1="4" y1="20.5" x2="20" y2="3.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
                   </svg>
                   <span>Off</span>
-                </button>
-              </div>
-            </section>
-
-            <section class="kiosk-settings__group">
-              <h2 class="kiosk-settings__label">Layout</h2>
-              <!-- Top packs the module card into the upper two thirds;
-                   Center spends the empty lower third on the copy, the CTA
-                   and the dots. See the Center block in app.css. -->
-              <div
-                class="kiosk-settings__segments"
-                id="kiosk-settings-layout"
-                role="radiogroup"
-                aria-label="Layout"
-              >
-                <span class="kiosk-settings__segment-thumb" aria-hidden="true"></span>
-                <button
-                  class="kiosk-settings__segment"
-                  type="button"
-                  role="radio"
-                  aria-checked="true"
-                  data-layout="top"
-                >
-                  <svg viewBox="0 0 24 24" aria-hidden="true">
-                    <rect x="3" y="3" width="18" height="18" rx="4.5" fill="none" stroke="currentColor" stroke-width="1.6"/>
-                    <rect x="6.6" y="6.6" width="10.8" height="4" rx="2" fill="currentColor"/>
-                  </svg>
-                  <span>Top</span>
-                </button>
-                <button
-                  class="kiosk-settings__segment"
-                  type="button"
-                  role="radio"
-                  aria-checked="false"
-                  data-layout="center"
-                >
-                  <svg viewBox="0 0 24 24" aria-hidden="true">
-                    <rect x="3" y="3" width="18" height="18" rx="4.5" fill="none" stroke="currentColor" stroke-width="1.6"/>
-                    <rect x="6.6" y="10" width="10.8" height="4" rx="2" fill="currentColor"/>
-                  </svg>
-                  <span>Center</span>
                 </button>
               </div>
             </section>
@@ -394,8 +353,7 @@
 
       <aside class="development-hud" id="development-hud" hidden>
         <strong>DEV</strong>
-        <span id="development-resolution">2160 × 3840</span>
-        <span id="development-scale">100%</span>
+        <span id="development-resolution">0 × 0</span>
       </aside>
     </div>
 

@@ -21,7 +21,6 @@ import { configureIdleTimeouts } from './core/idle-timeouts.js'
 import { splitTextForReveal } from './core/text-reveal.js'
 import { ModuleHost } from './core/module-host.js'
 import { ScreenRouter } from './core/screen-router.js'
-import { StageScaler } from './core/stage-scaler.js'
 import { createMajoranaScene } from './modules/build-majorana-2/majorana-scene.js'
 import { getModule, isPlayable, MODULE_CATEGORIES, MODULES } from './modules/module-registry.js'
 
@@ -29,11 +28,6 @@ import { getModule, isPlayable, MODULE_CATEGORIES, MODULES } from './modules/mod
    whatever card was being reviewed. */
 const DEVELOPMENT_HUD_COLLAPSED_KEY = 'iqm-kiosk:development-hud-collapsed'
 const SCREEN_UNMOUNT_DELAY_MS = 400
-
-/* Half of the menu's layout crossfade: the menu is dark for this long before
-   the new layout is applied, then takes the same time to come back. Matches the
-   .menu-body opacity transition in app.css. */
-const MENU_LAYOUT_FADE_MS = 200
 
 /* Kept in step with config/kiosk.config.json — this only applies if that file
    cannot be read, and a visitor-facing timeout should not change because of it. */
@@ -163,7 +157,6 @@ export class KioskApp {
     this.nanoscaleModulePreload = null
     this.moduleUnmountTimer = null
     this.settings = null
-    this.menuLayoutFadeTimer = null
 
     this.onActivity = this.onActivity.bind(this)
 
@@ -201,13 +194,6 @@ export class KioskApp {
     this.screenWipe.className = 'screen-wipe'
     this.screenWipe.setAttribute('aria-hidden', 'true')
     this.stage.append(this.screenWipe)
-
-    this.stageScaler = new StageScaler({
-      stage: root.getElementById('kiosk-stage'),
-      designWidth: this.config.design.width,
-      designHeight: this.config.design.height,
-      onScale: scale => this.updateDevelopmentHud(scale)
-    })
   }
 
   start() {
@@ -220,13 +206,12 @@ export class KioskApp {
     installButtonTapSound(this.root)
     this.settings = createKioskSettings({
       root: this.root,
-      onIdleTimeoutChange: () => this.onIdleTimeoutChange(),
-      onLayoutChange: layout => this.applyMenuLayout(layout)
+      onIdleTimeoutChange: () => this.onIdleTimeoutChange()
     })
-    this.applyMenuLayout(this.settings?.layout ?? 'top', { animate: false })
     this.setupTextReveals()
     this.setupDevelopmentHud()
-    this.stageScaler.start()
+    window.addEventListener('resize', () => this.updateDevelopmentHud(), { passive: true })
+    this.updateDevelopmentHud()
     this.router.show('attract')
     this.restoreDevelopmentView()
     void this.preloadMajoranaModule()
@@ -763,33 +748,6 @@ export class KioskApp {
     rearmIdleController(this.idleController, this.activeModuleId)
   }
 
-  /* Top and Center move the artwork, the copy, the CTA and the dots all at
-     once, so the menu crossfades rather than animating a dozen positions past
-     each other. Off the menu screen there is nothing to see, so the swap lands
-     immediately. */
-  applyMenuLayout(layout, { animate = true } = {}) {
-    if (this.stage.dataset.layout === layout) return
-
-    const menuBody = this.root.querySelector('.screen--menu .menu-body')
-    const canFade = animate &&
-      menuBody &&
-      this.router.currentScreen === 'menu' &&
-      !window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
-
-    if (!canFade) {
-      this.stage.dataset.layout = layout
-      return
-    }
-
-    window.clearTimeout(this.menuLayoutFadeTimer)
-    menuBody.classList.add('is-relayouting')
-    this.menuLayoutFadeTimer = window.setTimeout(() => {
-      this.stage.dataset.layout = layout
-      menuBody.classList.remove('is-relayouting')
-      this.menuLayoutFadeTimer = null
-    }, MENU_LAYOUT_FADE_MS)
-  }
-
   setupDevelopmentHud() {
     const hud = this.root.getElementById('development-hud')
     /* Off unless development.showHud is switched on in kiosk.config.json, and
@@ -798,8 +756,6 @@ export class KioskApp {
     hud.hidden = !this.config.development.showHud ||
       (!this.runtime.isDevelopment && 'platform' in this.runtime)
     this.stage.classList.toggle('has-development-hud', !hud.hidden)
-    this.root.getElementById('development-resolution').textContent =
-      `${this.config.design.width} × ${this.config.design.height}`
     if (!hud.hidden) {
       this.startFpsMeter()
       this.setupMaterialPanel()
@@ -829,7 +785,7 @@ export class KioskApp {
       toggle.setAttribute('aria-pressed', String(collapsed))
       /* The settings cog clears the dock by its measured height; re-run that
          with the new one. Layout has to settle first, hence the next frame. */
-      window.requestAnimationFrame(() => this.updateDevelopmentHud(this.lastStageScale ?? 1))
+      window.requestAnimationFrame(() => this.updateDevelopmentHud())
     }
 
     let collapsed = false
@@ -1392,11 +1348,11 @@ export class KioskApp {
     window.requestAnimationFrame(tick)
   }
 
-  updateDevelopmentHud(scale) {
-    /* Kept so collapsing the dock can re-measure without waiting for a resize. */
-    this.lastStageScale = scale
-    const scaleLabel = this.root.getElementById('development-scale')
-    if (scaleLabel) scaleLabel.textContent = `${Math.round(scale * 100)}%`
+  updateDevelopmentHud() {
+    const resolutionLabel = this.root.getElementById('development-resolution')
+    if (resolutionLabel) {
+      resolutionLabel.textContent = `${window.innerWidth} × ${window.innerHeight}`
+    }
 
     const hud = this.root.getElementById('development-hud')
     if (!hud || hud.hidden) return
@@ -1406,11 +1362,7 @@ export class KioskApp {
     hud.style.right = `${Math.max(edgeGap, window.innerWidth - stageRect.right + edgeGap)}px`
     hud.style.bottom = `${Math.max(edgeGap, window.innerHeight - stageRect.bottom + edgeGap)}px`
 
-    const safeScale = scale > 0 ? scale : 1
-    const settingsBottom = Math.max(
-      132,
-      Math.ceil((edgeGap + hud.getBoundingClientRect().height + 12) / safeScale)
-    )
+    const settingsBottom = Math.max(64, Math.ceil(edgeGap + hud.getBoundingClientRect().height + 12))
     this.stage.style.setProperty('--development-settings-bottom', `${settingsBottom}px`)
     this.positionMaterialPanel?.()
   }

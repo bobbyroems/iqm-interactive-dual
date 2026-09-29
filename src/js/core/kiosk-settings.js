@@ -1,6 +1,6 @@
 /*
  * Kiosk settings surface: a cog in the bottom-right corner of the stage that
- * springs open a frosted popover holding the sound, layout and timing controls.
+ * springs open a frosted popover holding the sound and timing controls.
  *
  * AGENTS.md sends floating panels to createKioskExplainer. This is the
  * documented interactive-dialog exception — the explainer models a passive
@@ -60,8 +60,7 @@ function prefersReducedMotion() {
 
 export function createKioskSettings({
   root = document,
-  onIdleTimeoutChange,
-  onLayoutChange
+  onIdleTimeoutChange
 } = {}) {
   const container = root.getElementById('kiosk-settings')
   const launcher = root.getElementById('kiosk-settings-launcher')
@@ -116,12 +115,10 @@ export function createKioskSettings({
   bindMusic(root, container)
   bindUpNext(root, container)
   bindIdleTimeouts(root, onIdleTimeoutChange)
-  const layout = bindLayout(root, container, onLayoutChange)
 
   return {
     close: () => setOpen(false),
-    isOpen: () => open,
-    layout
+    isOpen: () => open
   }
 }
 
@@ -186,8 +183,9 @@ function bindMusic(root, container) {
   })
 }
 
-/* Same segmented control as the layout one, marking itself through data-upnext
-   so the two thumbs move independently. */
+/* The segmented control owns the selection: it marks its own thumb through
+   data-upnext on the settings element, and hands the value to the caller,
+   which is what actually stops the pop-up from arriving. */
 function bindUpNext(root, container) {
   const group = root.getElementById('kiosk-settings-upnext')
   if (!group) return
@@ -211,27 +209,4 @@ function bindUpNext(root, container) {
     }
     setUpNextCardsEnabled(next === 'on')
   })
-}
-
-/* The segmented control owns the selection: it marks its own thumb through
-   data-layout on the settings element, and hands the value to the caller,
-   which is what actually restyles the menu. */
-function bindLayout(root, container, onLayoutChange) {
-  const group = root.getElementById('kiosk-settings-layout')
-  if (!group) return container.dataset.layout || 'top'
-  const segments = [...group.querySelectorAll('.kiosk-settings__segment')]
-
-  group.addEventListener('click', event => {
-    const segment = event.target.closest('.kiosk-settings__segment')
-    if (!segment || !group.contains(segment)) return
-    const next = segment.dataset.layout
-    if (next === container.dataset.layout) return
-    container.dataset.layout = next
-    for (const option of segments) {
-      option.setAttribute('aria-checked', String(option === segment))
-    }
-    onLayoutChange?.(next)
-  })
-
-  return container.dataset.layout || 'top'
 }
