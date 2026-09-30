@@ -2544,6 +2544,24 @@ export async function createShapeScenePool({ hosts, isVisible, onActivity }) {
       if (rendererSize.x !== renderWidth || rendererSize.y !== renderHeight) {
         renderer.setSize(renderWidth, renderHeight, false)
       }
+
+      /* Every entry shares this one render size (see the note above), but
+         each camera's aspect/projection was only ever set once, at scene
+         creation, from a single getBoundingClientRect() snapshot of its own
+         host. If that snapshot ever drifts from the canvas it's actually
+         rendered into — a later layout pass, a resize, a container-query
+         value settling to a different card size — the projection silently
+         mismatches the raster and the image stretches: exactly what reads
+         as a cropped top and a gap under the ground. Keeping aspect in sync
+         here removes that whole class of drift instead of re-diagnosing it. */
+      if (renderHeight > 0) {
+        const canvasAspect = renderWidth / renderHeight
+        if (Math.abs(entry.camera.aspect - canvasAspect) > 0.0001) {
+          entry.camera.aspect = canvasAspect
+          entry.camera.updateProjectionMatrix()
+        }
+      }
+
       renderer.render(entry.scene, entry.camera)
 
       if (entry.canvas.width !== renderWidth || entry.canvas.height !== renderHeight) {
