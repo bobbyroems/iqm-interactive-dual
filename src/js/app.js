@@ -320,7 +320,6 @@ export class KioskApp {
       startAmbient()
     }, true)
 
-    document.addEventListener('contextmenu', event => event.preventDefault())
     document.addEventListener('dragstart', event => event.preventDefault())
 
     window.addEventListener('keydown', event => {
