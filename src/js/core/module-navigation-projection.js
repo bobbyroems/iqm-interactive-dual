@@ -8,7 +8,7 @@ export const MODULE_NAVIGATION_PROJECTION = Object.freeze({
 })
 
 export const MODULE_NAVIGATION_GRID = Object.freeze({
-  color: '#b4bac3',
+  color: '#c3b4b9',
   exposure: 1.18,
   fadeInnerRatio: 0.3,
   fadeRadiusByFrustumWidth: 0.34,
