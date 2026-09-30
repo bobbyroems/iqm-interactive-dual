@@ -355,11 +355,13 @@
 .module-carousel__track {
   /* The card grows to fill the carousel: width is capped either by 90% of
      the container's own width, or by the width that makes the visual
-     (aspect-ratio 9/5) plus a fixed budget for the title/summary/footer
-     below it exactly fill the container's height — whichever is smaller.
-     That second term is what lets the 3D scene grow to fill tall/short
-     viewports instead of sitting at a small, width-only-capped size. */
-  --carousel-content-budget: 240px;
+     (aspect-ratio 9/5) plus a fixed budget for the top gap and the
+     title/summary/footer below it exactly fill the container's height —
+     whichever is smaller. That second term is what lets the 3D scene grow
+     to fill tall/short viewports instead of sitting at a small,
+     width-only-capped size. */
+  --carousel-card-top-gap: clamp(20px, 4vw, 48px);
+  --carousel-content-budget: calc(200px + var(--carousel-card-top-gap));
   --carousel-card-width: clamp(
     240px,
     min(90cqi, calc((100cqb - var(--carousel-content-budget)) * 9 / 5)),
@@ -394,7 +396,9 @@
 /* The card is a flex column (visual, then copy) rather than the old
    absolute-position composition measured off a fixed 2460px-tall card:
    centring the whole stack lets it reflow at any viewport height instead of
-   pinning the footer to a hand-measured pixel offset. */
+   pinning the footer to a hand-measured pixel offset. Padding-top carries
+   the breathing room above the 3D scene; the visual-to-content gap is kept
+   tight so the copy reads as anchored to the scene, not floating under it. */
 .module-card {
   position: relative;
   display: flex;
@@ -404,9 +408,9 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: clamp(16px, 3vw, 28px);
+  gap: clamp(6px, 1.2vw, 14px);
   overflow: visible;
-  padding: 0;
+  padding: var(--carousel-card-top-gap) 0 0;
   border: 0;
   background: transparent;
   color: var(--color-ink);
