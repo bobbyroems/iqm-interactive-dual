@@ -211,6 +211,24 @@
   height: 60.786px;
 }
 
+/* Hand-pointer that taps the welcome CTA on an idle loop, to make the button
+   read as obviously interactive on an unattended kiosk. Hidden by default;
+   the attract-screen rule further down animates it in, through a tap, and
+   back out. Anchored near the button's own content, not the viewport, so it
+   keeps working regardless of where the button lands on screen. */
+.cta-pointer {
+  position: absolute;
+  z-index: 1;
+  right: 18px;
+  bottom: -34px;
+  width: 260px;
+  height: 260px;
+  opacity: 0;
+  transform-origin: 68% 22%;
+  pointer-events: none;
+  filter: drop-shadow(0 14px 20px rgba(10, 22, 46, 0.35));
+}
+
 /* ---------------------------------------------------------------------------
  * Attract screen (Figma "Home -1")
  * ------------------------------------------------------------------------- */
@@ -3044,6 +3062,53 @@
 
 .screen--attract.is-leaving .attract-chip {
   animation: attract-chip-out 300ms ease forwards;
+}
+
+/* Idle attract CTA: a hand pointer slides in and taps the button on a loop.
+   Starts once the entrance animation above has settled, pauses for the
+   press-bloom ripple and the :active press state (so a real touch doesn't
+   fight the simulated one), and is dropped entirely under reduced motion. */
+@media (prefers-reduced-motion: no-preference) {
+  .screen--attract.is-active #start-button .cta-pointer {
+    animation: cta-pointer-tap 4.5s ease-in-out 1700ms infinite;
+  }
+
+  .screen--attract.is-active #start-button:active .cta-pointer,
+  .screen--attract.is-active #start-button.is-pressing .cta-pointer {
+    animation-play-state: paused;
+    opacity: 0;
+  }
+}
+
+@keyframes cta-pointer-tap {
+  0%,
+  100% {
+    opacity: 0;
+    transform: translate(306px, -156px) scale(0.8);
+  }
+
+  18% {
+    opacity: 1;
+    transform: translate(60px, 90px) scale(1);
+  }
+
+  30% {
+    transform: translate(52px, 76px) scale(0.94);
+  }
+
+  40% {
+    transform: translate(60px, 90px) scale(1);
+  }
+
+  55% {
+    opacity: 1;
+    transform: translate(60px, 90px) scale(1);
+  }
+
+  70% {
+    opacity: 0;
+    transform: translate(306px, -156px) scale(0.8);
+  }
 }
 
 .screen--menu.is-active .module-carousel {
