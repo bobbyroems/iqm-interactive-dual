@@ -227,6 +227,13 @@
   transform-origin: 68% 22%;
   pointer-events: none;
   filter: drop-shadow(0 14px 20px rgba(10, 22, 46, 0.35));
+  /* Start (off/retracted) and end (tap) positions for the cta-pointer-tap
+     keyframes below, so the travel path can be tuned without touching the
+     animation itself. */
+  --cta-pointer-start-x: 396px;
+  --cta-pointer-start-y: -206px;
+  --cta-pointer-end-x: 90px;
+  --cta-pointer-end-y: 125px;
 }
 
 /* ---------------------------------------------------------------------------
@@ -3106,30 +3113,30 @@
   0%,
   100% {
     opacity: 0;
-    transform: translate(306px, -156px) scale(0.8);
+    transform: translate(var(--cta-pointer-start-x), var(--cta-pointer-start-y)) scale(0.8);
   }
 
   18% {
     opacity: 1;
-    transform: translate(60px, 90px) scale(1);
+    transform: translate(var(--cta-pointer-end-x), var(--cta-pointer-end-y)) scale(1);
   }
 
   30% {
-    transform: translate(52px, 76px) scale(0.94);
+    transform: translate(calc(var(--cta-pointer-end-x) - 8px), calc(var(--cta-pointer-end-y) - 14px)) scale(0.94);
   }
 
   40% {
-    transform: translate(60px, 90px) scale(1);
+    transform: translate(var(--cta-pointer-end-x), var(--cta-pointer-end-y)) scale(1);
   }
 
   55% {
     opacity: 1;
-    transform: translate(60px, 90px) scale(1);
+    transform: translate(var(--cta-pointer-end-x), var(--cta-pointer-end-y)) scale(1);
   }
 
   70% {
     opacity: 0;
-    transform: translate(306px, -156px) scale(0.8);
+    transform: translate(var(--cta-pointer-start-x), var(--cta-pointer-start-y)) scale(0.8);
   }
 }
 
