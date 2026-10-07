@@ -215,3 +215,42 @@ are baked in throughout.
 Start with **Phase 0** (a quick breakpoint/target decision) and then
 **Phase 1 + Phase 2** as a first PR, since that's the shared foundation
 everything else depends on.
+
+## Addendum: media asset size audit (not yet scheduled as a phase)
+
+A scan of `public/assets/` (270 MB across 197 files, copied into `dist`
+as-is — `vite.config.js` has no image/video/model optimization step) found
+sizable, low-risk wins that are independent of the layout work above and
+can be picked up whenever, but are worth tracking alongside it since a
+fluid/responsive layout makes oversized fixed-resolution assets even more
+wasteful on smaller viewports:
+
+- **PNGs are the single biggest category (78.5 MB / 53 files)** and the
+  worst offenders are raw, uncompressed 4096px-wide photographic images
+  served as PNG instead of WebP/AVIF, several multiples larger than their
+  rendered size:
+  - `majorana-schematic-backdrop.png` — 4096×4096, 17 MB
+  - `salt-background.png` — 4096×2788, 6.9 MB
+  - `majorana-intro-hero.png` — 3090×2482, 6.6 MB (HTML only requests
+    `width="1500"`)
+  - `red-blood-cell-background.png` — 4096×2487, 5.5 MB
+  - `menu-preview.png` — 3735×2535, 4.4 MB
+  - `guitar-cutout.png`, `salt-cutout.png`, `som-condensation-overlay.png`,
+    `nanoscale.png` — 2.9–4.1 MB each
+  - Re-encoding these as WebP/AVIF at display-appropriate dimensions could
+    plausibly take this category from ~78 MB to ~10-15 MB.
+- **Inconsistent GLB compression.** `protecting-information` already ships
+  a meshopt decoder and uses it for one model, but its two largest models
+  aren't compressed at all: `protect-gold-topplate.glb` (10.9 MB) and
+  `protect-gold-plate.glb` (7.8 MB). `Ice+Cube.glb` (states-of-matter, 6.9
+  MB) is likewise uncompressed. Running these through the same
+  meshopt/draco pipeline already used elsewhere (`majorana-2.glb`,
+  `m2_glb_full_chandelier.web.glb`) is close to a free win.
+- **Video.** `SoM_IceCube_4k_vertical.mp4` is 41 MB at full 4K resolution;
+  almost certainly displayed smaller. Re-encoding at actual display
+  resolution and/or a tighter bitrate (or converting to WebM/AV1) could
+  save tens of MB.
+
+This is scoped as asset re-encoding/compression only — no markup or CSS
+changes are implied beyond swapping file references, so it can be done in
+parallel with, or independent of, the phases above.
