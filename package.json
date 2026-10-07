@@ -97,5 +97,10 @@
       "createDesktopShortcut": false,
       "createStartMenuShortcut": false
     }
+  },
+  "allowScripts": {
+    "electron@39.8.10": true,
+    "electron-winstaller@5.4.0": true,
+    "esbuild@0.28.2": true
   }
 }
