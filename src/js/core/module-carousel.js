@@ -69,9 +69,11 @@ export class ModuleCarousel {
     this.handlePointerMove = this.handlePointerMove.bind(this)
     this.handlePointerUp = this.handlePointerUp.bind(this)
     this.handlePrevious = this.handlePrevious.bind(this)
+    this.handleResize = this.handleResize.bind(this)
     this.handleWheel = this.handleWheel.bind(this)
     this.updatePreviewMotion = this.updatePreviewMotion.bind(this)
     this.lastWheelAt = 0
+    this.resizeFrame = 0
 
     this.root.addEventListener('wheel', this.handleWheel, { passive: false })
     this.track.addEventListener('click', this.handleCardClick)
@@ -83,6 +85,7 @@ export class ModuleCarousel {
     this.viewport.addEventListener('pointermove', this.handlePointerMove, { passive: false })
     this.viewport.addEventListener('pointerup', this.handlePointerUp)
     this.viewport.addEventListener('pointercancel', this.handlePointerCancel)
+    window.addEventListener('resize', this.handleResize)
   }
 
   mount(cards) {
@@ -120,11 +123,19 @@ export class ModuleCarousel {
 
   startPreviewMotion() {
     if (!this.previewMotions.length) return
+    this.resetPreviewMotionDeltas()
+    this.schedulePreviewMotion()
+  }
+
+  /* Drops the previous-frame center/time readings so the next frame's
+     velocity is derived from a fresh pair of samples instead of comparing
+     against a position measured before the layout changed (e.g. a resize),
+     which would otherwise register as a sudden, spurious drag. */
+  resetPreviewMotionDeltas() {
     for (const motion of this.previewMotions) {
       motion.previousCenterX = undefined
       motion.previousFrameAt = undefined
     }
-    this.schedulePreviewMotion()
   }
 
   schedulePreviewMotion() {
@@ -270,6 +281,22 @@ export class ModuleCarousel {
   stageScale() {
     if (this.root.offsetWidth <= 0) return 1
     return this.root.getBoundingClientRect().width / this.root.offsetWidth || 1
+  }
+
+  /* --carousel-card-width is fluid (container query units), so the pixel
+     --carousel-offset cached on the last setIndex() call goes stale the
+     moment the viewport resizes, pulling the track off-center. Coalesce
+     resize bursts to one recompute per frame and snap it (no transition)
+     rather than animate, so the card doesn't visibly slide while dragging
+     the window edge. */
+  handleResize() {
+    if (this.resizeFrame) return
+    this.resizeFrame = window.requestAnimationFrame(() => {
+      this.resizeFrame = 0
+      if (this.cards.length === 0) return
+      this.setIndex(this.currentIndex, { animate: false })
+      this.resetPreviewMotionDeltas()
+    })
   }
 
   moveBy(direction) {
