@@ -185,6 +185,21 @@
   transform: scale(0.992);
 }
 
+@media (hover: hover) {
+  #start-button:hover {
+    box-shadow: 0 14px 34px rgba(42, 68, 111, 0.3);
+    transform: translateY(-2px);
+  }
+
+  #start-button:hover span:first-child {
+    text-shadow: 0 0 12px rgba(255, 255, 255, 0.7);
+  }
+
+  #start-button:hover .action-arrow img {
+    filter: drop-shadow(0 0 6px rgba(255, 255, 255, 0.85));
+  }
+}
+
 /* The chevron rides a lightened disc of the button's own fill rather than
    sitting bare on it (Figma Button > Icon, node 416:759). */
 .action-arrow {
