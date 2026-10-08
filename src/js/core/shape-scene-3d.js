@@ -134,7 +134,7 @@ const SCENE_DEFS = {
      (snaps to |0⟩ or |1⟩) as the dive into the module starts. */
   /* Stashed Bloch-sphere card, in case the OBJ hero doesn't stick:
      [{ ...SPHERE, type: 'bloch', color: '#e3ecf7', s: 27, y: 47, dur: 6.4 }] */
-  'quantum-vs-classical': [{ ...SPHERE, type: 'quantum-computer', s: 38, y: 38 }],
+  'quantum-vs-classical': [{ ...SPHERE, type: 'quantum-computer', s: 38, y: 55 }],
   nanoscale: [{
     ...SPHERE,
     color: BLUE,

@@ -948,6 +948,19 @@
   opacity: 0.6;
 }
 
+@media (hover: hover) {
+  .module-carousel__arrow:hover:not(:disabled) {
+    box-shadow:
+      0 2px 2px rgba(0, 0, 0, 0.14),
+      0 10px 24px rgba(0, 120, 212, 0.4);
+    transform: translateY(calc(-50% - 2px));
+  }
+
+  .module-carousel__arrow:hover:not(:disabled) img {
+    filter: brightness(0) invert(1) drop-shadow(0 0 6px rgba(255, 255, 255, 0.85));
+  }
+}
+
 /* Pagination dots (Figma Pagination). */
 .module-carousel__pagination {
   display: flex;
