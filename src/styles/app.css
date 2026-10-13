@@ -1389,7 +1389,7 @@
   min-height: var(--band-height);
   align-items: center;
   justify-content: space-between;
-  padding: clamp(16px, 4vw, 32px);
+  padding: clamp(6px, 1.2svh, 32px) clamp(16px, 4vw, 32px);
   background-image: var(--band-gradient);
   touch-action: manipulation;
 }
@@ -1397,15 +1397,15 @@
 /* Every state is the same bar at the same height — one chrome, not one that
    resizes under the visitor. */
 .kiosk-module-band[data-state='pagination'] {
-  padding-top: clamp(8px, 1.5vw, 16px);
-  padding-bottom: clamp(8px, 1.5vw, 16px);
+  padding-top: clamp(4px, 0.8svh, 16px);
+  padding-bottom: clamp(4px, 0.8svh, 16px);
 }
 
 .kiosk-module-band__where {
   margin: 0;
   color: #fff;
   font-family: var(--font-display);
-  font-size: clamp(20px, 2.5vw + 12px, 28px);
+  font-size: clamp(16px, 2.8vw, 28px);
   font-weight: 600;
   letter-spacing: -0.02em;
   line-height: 1.33;
@@ -1465,7 +1465,7 @@
 .kiosk-up-next-popup__title {
   color: var(--band-offwhite);
   font-family: var(--font-display);
-  font-size: clamp(20px, 2.5vw + 12px, 28px);
+  font-size: clamp(16px, 2.8vw, 28px);
   font-weight: 600;
   letter-spacing: -0.02em;
   line-height: 1.33;

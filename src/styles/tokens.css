@@ -35,21 +35,21 @@
      Every screen and module keeps its own header classes — those carry the
      per-module state and animation hooks — but they all draw the control
      itself from these values, so the chrome reads as one control set. */
-  --header-height: clamp(56px, 6vw + 38px, 88px);
-  --header-action-min-height: clamp(48px, 3vw + 38px, 72px);
-  --header-action-padding: clamp(8px, 1vw + 6px, 12px) clamp(16px, 3vw + 8px, 28px);
-  --header-action-gap: clamp(8px, 1.5vw + 4px, 16px);
+  --header-height: clamp(40px, 5.6vw, 88px);
+  --header-action-min-height: clamp(18px, 2.4vw, 50px);
+  --header-action-padding: clamp(4px, 0.5vw + 2px, 9px) clamp(8px, 1.6vw + 3px, 20px);
+  --header-action-gap: clamp(4px, 0.8vw + 2px, 11px);
   --header-action-radius: 8px;
   --header-action-border: 2px solid var(--color-navy);
   --header-action-color: var(--color-navy);
   --header-action-bg: var(--color-panel);
   --header-action-bg-active: var(--color-panel-hover);
-  --header-action-font-size: clamp(14px, 1vw + 12px, 18px);
+  --header-action-font-size: clamp(10px, 0.7vw + 6px, 13px);
   --header-action-font-weight: 600;
   --header-action-tracking: -0.015em;
-  --header-action-icon-box: clamp(22px, 2vw + 16px, 30px);
-  --header-action-icon-size: clamp(18px, 2vw + 12px, 26px);
-  --header-actions-gap: clamp(8px, 2vw + 4px, 20px);
+  --header-action-icon-box: clamp(12px, 1.4vw + 7px, 21px);
+  --header-action-icon-size: clamp(10px, 1.4vw + 5px, 18px);
+  --header-actions-gap: clamp(4px, 1vw + 2px, 14px);
 
   /* Navy, applied to monochrome control icons so they track --color-navy. */
   --header-action-icon-filter: brightness(0) saturate(100%) invert(24%) sepia(21%)
@@ -115,7 +115,7 @@
 
   /* The bar's own height. Modules that clear the bar rather than run under it
      offset their content by exactly this. */
-  --band-height: clamp(80px, 9vw + 50px, 120px);
+  --band-height: clamp(44px, 9.4vw, 120px);
 
   --font-display: "Segoe Sans Display", "Segoe Sans", "Segoe UI Variable Display", "Segoe UI Variable", "Segoe UI", Inter, Helvetica, Arial, sans-serif;
   --font-text: "Segoe Sans", "Segoe UI Variable Text", "Segoe UI Variable", "Segoe UI", Inter, Helvetica, Arial, sans-serif;

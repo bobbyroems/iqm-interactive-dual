@@ -3,24 +3,22 @@
    through 30:2480. */
 
 .qp {
-  /* The lattice the drawing is built on: 56px dots on a 92px pitch, four
-     columns wide. Every other measurement in this file is derived from these
-     three, so the field can be retuned in one place. */
-  --qp-dot: 56px;
-  --qp-pitch: 92px;
+  /* The lattice the drawing is built on: dots on a pitch of 92/56 of their
+     size, four columns wide. The dot is the one fluid value and every other
+     measurement here is a multiple of it (the board's 56px dot is 1), so the
+     drawing keeps the board's proportions at any width. It tracks width
+     (2.6vw, the board's 56/2160) and is capped by the height left under the
+     band so the stack, an open reading and the copy still fit. */
+  --qp-dot: clamp(14px, min(2.6vw, (100svh - var(--band-top) - var(--band-height)) / 52), 56px);
+  --qp-pitch: calc(var(--qp-dot) * 1.643);
   --qp-row-gap: calc(var(--qp-pitch) - var(--qp-dot));
   --qp-field-width: calc(3 * var(--qp-pitch) + var(--qp-dot));
-
-  /* How far the standing copy sits below the stack on the overview compared
-     with where it rests for the rest of the walk. The board draws the pill at
-     1837 and 2375, and the copy at 2049 and 2587 — one distance, not two, so
-     the pair moves as a block. */
-  --qp-overview-lift: 538px;
+  --qp-gutter: calc(var(--qp-dot) * 1.07);
+  --qp-card-width: min(calc(var(--qp-dot) * 19), calc(100cqw - 2 * var(--qp-gutter)));
 
   position: absolute;
   inset: 0;
-  width: 2160px;
-  height: 3840px;
+  container-type: inline-size;
   overflow: hidden;
   background: var(--color-background);
   color: #091f2c;
@@ -56,6 +54,22 @@
   touch-action: manipulation;
 }
 
+/* The region under the band that holds the drawing. It scrolls when the
+   viewport is too short for the stack plus an open reading. It sits over the
+   advance button, so a tap on it (or on anything drawn inside) is routed to
+   the same step in index.js. */
+.qp__scroll {
+  position: absolute;
+  z-index: 2;
+  top: calc(var(--band-top) + var(--band-height));
+  right: 0;
+  bottom: 0;
+  left: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
 .qp__advance:disabled {
   pointer-events: none;
 }
@@ -68,12 +82,8 @@
 /* ---------------------------------------------------------------- the stack */
 
 .qp__stack {
-  position: absolute;
-  z-index: 2;
-  top: 500px;
-  right: 0;
-  left: 0;
   display: flex;
+  margin-top: calc(var(--qp-dot) * 3.2);
   flex-direction: column;
   align-items: center;
   pointer-events: none;
@@ -123,9 +133,9 @@
   margin: 0;
   color: #000;
   font-family: var(--font-display);
-  font-size: 60px;
+  font-size: calc(var(--qp-dot) * 1.07);
   font-weight: 600;
-  line-height: 80px;
+  line-height: 1.35;
   white-space: nowrap;
   transition: opacity 320ms var(--ease-out);
 }
@@ -143,7 +153,7 @@
 }
 
 .qp__layer--below {
-  margin-top: 19px;
+  margin-top: calc(var(--qp-dot) * 0.34);
   text-align: center;
 }
 
@@ -158,12 +168,12 @@
 }
 
 .qp__layer--left {
-  right: 97px;
+  right: calc(var(--qp-dot) * 1.73);
   text-align: right;
 }
 
 .qp__layer--right {
-  left: 90px;
+  left: calc(var(--qp-dot) * 1.6);
   text-align: left;
 }
 
@@ -185,13 +195,13 @@
    Qubits' below the whole drawing; both take the board's own spacing rather
    than the field's row gap. */
 .qp__layer--above + .qp__slot {
-  margin-top: 30px;
+  margin-top: calc(var(--qp-dot) * 0.54);
 }
 
 /* Qubits' reading opens under the logos rather than straight under the name,
    so its air is measured from them. */
 .qp__partners + .qp__slot {
-  margin-top: 40px;
+  margin-top: calc(var(--qp-dot) * 0.71);
 }
 
 .qp__slot > [data-qp-slot-inner] {
@@ -204,17 +214,17 @@
    nothing to sit over; the fill is what tells the visitor which layer is
    speaking, so it carries the layer's colour rather than a neutral. */
 .qp__card.kiosk-explainer {
-  --kiosk-explainer-content-gap: 24px;
-  --kiosk-explainer-padding: 60px;
-  --kiosk-explainer-border-radius: 32px;
-  --kiosk-explainer-title-size: 48px;
-  --kiosk-explainer-body-size: 48px;
+  --kiosk-explainer-content-gap: calc(var(--qp-dot) * 0.43);
+  --kiosk-explainer-padding: calc(var(--qp-dot) * 1.07);
+  --kiosk-explainer-border-radius: calc(var(--qp-dot) * 0.57);
+  --kiosk-explainer-title-size: calc(var(--qp-dot) * 0.857);
+  --kiosk-explainer-body-size: calc(var(--qp-dot) * 0.857);
   --kiosk-explainer-body-white-space: normal;
   --kiosk-explainer-rest-transform: translateY(-12px);
   --kiosk-explainer-enter-opacity-duration: 320ms;
   --kiosk-explainer-enter-transform-duration: 460ms;
 
-  width: 1064px;
+  width: var(--qp-card-width);
   /* Ranged left, not centred as the board draws it: these are four and five
      line readings, and centred type that long gives every line a different
      start for the eye to find. */
@@ -267,26 +277,21 @@
 
 /* ------------------------------------------- the standing copy and its pill */
 
+/* Flows directly under the stack, so it rides down as a reading opens and
+   comes back up on the overview without being told how far to move. */
 .qp__below {
-  position: absolute;
-  z-index: 2;
-  top: 2375px;
-  right: 0;
-  left: 0;
+  padding-top: calc(var(--qp-dot) * 1.9);
+  padding-bottom: calc(var(--qp-dot) * 2);
   pointer-events: none;
-  transition:
-    opacity 320ms var(--ease-out),
-    transform 460ms var(--ease-out);
+  transition: opacity 320ms var(--ease-out);
 }
 
-/* The overview has no reading open, so the stack is short and the copy comes
-   up to meet it. */
-.qp[data-qp-step='overview'] .qp__below {
-  transform: translateY(calc(-1 * var(--qp-overview-lift)));
-}
-
-/* Reaching the hardware trades this block for the partner logos. */
+/* Reaching the hardware trades this block for the partner logos, and gives up
+   its height so the scroll region keeps no room for it. */
 .qp[data-qp-step='qubits'] .qp__below {
+  max-height: 0;
+  padding-bottom: 0;
+  overflow: hidden;
   opacity: 0;
 }
 
@@ -301,9 +306,9 @@
 }
 
 .qp__copy {
-  width: 1400px;
-  margin: 120px auto 0;
-  padding: 0 60px;
+  width: min(100%, calc(var(--qp-dot) * 25));
+  margin: calc(var(--qp-dot) * 2) auto 0;
+  padding: 0 var(--qp-gutter);
   text-align: center;
   transition: opacity 320ms var(--ease-out);
 }
@@ -317,17 +322,17 @@
 .qp__copy h2 {
   margin: 0;
   font-family: var(--font-display);
-  font-size: 96px;
+  font-size: calc(var(--qp-dot) * 1.71);
   font-weight: 600;
   letter-spacing: -0.02em;
   line-height: 1.12;
 }
 
 .qp__copy p {
-  width: 1200px;
-  margin: 80px auto 0;
+  max-width: calc(var(--qp-dot) * 21.4);
+  margin: calc(var(--qp-dot) * 1.43) auto 0;
   font-family: var(--font-text);
-  font-size: 60px;
+  font-size: calc(var(--qp-dot) * 1.07);
   font-weight: 400;
   letter-spacing: -0.02em;
   line-height: 1.24;
@@ -340,7 +345,8 @@
    below them, so the three read in order down the board. It takes the gap the
    reading used to take from the name, and the reading takes its own below. */
 .qp__partners {
-  margin-top: 24px;
+  margin-top: calc(var(--qp-dot) * 0.43);
+  padding-inline: var(--qp-gutter);
   opacity: 0;
   pointer-events: none;
   transition: opacity 420ms var(--ease-out);
@@ -353,8 +359,9 @@
 .qp__partner-list {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   justify-content: center;
-  gap: 93px;
+  gap: calc(var(--qp-dot) * 1.66);
   margin: 0;
   padding: 0;
   list-style: none;
@@ -362,11 +369,11 @@
 
 .qp__partner {
   display: flex;
-  width: 330px;
+  width: calc(var(--qp-dot) * 5.9);
   flex-direction: column;
   align-items: center;
-  gap: 10px;
-  padding: 31px 0;
+  gap: calc(var(--qp-dot) * 0.18);
+  padding: calc(var(--qp-dot) * 0.55) 0;
 }
 
 /* The open end of the list: a fourth qubit type with no partner behind it, so
@@ -384,8 +391,8 @@
    breaks it over two lines, which is how the board draws it and what keeps it
    from running wide of the row. */
 .qp__partner[data-qp-partner='other'] .qp__partner-label {
-  max-width: 300px;
-  font-size: 36px;
+  max-width: calc(var(--qp-dot) * 5.4);
+  font-size: calc(var(--qp-dot) * 0.64);
 }
 
 /* One box for three lockups of different proportions. Each logo keeps its own
@@ -394,18 +401,21 @@
    the weight they were drawn at. */
 .qp__partner-logo {
   display: flex;
-  height: 111px;
+  height: calc(var(--qp-dot) * 2);
   align-items: center;
   justify-content: center;
 }
 
 .qp__partner-logo img {
   display: block;
+  max-width: 100%;
+  max-height: 100%;
+  height: auto;
 }
 
 .qp__partner-label {
   font-family: var(--font-text);
-  font-size: 24px;
+  font-size: calc(var(--qp-dot) * 0.43);
   font-weight: 600;
   line-height: 1.3;
   text-align: center;

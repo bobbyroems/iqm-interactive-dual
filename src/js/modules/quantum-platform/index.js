@@ -165,6 +165,7 @@ function moduleMarkup() {
         aria-label="Continue to the next layer of the stack"
       ></button>
 
+      <div class="qp__scroll" data-qp-scroll>
       <div class="qp__stack" data-qp-stack>
         <p class="qp__layer qp__layer--above" data-qp-layer="applications">Applications</p>
         ${slotMarkup('applications')}
@@ -191,6 +192,7 @@ function moduleMarkup() {
           <h2>Integrated full-stack solution<br>for quantum computing</h2>
           <p>Microsoft is building capabilities across the full quantum stack—so innovation at one layer can accelerate progress everywhere else.</p>
         </div>
+      </div>
       </div>
 
       <p class="qp__sr-only" data-qp-status aria-live="polite" aria-atomic="true"></p>
@@ -363,7 +365,8 @@ export async function mount(container, options = {}) {
       else if (action === 'exit') navigate.menu?.()
       return
     }
-    if (!event.target.closest('[data-qp-advance]')) return
+    if (!event.target.closest('[data-qp-advance], [data-qp-scroll]')) return
+    if (advance.disabled) return
     onActivity?.()
     step()
   }, { signal: listeners.signal })

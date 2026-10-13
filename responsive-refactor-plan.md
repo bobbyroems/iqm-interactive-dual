@@ -173,7 +173,13 @@ nav arrows are visible. The 3D camera/render pipeline
 `module-carousel.js`) turned out to already be aspect/DOM-size-driven, not
 canvas-pixel-driven, so it needed no changes.
 
-**Not started:** each of the 9 modules' own CSS files still hardcode
+**Module 1 (`quantum-platform`) converted, pending visual QA:** the root is
+now `inset: 0` with `container-type: inline-size`; the dot lattice is driven
+by one fluid `--qp-dot` and everything else derives from it; the stack and
+standing copy flow in a `.qp__scroll` region (scrolls on short viewports, taps
+still advance); partner logos wrap; type/cards use `clamp()`.
+
+**Not started:** the remaining 8 modules' own CSS files still hardcode
 `width: 2160px` internally and need their own conversion pass, one at a
 time in the order above.
 
