@@ -204,8 +204,8 @@ const SCENE_DEFS = {
     ...SPHERE,
     type: 'stack-column',
     color: BLUE,
-    s: 15,
-    y: 44,
+    s: 12.5,
+    y: 48,
     dur: 8.4,
     drift: 10,
     /* Painted, not projected — see the drawn-shadow block in the pool. Its
