@@ -416,19 +416,19 @@ export async function mount(container, options = {}) {
   const presentationTimers = new Set()
 
   /* Every action cue follows the content it advances: the opening/build copy
-     or the active material explainer. Measure the rendered lower edge so each
-     tooltip and its transparent control stay exactly 80px below it. */
+     or the active material explainer. Measure the rendered lower edge and
+     publish it; the stylesheet adds the gap, which scales with the layout. */
   const syncActionPromptPosition = () => {
     const anchor = state.phase === 'materials'
       ? materialPanel.element
       : introBody
-    let top = anchor.offsetHeight + 80
+    let top = anchor.offsetHeight
     let node = anchor
     while (node && node !== experience) {
       top += node.offsetTop
       node = node.offsetParent
     }
-    root.style.setProperty('--qe-action-prompt-top', `${top}px`)
+    root.style.setProperty('--qe-prompt-base', `${top}px`)
   }
 
   const schedulePresentation = (callback, delayMs) => {
@@ -844,9 +844,21 @@ export async function mount(container, options = {}) {
     if (action === 'exit') navigate.menu?.()
   }, { signal: listeners.signal })
 
+  /* The layout scales with the viewport, so copy heights and the connector's
+     start point move without any state change. */
+  const layoutObserver = typeof ResizeObserver === 'function'
+    ? new ResizeObserver(() => {
+        if (disposed) return
+        syncActionPromptPosition()
+        scheduleCalloutLineUpdate()
+      })
+    : null
+  layoutObserver?.observe(root)
+
   const abortMount = () => {
     if (disposed) return
     disposed = true
+    layoutObserver?.disconnect()
     if (lineUpdateFrame !== null) window.cancelAnimationFrame(lineUpdateFrame)
     lineUpdateFrame = null
     stopTuneRamp()

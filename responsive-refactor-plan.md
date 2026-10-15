@@ -189,7 +189,15 @@ steam effects (`state-shader.js`, `state-fields.js`, `volumetric-steam.js`) are
 still tuned to a portrait panel, so their info-card keep-out mask only lines up
 exactly at 9:16.
 
-**Not started:** the remaining 7 modules' own CSS files still hardcode
+**Module 3 (`qubit-explorer`) converted, pending visual QA:** same scale-unit
+approach (`--qe-u`, container `size`); the header is the shared fluid one, and
+`--qe-origin` keeps "N units under the old header" positions. The action-cue
+position is published as a measured px base (`--qe-prompt-base`) with the
+80-unit gap added in CSS, and re-measured on resize. The 3D scene was already
+host-size driven, so it needed no changes; callout connectors are drawn in px
+from DOM rects, so they follow the layout.
+
+**Not started:** the remaining 6 modules' own CSS files still hardcode
 `width: 2160px` internally and need their own conversion pass, one at a
 time in the order above.
 

@@ -780,6 +780,10 @@ export async function createQubitScene(host, callbacks = {}) {
       camera.aspect = width / height
       camera.updateProjectionMatrix()
       publishAnchorLayout()
+      /* Resizing the drawing buffer clears it, and the observer runs after this
+         frame's animation callbacks, so without an immediate draw the cleared
+         canvas is what gets painted: a flash on every resize step. */
+      if (visible) renderer.render(scene, camera)
     }
     resizeObserver = new ResizeObserver(resize)
     resizeObserver.observe(host)
