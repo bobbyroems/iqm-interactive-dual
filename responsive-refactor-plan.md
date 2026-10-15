@@ -197,7 +197,16 @@ position is published as a measured px base (`--qe-prompt-base`) with the
 host-size driven, so it needed no changes; callout connectors are drawn in px
 from DOM rects, so they follow the layout.
 
-**Not started:** the remaining 6 modules' own CSS files still hardcode
+**Module 4 (`measurement-based`) converted, pending visual QA:** the footage,
+SVG overlays and copy are all registered to the 2160x3840 board, so rather than
+converting each px, they sit in a `.mbqc__stage` that is centred and scaled by
+`--mbqc-scale = min(w/2160, h/3840)` (set by a ResizeObserver in `index.js`).
+The shared fluid header and the full-viewport tap target stay outside the
+stage. Letterboxed on non-9:16 viewports. Copy scales with the board, so it
+shrinks proportionally on small screens. The stage uses only `transform`, so
+the connector glow's backdrop-filter still sees the video.
+
+**Not started:** the remaining 5 modules' own CSS files still hardcode
 `width: 2160px` internally and need their own conversion pass, one at a
 time in the order above.
 

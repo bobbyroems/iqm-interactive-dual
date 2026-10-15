@@ -2,21 +2,32 @@
   --mbqc-surface: #f2f4f5;
   position: absolute;
   inset: 0;
-  width: 2160px;
-  height: 3840px;
   overflow: hidden;
   /* The delivered clips carry their own alpha, so this is the surface the
      visitor actually sees around the device rather than something the footage
      covers over. Same soft aurora wash as the carousel screen and Module 03,
-     over the module's own surface tone. */
+     over the module's own surface tone. Sized in percentages of the viewport
+     (the board's 1500x1300 etc. over 2160x3840) so it fills any aspect. */
   background:
-    radial-gradient(1500px 1300px at 16% 10%, rgba(255, 227, 238, 0.6), transparent 62%),
-    radial-gradient(1700px 1500px at 86% 26%, rgba(217, 235, 252, 0.75), transparent 66%),
-    radial-gradient(1600px 1400px at 50% 92%, rgba(233, 240, 250, 0.6), transparent 70%),
+    radial-gradient(ellipse 69% 34% at 16% 10%, rgba(255, 227, 238, 0.6), transparent 62%),
+    radial-gradient(ellipse 79% 39% at 86% 26%, rgba(217, 235, 252, 0.75), transparent 66%),
+    radial-gradient(ellipse 74% 36% at 50% 92%, rgba(233, 240, 250, 0.6), transparent 70%),
     var(--mbqc-surface);
   color: #2a446f;
   contain: layout paint style;
   isolation: isolate;
+}
+
+/* The 2160x3840 board, centred and scaled to fit by --mbqc-scale (set in
+   index.js). Everything the footage and copy are authored against lives in it,
+   at its original coordinates. */
+.mbqc__stage {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 2160px;
+  height: 3840px;
+  transform: translate(-50%, -50%) scale(var(--mbqc-scale, 1));
 }
 
 .mbqc__media,
@@ -575,7 +586,7 @@
 .mbqc__advance {
   position: absolute;
   z-index: 12;
-  inset: 340px 0 0;
+  inset: var(--header-height) 0 0;
   width: 100%;
   border: 0;
   padding: 0;

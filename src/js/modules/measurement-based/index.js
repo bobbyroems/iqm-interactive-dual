@@ -210,6 +210,10 @@ function delay(ms, signal) {
   })
 }
 
+/* The board every overlay and clip is authored on. */
+const STAGE_WIDTH = 2160
+const STAGE_HEIGHT = 3840
+
 function moduleMarkup() {
   const microsoftLogo = assetUrl('assets/ui/microsoft-logo.png')
   const restartIcon = assetUrl('assets/ui/restart.svg')
@@ -228,6 +232,37 @@ function moduleMarkup() {
       aria-busy="true"
       tabindex="0"
     >
+      <header class="microsoft-header mbqc__header">
+        <div class="microsoft-brand" aria-label="Microsoft Quantum">
+          <span class="microsoft-brand__logo" aria-hidden="true">
+            <img src="${microsoftLogo}" alt="" draggable="false">
+          </span>
+          <span class="microsoft-brand__divider" aria-hidden="true"></span>
+          <span class="microsoft-brand__quantum">Quantum</span>
+        </div>
+
+        <div class="microsoft-header__actions">
+          <button class="microsoft-header__action" type="button" data-mbqc-action="restart">
+            <span>Restart</span>
+            <span class="microsoft-header__action-icon" aria-hidden="true">
+              <img src="${restartIcon}" alt="" draggable="false">
+            </span>
+          </button>
+          <button class="microsoft-header__action" type="button" data-mbqc-action="exit">
+            <span>Exit</span>
+            <span class="microsoft-header__action-icon" aria-hidden="true">
+              <img src="${exitIcon}" alt="" draggable="false">
+            </span>
+          </button>
+        </div>
+      </header>
+
+      <h1 class="mbqc__sr-only" id="mbqc-title">Computing with topological qubits</h1>
+
+      <!-- The 2160x3840 board: footage, overlays and copy all share its
+           coordinates, so it is scaled as one piece (see --mbqc-scale) rather
+           than converted measurement by measurement. -->
+      <div class="mbqc__stage" data-mbqc-stage>
       <div class="mbqc__media" aria-hidden="true">
         <video class="mbqc__video is-active" data-mbqc-video="a" muted playsinline preload="auto" disablepictureinpicture></video>
         <video class="mbqc__video" data-mbqc-video="b" muted playsinline preload="auto" disablepictureinpicture></video>
@@ -323,33 +358,6 @@ function moduleMarkup() {
         </div>
       </div>
 
-      <header class="microsoft-header mbqc__header">
-        <div class="microsoft-brand" aria-label="Microsoft Quantum">
-          <span class="microsoft-brand__logo" aria-hidden="true">
-            <img src="${microsoftLogo}" alt="" draggable="false">
-          </span>
-          <span class="microsoft-brand__divider" aria-hidden="true"></span>
-          <span class="microsoft-brand__quantum">Quantum</span>
-        </div>
-
-        <div class="microsoft-header__actions">
-          <button class="microsoft-header__action" type="button" data-mbqc-action="restart">
-            <span>Restart</span>
-            <span class="microsoft-header__action-icon" aria-hidden="true">
-              <img src="${restartIcon}" alt="" draggable="false">
-            </span>
-          </button>
-          <button class="microsoft-header__action" type="button" data-mbqc-action="exit">
-            <span>Exit</span>
-            <span class="microsoft-header__action-icon" aria-hidden="true">
-              <img src="${exitIcon}" alt="" draggable="false">
-            </span>
-          </button>
-        </div>
-      </header>
-
-      <h1 class="mbqc__sr-only" id="mbqc-title">Computing with topological qubits</h1>
-
       <div class="mbqc__protected-callout" data-mbqc-protected-callout aria-hidden="true">
         <span class="mbqc__protected-title">Protected information</span>
         <span class="mbqc__protected-body">Encoded across separate<br>parts of the device</span>
@@ -366,6 +374,7 @@ function moduleMarkup() {
           </defs>
           <image href="${protectedConnector}" width="784" height="555" mask="url(#mbqc-protected-reveal)"/>
         </svg>
+      </div>
       </div>
 
       <!-- An interactive stage target is separate from the shared noninteractive
@@ -391,13 +400,14 @@ export async function mount(container, options = {}) {
   wrapper.innerHTML = moduleMarkup().trim()
   const root = wrapper.firstElementChild
   const videos = [...root.querySelectorAll('[data-mbqc-video]')]
+  const stage = root.querySelector('[data-mbqc-stage]')
   const nextButton = root.querySelector('[data-mbqc-next]')
   const continueTooltip = createKioskTooltip({
     className: 'mbqc__continue',
     text: 'Tap anywhere to continue',
     hidden: true
   })
-  root.append(continueTooltip.element)
+  stage.append(continueTooltip.element)
   const status = root.querySelector('[data-mbqc-status]')
   const listeners = new AbortController()
   const mediaController = new AbortController()
@@ -418,7 +428,7 @@ export async function mount(container, options = {}) {
     variant: 'plain',
     visible: false
   })
-  root.append(explainer.element, transitionExplainer.element)
+  stage.append(explainer.element, transitionExplainer.element)
 
   let state = createMeasurementStoryState()
   let activeVideo = videos[0]
@@ -450,6 +460,22 @@ export async function mount(container, options = {}) {
     delayMs: 0
   })
   container.replaceChildren(root)
+
+  /* Fit the board to the viewport. Scaling it as one piece keeps the footage,
+     its overlays and the copy registered to each other at any size. */
+  const fitStage = () => {
+    const { clientWidth, clientHeight } = root
+    if (!clientWidth || !clientHeight) return
+    root.style.setProperty(
+      '--mbqc-scale',
+      String(Math.min(clientWidth / STAGE_WIDTH, clientHeight / STAGE_HEIGHT))
+    )
+  }
+  fitStage()
+  const stageObserver = typeof ResizeObserver === 'function'
+    ? new ResizeObserver(fitStage)
+    : null
+  stageObserver?.observe(root)
   mountCalloutEntrances(root, { signal: listeners.signal })
 
   function standbyVideo() {
@@ -950,6 +976,7 @@ export async function mount(container, options = {}) {
     transitionController?.abort()
     transitionController = null
     listeners.abort()
+    stageObserver?.disconnect()
     mediaController.abort()
     clearFastForward()
     upNextBanner?.dispose()
