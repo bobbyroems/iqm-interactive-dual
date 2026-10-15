@@ -12,7 +12,7 @@ export const MODULE_NAVIGATION_GRID = Object.freeze({
   exposure: 1.18,
   fadeInnerRatio: 0.3,
   fadeRadiusByFrustumWidth: 0.34,
-  heightRatio: 0.15,
+  heightRatio: 0.3,
   opacity: 0.4,
   referenceRadius: 1.14,
   referenceScalePercent: 36,
