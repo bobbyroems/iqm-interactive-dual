@@ -2,10 +2,18 @@
   --som-ink: #14213b;
   --som-blue: #0078d4;
   --som-progress: 0;
-  /* Matches the JS at progress 0 (knob flush left); it overrides these inline
-     from the first render, but the initial paint should not jump. */
-  --som-knob-x: 0px;
-  --som-progress-width: 60px;
+  /* The layout is the board's 2160x3840 drawing scaled by one unit: the
+     largest scale at which the whole drawing fits the viewport. On any other
+     aspect it stays centred (--som-top centres it vertically; left offsets are
+     taken from 50%), while the footage and effects stay full-bleed. */
+  --som-u: min(100cqw / 2160, 100cqh / 3840);
+  --som-top: calc((100cqh - 3840 * var(--som-u)) / 2);
+  --som-timeline-w: calc(1500 * var(--som-u));
+  --som-knob-size: calc(120 * var(--som-u));
+  /* Knob travel runs from flush left to flush right of the rail; the fill
+     reaches the knob's centre. */
+  --som-knob-x: calc(var(--som-progress) * (var(--som-timeline-w) - var(--som-knob-size)));
+  --som-progress-width: calc(var(--som-knob-x) + var(--som-knob-size) / 2);
   --som-label-solid: 1;
   --som-label-liquid: 0;
   --som-label-gas: 0;
@@ -19,14 +27,13 @@
   --som-copy-liquid-y: -12px;
   --som-copy-gas-y: 12px;
   /* Solid carries copy now, so the block opens at full height. */
-  --som-info-height: 648px;
-  --som-copy-height: 320px;
+  --som-info-height: 648; /* board units, set unitless by the JS */
+  --som-copy-height: 320;
   --som-video-blur: 0px;
   --som-video-scale: 1;
   position: absolute;
   inset: 0;
-  width: 2160px;
-  height: 3840px;
+  container-type: size;
   overflow: hidden;
   background: #d7d8d9;
   color: var(--som-ink);
@@ -189,8 +196,8 @@
 }
 
 .som__nav-action:focus-visible {
-  outline: 8px solid var(--som-blue);
-  outline-offset: 8px;
+  outline: 3px solid var(--som-blue);
+  outline-offset: 3px;
 }
 
 /* Wider than the 1200 it was, and re-centred to match. The fourth stop's
@@ -200,12 +207,12 @@
 .som__info {
   position: absolute;
   z-index: 8;
-  top: 700px;
-  left: 320px;
-  width: 1520px;
-  height: var(--som-info-height);
+  top: calc(var(--som-top) + 700 * var(--som-u));
+  left: calc(50% - 760 * var(--som-u));
+  width: calc(1520 * var(--som-u));
+  height: calc(var(--som-info-height) * var(--som-u));
   overflow: hidden;
-  padding: 60px;
+  padding: calc(60 * var(--som-u));
   background: transparent;
   transition: height 220ms var(--ease-out);
   will-change: height;
@@ -213,10 +220,10 @@
 
 .som__info h2 {
   width: 100%;
-  height: 128px;
+  height: calc(128 * var(--som-u));
   color: #fff;
   font-family: var(--font-display);
-  font-size: 96px;
+  font-size: calc(96 * var(--som-u));
   font-weight: 600;
   letter-spacing: -0.02em;
   line-height: 1.1;
@@ -229,8 +236,8 @@
 
 .som__info-copy {
   position: relative;
-  height: var(--som-copy-height);
-  margin-top: 80px;
+  height: calc(var(--som-copy-height) * var(--som-u));
+  margin-top: calc(80 * var(--som-u));
   overflow: hidden;
 }
 
@@ -239,10 +246,10 @@
   top: 0;
   left: 50%;
   /* Four lines plus room for descenders below the final line box. */
-  height: 320px;
+  height: calc(320 * var(--som-u));
   color: #fff;
   font-family: var(--font-display);
-  font-size: 60px;
+  font-size: calc(60 * var(--som-u));
   font-weight: 600;
   letter-spacing: -0.02em;
   /* 1 was set for the old single-line copy and reads as cramped now that every
@@ -256,25 +263,25 @@
 }
 
 .som__info-copy [data-som-copy="solid"] {
-  width: 1080px;
+  width: calc(1080 * var(--som-u));
   opacity: var(--som-copy-solid);
   transform: translate3d(-50%, var(--som-copy-solid-y), 0);
 }
 
 .som__info-copy [data-som-copy="liquid"] {
-  width: 1045px;
+  width: calc(1045 * var(--som-u));
   opacity: var(--som-copy-liquid);
   transform: translate3d(-50%, var(--som-copy-liquid-y), 0);
 }
 
 .som__info-copy [data-som-copy="gas"] {
-  width: 1080px;
+  width: calc(1080 * var(--som-u));
   opacity: var(--som-copy-gas);
   transform: translate3d(-50%, var(--som-copy-gas-y), 0);
 }
 
 .som__info-copy [data-som-copy="topoconductor"] {
-  width: 1080px;
+  width: calc(1080 * var(--som-u));
   opacity: var(--som-copy-topoconductor);
   transform: translate3d(-50%, var(--som-copy-topoconductor-y), 0);
 }
@@ -282,15 +289,15 @@
 .som__title-group {
   position: absolute;
   z-index: 8;
-  top: 1585px;
-  left: 0;
-  width: 2160px;
+  top: calc(var(--som-top) + 1585 * var(--som-u));
+  left: calc(50% - 1080 * var(--som-u));
+  width: calc(2160 * var(--som-u));
   text-align: center;
 }
 
 .som__active-phase {
   position: relative;
-  height: 170px;
+  height: calc(170 * var(--som-u));
 }
 
 .som__active-phase span {
@@ -298,7 +305,7 @@
   inset: 0;
   color: #fff;
   font-family: var(--font-display);
-  font-size: 128px;
+  font-size: calc(128 * var(--som-u));
   font-weight: 600;
   letter-spacing: -0.02em;
   line-height: 1;
@@ -331,15 +338,15 @@
 .som__topoconductor {
   position: absolute;
   z-index: 4;
-  top: 1769px;
+  top: calc(var(--som-top) + 1769 * var(--som-u));
   left: 50%;
-  width: 1817px;
-  height: 1145px;
+  width: calc(1817 * var(--som-u));
+  height: calc(1145 * var(--som-u));
   overflow: hidden;
-  border-radius: 40px;
+  border-radius: calc(40 * var(--som-u));
   opacity: var(--som-label-topoconductor, 0);
   transform: translate3d(-50%, calc((1 - var(--som-label-topoconductor, 0)) * 24px), 0);
-  box-shadow: 0 30px 90px rgba(9, 20, 45, 0.35);
+  box-shadow: 0 calc(30 * var(--som-u)) calc(90 * var(--som-u)) rgba(9, 20, 45, 0.35);
   pointer-events: none;
   will-change: opacity, transform;
 }
@@ -354,18 +361,18 @@
 .som__timeline {
   position: absolute;
   z-index: 5;
-  top: 3002px;
-  left: 330px;
-  width: 1500px;
-  height: 120px;
+  top: calc(var(--som-top) + 3002 * var(--som-u));
+  left: calc(50% - 750 * var(--som-u));
+  width: var(--som-timeline-w);
+  height: var(--som-knob-size);
 }
 
 .som__track,
 .som__progress {
   position: absolute;
-  top: 68px;
+  top: calc(68 * var(--som-u));
   left: 0;
-  height: 8px;
+  height: max(2px, calc(8 * var(--som-u)));
   border-radius: 999px;
 }
 
@@ -390,12 +397,12 @@
 .som__knob {
   position: absolute;
   z-index: 2;
-  /* Concentric with the rail. The track starts 68px down and is 8px tall, so its
-     centre line is at 72px, and a 120px knob has to begin 60px above that. */
-  top: 12px;
+  /* Concentric with the rail. The track starts 68 units down and is 8 tall, so
+     its centre line is at 72, and a 120-unit knob has to begin 60 above that. */
+  top: calc(12 * var(--som-u));
   left: 0;
-  width: 120px;
-  height: 120px;
+  width: var(--som-knob-size);
+  height: var(--som-knob-size);
   border-radius: 50%;
   background: #d9d9d9;
   box-shadow: 0 2.26px 2.26px rgba(0, 0, 0, 0.25);
@@ -410,17 +417,17 @@
 .som__ticks {
   position: absolute;
   z-index: 1;
-  top: 54px;
-  left: 60px;
-  right: 60px;
-  height: 36px;
+  top: calc(54 * var(--som-u));
+  left: calc(60 * var(--som-u));
+  right: calc(60 * var(--som-u));
+  height: calc(36 * var(--som-u));
   pointer-events: none;
 }
 
 .som__tick {
   position: absolute;
   left: var(--som-tick-position);
-  width: 5px;
+  width: max(2px, calc(5 * var(--som-u)));
   height: 100%;
   border-radius: 3px;
   background: #555;
@@ -429,11 +436,11 @@
 
 /* Endpoint marks sit on the rail ends; transition marks follow knob centres. */
 .som__tick:first-child {
-  left: -60px;
+  left: calc(-60 * var(--som-u));
 }
 
 .som__tick:last-child {
-  left: calc(100% + 60px);
+  left: calc(100% + 60 * var(--som-u));
 }
 
 .som--dragging .som__knob {
@@ -445,7 +452,7 @@
   position: absolute;
   inset: 0 0 auto;
   width: 100%;
-  height: 120px;
+  height: var(--som-knob-size);
 }
 
 /* Spans the knob's whole swept area, which now starts at the rail's left end
@@ -454,9 +461,9 @@
    insets against this label, so it follows without its own offset. */
 .som__range-label {
   z-index: 3;
-  top: 12px;
+  top: calc(12 * var(--som-u));
   left: 0;
-  width: 1500px;
+  width: var(--som-timeline-w);
 }
 
 .som__range {
@@ -468,13 +475,13 @@
 }
 
 .som__range::-webkit-slider-runnable-track {
-  height: 120px;
+  height: var(--som-knob-size);
   background: transparent;
 }
 
 .som__range::-webkit-slider-thumb {
-  width: 120px;
-  height: 120px;
+  width: var(--som-knob-size);
+  height: var(--som-knob-size);
   appearance: none;
   background: transparent;
 }
@@ -486,10 +493,10 @@
 .som__hint {
   position: absolute;
   z-index: 8;
-  top: 1785px;
-  left: 723px;
-  width: 714px;
-  height: 92px;
+  top: calc(var(--som-top) + 1785 * var(--som-u));
+  left: calc(50% - 357 * var(--som-u));
+  width: calc(714 * var(--som-u));
+  height: calc(92 * var(--som-u));
   opacity: 1;
   transition: opacity 260ms ease;
 }

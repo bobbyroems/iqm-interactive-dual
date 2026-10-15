@@ -179,7 +179,17 @@ by one fluid `--qp-dot` and everything else derives from it; the stack and
 standing copy flow in a `.qp__scroll` region (scrolls on short viewports, taps
 still advance); partner logos wrap; type/cards use `clamp()`.
 
-**Not started:** the remaining 8 modules' own CSS files still hardcode
+**Module 2 (`states-of-matter`) converted, pending visual QA:** the root is
+`inset: 0` with `container-type: size`, and every board measurement is
+`calc(N * var(--som-u))`, where `--som-u` is the largest scale that fits the
+2160x3840 drawing in the viewport (centred; footage stays full-bleed). The
+scrubber knob/fill are now pure CSS functions of `--som-progress`, and the JS
+passes info/copy heights as unitless board units. **Known gap:** the frost and
+steam effects (`state-shader.js`, `state-fields.js`, `volumetric-steam.js`) are
+still tuned to a portrait panel, so their info-card keep-out mask only lines up
+exactly at 9:16.
+
+**Not started:** the remaining 7 modules' own CSS files still hardcode
 `width: 2160px` internally and need their own conversion pass, one at a
 time in the order above.
 

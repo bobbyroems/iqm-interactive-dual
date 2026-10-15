@@ -57,20 +57,13 @@ const SCRUB_PROGRESS_PER_SECOND = 0.3
    Roughly one authored phase per grab keeps the intermediate states legible. */
 const MAX_SCRUB_PROGRESS_PER_GESTURE = 0.3
 
-const TIMELINE_WIDTH_PX = 1500
-const KNOB_WIDTH_PX = 120
-const KNOB_RADIUS_PX = 60
-/* Progress 0 puts the knob flush with the left end of the track. Its centre
-   therefore sits one radius in, which is as far left as a round knob can go
-   without overhanging the rail. */
-const KNOB_MIN_CENTER_PX = KNOB_RADIUS_PX
-const KNOB_MIN_X_PX = KNOB_MIN_CENTER_PX - KNOB_RADIUS_PX
-const KNOB_MAX_X_PX = TIMELINE_WIDTH_PX - KNOB_WIDTH_PX
-const KNOB_VISUAL_TRAVEL_PX = KNOB_MAX_X_PX - KNOB_MIN_X_PX
-const INFO_SOLID_HEIGHT_PX = 248
-/* Four 75px lines plus 20px for font descenders and the copy transition. */
-const COPY_LINE_HEIGHT_PX = 320
-const INFO_COPY_HEIGHT_PX = 60 + 128 + 80 + COPY_LINE_HEIGHT_PX + 60
+/* The knob's travel lives in the stylesheet now, as a function of
+   --som-progress, so it scales with the layout. These are board units (the
+   2160px-wide drawing); styles.css multiplies them by --som-u. */
+const INFO_SOLID_HEIGHT = 248
+/* Four 75-unit lines plus 20 for font descenders and the copy transition. */
+const COPY_LINE_HEIGHT = 320
+const INFO_COPY_HEIGHT = 60 + 128 + 80 + COPY_LINE_HEIGHT + 60
 
 /* Copy is verbatim from the authored States of Matter frames (Figma 7:1992).
    Every phase now carries a paragraph — Solid used to be heading-only. */
@@ -140,8 +133,6 @@ export async function mount(containerArgument, optionsArgument) {
   screen.dataset.phase = 'solid'
   screen.dataset.mediaState = 'loading'
   screen.style.setProperty('--som-progress', '0')
-  screen.style.setProperty('--som-knob-x', `${KNOB_MIN_X_PX}px`)
-  screen.style.setProperty('--som-progress-width', `${KNOB_MIN_CENTER_PX}px`)
   screen.setAttribute('aria-busy', 'true')
   screen.setAttribute('aria-labelledby', 'som-title')
   const asset = path => assetUrl(path)
@@ -309,9 +300,9 @@ export async function mount(containerArgument, optionsArgument) {
     /* Solid carries a paragraph now too, so the block holds its full height
        across the whole scrub instead of growing out of a heading-only start. */
     const copyPresence = Math.min(1, state.copy.solid + state.copy.liquid + state.copy.gas + state.copy.topoconductor)
-    const infoHeight = INFO_SOLID_HEIGHT_PX +
-      ((INFO_COPY_HEIGHT_PX - INFO_SOLID_HEIGHT_PX) * copyPresence)
-    const copyHeight = COPY_LINE_HEIGHT_PX * copyPresence
+    const infoHeight = INFO_SOLID_HEIGHT +
+      ((INFO_COPY_HEIGHT - INFO_SOLID_HEIGHT) * copyPresence)
+    const copyHeight = COPY_LINE_HEIGHT * copyPresence
 
     /* The procedural gas layer remains a fallback until WebGPU compute is ready.
        Once the volume mounts, it fully replaces both legacy steam treatments. */
@@ -338,8 +329,8 @@ export async function mount(containerArgument, optionsArgument) {
     screen.style.setProperty('--som-copy-liquid-y', `${(1 - state.copy.liquid) * -12}px`)
     screen.style.setProperty('--som-copy-gas-y', `${(1 - state.copy.gas) * 12}px`)
     screen.style.setProperty('--som-copy-topoconductor-y', `${(1 - state.copy.topoconductor) * 12}px`)
-    screen.style.setProperty('--som-info-height', `${infoHeight}px`)
-    screen.style.setProperty('--som-copy-height', `${copyHeight}px`)
+    screen.style.setProperty('--som-info-height', String(infoHeight))
+    screen.style.setProperty('--som-copy-height', String(copyHeight))
     /* Only the fog step touches the footage, and only to blur it — that is the
        whole point of fog. The interface remains on a separate, clear layer. */
     screen.style.setProperty('--som-video-blur', `${state.vfx.fog * FOG_BLUR_PX}px`)
@@ -427,13 +418,8 @@ export async function mount(containerArgument, optionsArgument) {
     frameRequested = true
     const phase = phaseForFrame(requestedFrame)
     const progress = frameToProgress(requestedFrame)
-    /* Virtual 0 begins 20% across the visual rail. The media/timeline frame remains
-       a true zero; only the rendered control is inset. */
-    const knobX = KNOB_MIN_X_PX + (progress * KNOB_VISUAL_TRAVEL_PX)
 
     screen.style.setProperty('--som-progress', String(progress))
-    screen.style.setProperty('--som-knob-x', `${knobX}px`)
-    screen.style.setProperty('--som-progress-width', `${knobX + KNOB_RADIUS_PX}px`)
     range.value = String(requestedFrame)
     range.setAttribute('aria-valuetext', `${phase.label}, frame ${requestedFrame + 1} of ${LAST_FRAME + 1}`)
     if (phase.id !== announcedPhase) {
