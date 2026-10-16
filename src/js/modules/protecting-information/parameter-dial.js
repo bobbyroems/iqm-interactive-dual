@@ -82,11 +82,11 @@ export function bindProtectionDial(element, {
     if (event.button > 0) return
     event.preventDefault()
     pointerId = event.pointerId
+    onFocus?.(parameterId)
     previousPointerAngle = pointerAngle(event)
     moved = false
     element.setPointerCapture?.(pointerId)
     element.classList.add('is-dragging')
-    onFocus?.(parameterId)
   }, { signal })
 
   element.addEventListener('pointermove', event => {
@@ -106,6 +106,23 @@ export function bindProtectionDial(element, {
 
   element.addEventListener('pointerup', finishPointer, { signal })
   element.addEventListener('pointercancel', finishPointer, { signal })
+  let width = element.clientWidth
+  let height = element.clientHeight
+  const resizeObserver = new ResizeObserver(() => {
+    const resized = width !== element.clientWidth || height !== element.clientHeight
+    width = element.clientWidth
+    height = element.clientHeight
+    if (resized && pointerId !== null) finishPointer({ pointerId })
+  })
+  resizeObserver.observe(element)
+  signal?.addEventListener('abort', () => {
+    resizeObserver.disconnect()
+    if (pointerId !== null && element.hasPointerCapture?.(pointerId)) {
+      element.releasePointerCapture(pointerId)
+    }
+    pointerId = null
+    element.classList.remove('is-dragging')
+  }, { once: true })
   element.addEventListener('focus', () => onFocus?.(parameterId), { signal })
   element.addEventListener('keydown', event => {
     let nextValue = value

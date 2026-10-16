@@ -4,6 +4,7 @@ import { createKioskTooltip } from '../../core/kiosk-tooltip.js'
 import { releaseVideoElement } from '../../core/media-lifecycle.js'
 import { prepareVideoFrame } from '../../core/prepare-video-frame.js'
 import { bindProtectionDial } from './parameter-dial.js'
+import { fitProtectionVisual } from './protecting-information-layout.js'
 import {
   createProtectingParticleData,
   sampleNanowireReserve
@@ -25,15 +26,6 @@ import { cameraDebugRequested, mountCameraDebugPanel } from './protecting-inform
 import { mountModuleOutro } from '../module-outro.js'
 import { mountProtectionVideoLayers } from './protecting-information-video-layers.js'
 
-/* The single source of truth for where the loupe sits. The stylesheet used to
-   carry its own copy of `top`, which is a quiet trap: the pointer's tangents are
-   computed from these numbers, so a change made only in CSS moves the circle and
-   leaves its leader lines pointing at where it used to be. The value is pushed
-   into a custom property at mount instead — see mount().
-
-   `top` is the authored 250 plus the 424 the scene shell was lifted by. The
-   loupe lives inside that shell, so the lift carried it up too, and this is what
-   puts it back down where it was composed against the device. */
 /* Matches the .pqi__experience fade in the stylesheet. */
 const EXPERIENCE_FADE_MS = 560
 
@@ -50,6 +42,8 @@ const REVEAL_HOLD_MS = 3000
    to cover the wait for the clips themselves. */
 const VIDEO_READY_DEADLINE_MS = 6000
 
+/* Authored coordinates shared by the inset and its SVG tangents. The whole
+   composition scales together, independently of the readable UI. */
 const LOUPE_LAYOUT = Object.freeze({
   stageWidth: 2135,
   stageHeight: 1695,
@@ -174,6 +168,8 @@ function moduleMarkup() {
           <p data-pqi-content-description>To keep qubits stable, this device uses three precise controls to tame chaotic particles.</p>
         </article>
 
+        <div class="pqi__visual">
+        <div class="pqi__visual-board">
         <div class="pqi__scene-shell">
           <div class="pqi__scene" data-pqi-scene></div>
           <div class="pqi__scene-glow" aria-hidden="true"></div>
@@ -195,6 +191,8 @@ function moduleMarkup() {
               preload="auto"
             ></video>
           </div>
+        </div>
+        </div>
         </div>
 
         <div class="pqi__controls" aria-label="Adjust all three conditions">
@@ -547,6 +545,8 @@ export async function mount(container, options = {}) {
 
   const sceneHost = root.querySelector('[data-pqi-scene]')
   const sceneShell = root.querySelector('.pqi__scene-shell')
+  const visual = root.querySelector('.pqi__visual')
+  const visualBoard = root.querySelector('.pqi__visual-board')
   const contentTitle = root.querySelector('[data-pqi-content-title]')
   const contentDescription = root.querySelector('[data-pqi-content-description]')
   const guidanceTooltip = createKioskTooltip({
@@ -693,6 +693,17 @@ export async function mount(container, options = {}) {
     root.classList.toggle('has-loupe-anchor', hasProjectedAnchor)
   }
 
+  const resizePresentation = () => {
+    if (disposed) return
+    const { scale, left, top } = fitProtectionVisual(visual.clientWidth, visual.clientHeight)
+    visualBoard.style.transform = `translate(${left}px, ${top}px) scale(${scale})`
+    sceneController?.resize()
+    updateLoupeLink()
+  }
+  const resizeObserver = new ResizeObserver(resizePresentation)
+  resizeObserver.observe(visual)
+  resizePresentation()
+
   const renderState = ({ announcement = '', firstCompletion = false } = {}) => {
     const progress = getProtectionProgress(state)
     const content = getProtectionContent(state)
@@ -828,6 +839,7 @@ export async function mount(container, options = {}) {
   const dispose = () => {
     if (disposed) return
     disposed = true
+    resizeObserver.disconnect()
     listeners.abort()
     upNextBanner?.dispose()
     releaseVideoElement(loupeVideo)
@@ -867,6 +879,7 @@ export async function mount(container, options = {}) {
       throw createAbortError()
     }
     if (introFinishRequested) sceneController.finishIntro?.(true)
+    resizePresentation()
     loupeRenderer.setSample(sceneController.getReserveSample?.())
     renderState()
   } catch (error) {

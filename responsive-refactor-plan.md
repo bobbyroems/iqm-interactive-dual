@@ -149,7 +149,7 @@ module view, dev HUD, screen transitions) is converted to fluid `clamp()`
 sizing. The module carousel — deferred here into Phase 3 because of its
 coupling to 3D camera/composition code — is also done (see below).
 
-### Phase 3 — Module-by-module migration (carousel done, 6 of 9 modules converted)
+### Phase 3 — Module-by-module migration (carousel done, 7 of 9 modules converted)
 
 Tackle smallest to largest so the pattern is proven before the big ones:
 
@@ -249,8 +249,22 @@ now reveal correctly. Automated browser coverage exercises all seven stops from
 motion, pointer/pinch/wheel input, resize during a gesture, restart and disposal.
 Manual visual review on physical devices remains outstanding.
 
-**Not started:** the remaining 3 modules (`protecting-information`,
-`quantum-vs-classical`, `build-majorana-2`) need their own conversion pass,
+**Module 7 (`protecting-information`) converted:** copy, guidance, progress and
+three rotary dials now use fluid normal-flow layouts, with scrolling on short
+viewports and independently readable type. Dial faces, target arcs, icons and
+needles resize together; pointer rotation uses the measured dial bounds, and
+resizing a captured dial safely ends its drag. The device, particle canvas,
+delivered alpha-video layers, loupe and leader lines retain their registered
+artwork coordinates within a separately fitted visual area. Only that artwork
+scales/letterboxes; the copy and controls do not. Renderer pixel density updates
+after the artwork fit changes. Both the default video treatment and explicit
+`?visual=scene` treatment have automated browser coverage at phone, short
+landscape, tablet, desktop, portrait kiosk and ultrawide sizes, including tuning,
+completion, leaving the target zone, restart, pointer drag, resize and cleanup.
+Manual visual review on physical devices remains outstanding.
+
+**Not started:** the remaining 2 modules (`quantum-vs-classical`,
+`build-majorana-2`) need their own conversion pass,
 one at a time in the order above.
 
 ### Phase 4 — Interaction/accessibility pass

@@ -3113,6 +3113,10 @@ export async function createProtectingInformationScene(host, {
   }
 
   return {
+    resize() {
+      resize()
+      requestRender()
+    },
     setState(nextState = {}, progress = {}) {
       effectDrives = getProtectionEffectDrives(nextState)
       complete = Boolean(progress.complete)

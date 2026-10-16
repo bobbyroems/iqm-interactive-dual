@@ -14,14 +14,15 @@
   --pqi-rim: 0;
   position: absolute;
   inset: 0;
-  width: 2160px;
-  height: 3840px;
+  display: flex;
+  flex-direction: column;
+  container-type: inline-size;
   overflow: hidden;
   background: transparent;
   color: var(--pqi-ink);
   font-family: var(--font-text);
   isolation: isolate;
-  touch-action: none;
+  touch-action: pan-y;
 }
 
 .pqi button {
@@ -41,9 +42,14 @@
 }
 
 .pqi__experience {
-  position: absolute;
-  inset: 120px 0 0;
-  overflow: hidden;
+  position: relative;
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  flex-direction: column;
+  gap: clamp(16px, 1rem + 0.5cqw, 40px);
+  padding: calc(var(--band-height) + 16px) clamp(16px, 2cqw, 48px) clamp(24px, 2cqw, 64px);
+  overflow: auto;
   background:
     radial-gradient(ellipse 75% 36% at 95% 43%, rgba(180, 145, 229, 0.45), transparent 100%),
     linear-gradient(180deg, #eeebf8 0%, #e1daf4 25%, #cec6ed 48%, #e8eefb 74%, #fcfcff 100%);
@@ -73,64 +79,69 @@
 }
 
 .pqi__content {
-  position: absolute;
+  position: relative;
   z-index: 11;
-  top: 415px;
-  left: 50%;
   display: flex;
-  width: 1600px;
+  width: min(100%, 1200px);
+  flex: 0 0 auto;
+  margin-inline: auto;
   flex-direction: column;
   align-items: center;
-  gap: 60px;
+  gap: clamp(12px, 1rem + 0.5cqw, 32px);
   color: #25314f;
   text-align: center;
   text-shadow: none;
-  transform: translateX(-50%);
 }
 
 .pqi__content h2 {
-  max-width: 1600px;
+  max-width: 100%;
+  min-height: 2.6em;
+  margin: 0;
   color: inherit;
   font-family: var(--font-display);
-  font-size: 96px;
+  font-size: clamp(24px, 1.5rem + 1cqw, 64px);
   font-weight: 600;
   letter-spacing: -0.02em;
-  line-height: 1.08;
-  white-space: nowrap;
+  line-height: 1.3;
+  white-space: normal;
 }
 
 .pqi__content p {
-  width: 1020px;
+  width: min(100%, 70ch);
+  min-height: 7.5em;
   max-width: 100%;
   margin: 0;
   color: inherit;
-  font-size: 60px;
+  font-size: clamp(16px, 1rem + 0.5cqw, 32px);
   font-weight: 600;
   letter-spacing: -0.02em;
-  line-height: 1.22;
+  line-height: 1.5;
 }
 
 .pqi[data-complete="true"] .pqi__content p {
-  width: 1080px;
+  width: min(100%, 70ch);
 }
 
-/* The shell is the whole device block — the three.js scene, its glow and the
-   video stage all sit inside it, so this offset moves the treatment as one.
-   Lifted by a quarter of the shell's own height to sit the die higher in frame;
-   the lift is separate from the 700px it was authored at so the original
-   position is still legible and the amount is one number to tune. */
-.pqi__scene-shell {
-  --pqi-scene-lift: 424px;
-  /* 5% of the shell width. Half of the 10% that was too strong, and close to
-     the 86px that would centre the device exactly — it lands 20px left of
-     screen centre. 214px is the hard ceiling: past that the device's own left
-     edge leaves the screen. */
-  --pqi-scene-shift: 107px;
+.pqi__visual {
+  position: relative;
+  flex: 1 0 clamp(280px, 45svh, 2200px);
+  min-height: clamp(280px, 45svh, 2200px);
+  overflow: hidden;
+}
 
+.pqi__visual-board {
+  position: absolute;
+  width: 2160px;
+  height: 2600px;
+  transform-origin: 0 0;
+}
+
+/* Keep the delivered video, particle canvas and loupe in one registered space. */
+.pqi__scene-shell {
   position: absolute;
   z-index: 4;
-  top: calc(700px - var(--pqi-scene-lift));
-  left: calc(13px - var(--pqi-scene-shift));
+  top: 0;
+  left: 0;
   width: 2135px;
   height: 1695px;
   /* Both the kiosk scene and video overlay need room for the magnetic crests. */
@@ -202,14 +213,15 @@
   left: 50%;
   display: flex;
   align-items: center;
-  gap: 24px;
-  padding: 24px 34px;
+  gap: 12px;
+  max-width: calc(100% - 32px);
+  padding: 16px 20px;
   border: 1px solid rgba(42, 68, 111, 0.16);
   border-radius: 18px;
   background: rgba(255, 255, 255, 0.82);
   box-shadow: 0 18px 50px rgba(42, 68, 111, 0.14);
   color: #2a446f;
-  font-size: 28px;
+  font-size: clamp(16px, 1rem + 0.25cqw, 28px);
   font-weight: 600;
   opacity: 1;
   transform: translate(-50%, -50%);
@@ -322,16 +334,15 @@
 }
 
 .pqi__controls {
-  position: absolute;
+  position: relative;
   z-index: 14;
-  top: 2423px;
-  left: 50%;
   display: grid;
-  width: 1700px;
+  width: min(100%, 1800px);
+  flex: 0 0 auto;
+  margin-inline: auto;
   background: transparent;
   grid-template-columns: repeat(3, 1fr);
-  gap: 90px;
-  transform: translateX(-50%);
+  gap: clamp(12px, 2cqw, 64px);
 }
 
 .pqi__control {
@@ -343,23 +354,26 @@
 }
 
 .pqi__control-label {
-  margin-bottom: 46px;
+  min-height: 2.6em;
+  margin: 0 0 clamp(12px, 1cqw, 32px);
   color: #090a0b;
   font-family: var(--font-display);
-  font-size: 48px;
+  font-size: clamp(14px, 1.8cqw, 40px);
   font-weight: 600;
   letter-spacing: -0.015em;
-  line-height: 1;
+  line-height: 1.3;
   text-align: center;
   text-shadow: none;
 }
 
 .pqi__dial {
   --pqi-dial-angle: 0deg;
+  --pqi-dial-size: clamp(88px, 20cqw, 420px);
   position: relative;
-  width: 420px;
-  height: 420px;
-  flex: 0 0 420px;
+  width: min(100%, var(--pqi-dial-size));
+  height: auto;
+  aspect-ratio: 1;
+  flex: 0 0 auto;
   padding: 0;
   border-radius: 50%;
   background: transparent;
@@ -396,8 +410,8 @@
 
 .pqi__dial-scale {
   z-index: 2;
-  width: 400px;
-  height: 400px;
+  width: 95.2381%;
+  height: 95.2381%;
   overflow: visible;
   transform: translate(-50%, -50%);
 }
@@ -441,8 +455,8 @@
 
 .pqi__dial-target {
   z-index: 1;
-  width: 400px;
-  height: 400px;
+  width: 100%;
+  height: 100%;
   filter:
     drop-shadow(0 4px 7px rgba(46, 133, 63, 0.3))
     drop-shadow(0 0 8px rgba(101, 220, 121, 0.24));
@@ -498,8 +512,8 @@
 
 .pqi__dial-body {
   z-index: 3;
-  width: 286px;
-  height: 286px;
+  width: 68.0952%;
+  height: 68.0952%;
   isolation: isolate;
   transform-style: preserve-3d;
   transform: translate(-50%, -50%);
@@ -533,8 +547,8 @@
 
 .pqi__dial-rim {
   z-index: 2;
-  width: 286px;
-  height: 286px;
+  width: 100%;
+  height: 100%;
   background:
     radial-gradient(circle at 36% 24%, rgba(255, 255, 255, 0.8), transparent 29%),
     radial-gradient(circle at 50% 50%, transparent 0 70%, rgba(27, 37, 46, 0.12) 71%, rgba(16, 24, 31, 0.62) 91%, rgba(242, 245, 246, 0.9) 100%),
@@ -551,16 +565,16 @@
 
 .pqi__dial-needle {
   z-index: 6;
-  width: 246px;
-  height: 246px;
+  width: 86.014%;
+  height: 86.014%;
   transform: translate(-50%, -50%) rotate(var(--pqi-dial-angle));
   transition: transform 80ms linear;
 }
 
 .pqi__dial-indicator {
-  top: 14px;
-  width: 9px;
-  height: 34px;
+  top: 5.6911%;
+  width: 3.6585%;
+  height: 13.8211%;
   border-radius: 4px;
   background: linear-gradient(90deg, #aeb5ba 0 13%, #26323c 31% 67%, #f4f5f5 84% 100%);
   box-shadow:
@@ -573,8 +587,8 @@
 .pqi__dial-face {
   z-index: 5;
   display: grid;
-  width: 246px;
-  height: 246px;
+  width: 86.014%;
+  height: 86.014%;
   overflow: hidden;
   place-items: center;
   background:
@@ -616,8 +630,8 @@
   position: relative;
   z-index: 2;
   display: block;
-  width: 88px;
-  height: 92px;
+  width: 35.7724%;
+  height: 37.3984%;
   object-fit: contain;
   opacity: 0.42;
   filter:
@@ -634,16 +648,16 @@
 }
 
 .pqi__dial[data-pqi-dial="temperature"] .pqi__dial-icon {
-  width: 82px;
+  width: 33.3333%;
 }
 
 .pqi__dial[data-pqi-dial="voltage"] .pqi__dial-icon {
-  width: 88px;
+  width: 35.7724%;
 }
 
 .pqi__dial[data-pqi-dial="magnetic"] .pqi__dial-icon {
-  width: 76px;
-  height: 82px;
+  width: 30.8943%;
+  height: 33.3333%;
 }
 
 .pqi__control.is-active .pqi__dial-body {
@@ -716,9 +730,9 @@
 }
 
 .pqi__control-state {
-  margin-top: 24px;
+  margin-top: clamp(12px, 1cqw, 24px);
   color: #6f747c;
-  font-size: 26px;
+  font-size: clamp(14px, 0.875rem + 0.25cqw, 26px);
   font-weight: 600;
   opacity: 1;
   text-align: center;
@@ -741,22 +755,30 @@
    every other one. Note in particular that `background` must not reappear: the
    wipe lives in background-image, and the shorthand would drop it. */
 .pqi__guidance {
-  position: absolute;
+  --kiosk-tooltip-scale: 1;
+  position: relative;
   z-index: 15;
-  top: 976px;
-  left: 50%;
+  max-width: 100%;
+  align-self: center;
+  flex: 0 0 auto;
+  padding: clamp(10px, 0.75rem, 24px) clamp(16px, 1.5cqw, 32px);
   border: 2px solid #d9d9d6;
   color: #f4f3f5;
   backdrop-filter: blur(60px);
-  transform: translateX(-50%);
   transition:
     opacity 360ms ease,
     transform 460ms var(--ease-out);
 }
 
+.pqi__guidance .kiosk-tooltip__text {
+  font-size: clamp(14px, 0.875rem + 0.25cqw, 24px);
+  line-height: 1.4;
+  white-space: normal;
+}
+
 .pqi.has-interacted .pqi__guidance {
   opacity: 1;
-  transform: translateX(-50%);
+  transform: none;
 }
 
 /* This cue fades out rather than being marked hidden, so the component's own
@@ -764,27 +786,24 @@
    and repainting text every frame — over a live WebGL scene, invisibly. */
 .pqi[data-complete="true"] .pqi__guidance {
   opacity: 0;
-  transform: translate(-50%, 12px);
+  transform: translateY(12px);
   animation: none;
   pointer-events: none;
 }
 
 .pqi__progress {
-  position: absolute;
+  position: relative;
   z-index: 14;
-  top: 3132px;
-  left: 50%;
   margin: 0;
   color: var(--pqi-blue);
   font-family: var(--font-display);
-  font-size: 48px;
+  font-size: clamp(16px, 1rem + 0.5cqw, 40px);
   font-weight: 400;
   letter-spacing: -0.015em;
-  line-height: 1.2;
+  line-height: 1.4;
   text-align: center;
   text-shadow: 0 2px 14px rgba(255, 255, 255, 0.42);
-  white-space: nowrap;
-  transform: translateX(-50%);
+  white-space: normal;
 }
 
 .pqi__sr-only {
