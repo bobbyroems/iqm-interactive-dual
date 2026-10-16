@@ -10,6 +10,20 @@
 
 export const NANOSCALE_STAGE = Object.freeze({ width: 2160, height: 3840 })
 
+export function fitNanoscaleViewport(width, height) {
+  const scale = Math.max(Math.max(width, 1) / NANOSCALE_STAGE.width,
+    Math.max(height, 1) / NANOSCALE_STAGE.height)
+  return {
+    scale,
+    left: (width - NANOSCALE_STAGE.width * scale) / 2,
+    top: (height - NANOSCALE_STAGE.height * scale) / 2
+  }
+}
+
+export function nanoscaleGestureDistance(width, height) {
+  return Math.min(480, Math.max(100, Math.min(width, height) * 0.6))
+}
+
 const BLUE = '#0078D4'
 const BLUE_LIGHT = '#8DC8E8'
 const NAVY = '#2A446F'

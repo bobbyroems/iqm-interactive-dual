@@ -34,7 +34,8 @@
     "check:recovery": "electron scripts/check-runtime-recovery.cjs && electron scripts/check-stalled-load-recovery.cjs",
     "check:qvc-warmup": "electron scripts/check-qvc-warmup.cjs",
     "check:interference-layout": "electron scripts/check-interference-layout.cjs",
-    "check:nanowire-layout": "electron scripts/check-nanowire-layout.cjs"
+    "check:nanowire-layout": "electron scripts/check-nanowire-layout.cjs",
+    "check:nanoscale-layout": "electron scripts/check-nanoscale-layout.cjs"
   },
   "engines": {
     "node": ">=22.12"

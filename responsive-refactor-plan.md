@@ -149,7 +149,7 @@ module view, dev HUD, screen transitions) is converted to fluid `clamp()`
 sizing. The module carousel — deferred here into Phase 3 because of its
 coupling to 3D camera/composition code — is also done (see below).
 
-### Phase 3 — Module-by-module migration (carousel done, 5 of 9 modules converted)
+### Phase 3 — Module-by-module migration (carousel done, 6 of 9 modules converted)
 
 Tackle smallest to largest so the pattern is proven before the big ones:
 
@@ -231,9 +231,27 @@ Resize updates the camera framing and repositions the magnifier, including
 its locked defect position. The kiosk-only bottom-30% exclusion is removed.
 Manual visual review on physical devices remains outstanding.
 
-**Not started:** the remaining 4 modules' own CSS files still hardcode
-`width: 2160px` internally and need their own conversion pass, one at a
-time in the order above.
+**Module 6 (`nanoscale`) converted:** intro, specimen descriptions, comparison
+captions, scrubber and finale now use fluid typography and normal-flow overlays,
+with details on the right on wide screens and below an exposed artwork area on
+narrow screens. Short viewports scroll without shrinking the copy.
+Controls sit outside the scrolling content in a persistent viewport-bottom footer.
+The registered zoom artwork and measurement SVG retain their 2160x3840 coordinate system and
+uniformly cover the entire module viewport behind the text and controls.
+Non-portrait screens crop the composition (including any offscreen measurement
+features) rather than letterboxing or distorting it. Measurement labels remain readable in CSS
+pixels, and each comparison's layered composition scales as one registered unit.
+Drag distance follows the measured scene, resize releases active gestures safely,
+and copy/chrome scrolling is not hijacked by zoom input. The finale scrolls when
+needed and supports horizontal reverse gestures. Reduced-motion descriptions
+now reveal correctly. Automated browser coverage exercises all seven stops from
+320x568 through 3440x1440, including the portrait kiosk size, normal/reduced
+motion, pointer/pinch/wheel input, resize during a gesture, restart and disposal.
+Manual visual review on physical devices remains outstanding.
+
+**Not started:** the remaining 3 modules (`protecting-information`,
+`quantum-vs-classical`, `build-majorana-2`) need their own conversion pass,
+one at a time in the order above.
 
 ### Phase 4 — Interaction/accessibility pass
 

@@ -35,6 +35,8 @@ import {
   NANOSCALE_LAYOUT,
   NANOSCALE_SCRUBBER,
   NANOSCALE_SPLASH_LAYOUT,
+  fitNanoscaleViewport,
+  nanoscaleGestureDistance,
   nanoscaleLayoutAt,
   nanoscaleTimelineScrubberAt
 } from './nanoscale-layout.js'
@@ -81,7 +83,6 @@ import {
   setNanoscaleComparisonMediaStackStop
 } from './nanoscale-comparison.js'
 
-const DESIGN_PIXELS_PER_STOP = 760
 /* Wrong-way drags against the very start of the journey that are tolerated
    before the hint stops being ambient and asks to be read. Two are a visitor
    finding the controls; a third is one who has not seen the arrow at all. */
@@ -147,11 +148,6 @@ const UNIQUE_CAMERA_LAYERS = Object.freeze([
 
 function createAbortError() {
   return new DOMException('Nanoscale mount aborted', 'AbortError')
-}
-
-function stageScaleOf(element) {
-  const rect = element.getBoundingClientRect()
-  return rect.height > 0 ? rect.height / STAGE_HEIGHT : 1
 }
 
 function pinchDistance(points) {
@@ -313,27 +309,6 @@ function moduleMarkup() {
 
   return `
     <section class="nz" data-nz-root data-stop="0" aria-labelledby="nz-title" aria-describedby="nz-controls" tabindex="0">
-      <div class="nz__stack" data-nz-stack aria-hidden="true">
-        ${cameraStackMarkup()}
-      </div>
-
-      <svg class="nz__dimension" data-nz-dimension viewBox="0 0 2160 3840" aria-hidden="true" focusable="false">
-        <defs>
-          <linearGradient id="nz-hardware-scale-gradient" data-nz-span-gradient gradientUnits="userSpaceOnUse">
-            ${dimensionGradientStops}
-          </linearGradient>
-        </defs>
-        <g data-nz-dimension-group>
-          <line class="nz__dimension-extension" data-nz-extension="from"></line>
-          <line class="nz__dimension-extension" data-nz-extension="to"></line>
-          <line class="nz__dimension-span" data-nz-span="from"></line>
-          <line class="nz__dimension-span" data-nz-span="to"></line>
-          <polygon class="nz__dimension-arrow" data-nz-arrow="from"></polygon>
-          <polygon class="nz__dimension-arrow" data-nz-arrow="to"></polygon>
-        </g>
-      </svg>
-      <p class="nz__dimension-label" data-nz-dimension-label aria-hidden="true"></p>
-
       <header class="nz__header microsoft-header">
         <div class="microsoft-brand" aria-label="Microsoft Quantum">
           <span class="microsoft-brand__logo">
@@ -358,31 +333,60 @@ function moduleMarkup() {
           </button>
         </div>
       </header>
+      <div class="nz__visual" data-nz-visual aria-label="Zoom journey. Swipe up, drag right or pinch to zoom in." tabindex="0">
+      <div class="nz__board" data-nz-board>
+      <div class="nz__stack" data-nz-stack aria-hidden="true">
+        ${cameraStackMarkup()}
+      </div>
 
+      <svg class="nz__dimension" data-nz-dimension viewBox="0 0 2160 3840" aria-hidden="true" focusable="false">
+        <defs>
+          <linearGradient id="nz-hardware-scale-gradient" data-nz-span-gradient gradientUnits="userSpaceOnUse">
+            ${dimensionGradientStops}
+          </linearGradient>
+        </defs>
+        <g data-nz-dimension-group>
+          <line class="nz__dimension-extension" data-nz-extension="from"></line>
+          <line class="nz__dimension-extension" data-nz-extension="to"></line>
+          <line class="nz__dimension-span" data-nz-span="from"></line>
+          <line class="nz__dimension-span" data-nz-span="to"></line>
+          <polygon class="nz__dimension-arrow" data-nz-arrow="from"></polygon>
+          <polygon class="nz__dimension-arrow" data-nz-arrow="to"></polygon>
+        </g>
+      </svg>
+      </div>
+      <p class="nz__dimension-label" data-nz-dimension-label aria-hidden="true"></p>
+      </div>
+
+      <div class="nz__body" data-nz-body>
+      <div class="nz__guidance" data-nz-content>
+        <div data-nz-intro-slot></div>
+        <div data-nz-instruction-slot></div>
+      </div>
+      <div class="nz__journey">
+      <div class="nz__details" data-nz-details data-nz-content>
+        <div data-nz-identity-slot></div>
+        <figure class="nz__comparison" data-nz-comparison aria-hidden="true">
+          <div class="nz__comparison-media-frame" data-nz-comparison-media-host></div>
+          <figcaption class="nz__comparison-footer">
+            <span>About the size of</span>
+            <strong data-nz-comparison-caption></strong>
+          </figcaption>
+        </figure>
+      </div>
+      </div>
+      </div>
+      <div class="nz__controls" data-nz-content>
+        <div data-nz-scroll-cue-slot></div>
+        <div class="nz__scrubber" data-nz-scrubber aria-hidden="true">
+          <span class="nz__scrubber-number" data-nz-number></span>
+          <span class="nz__scrubber-axis"></span>
+          ${ticks}
+          <span class="nz__scrubber-marker" data-nz-marker></span>
+        </div>
+      </div>
       <h1 class="nz__sr" id="nz-title">Nanoscale of topological qubits</h1>
       <p class="nz__sr" id="nz-controls">Use pinch, vertical or horizontal drag, trackpad or mouse wheel, arrow keys, plus, or minus to move through the zoom journey.</p>
-
-      <div data-nz-intro-slot></div>
-      <div data-nz-instruction-slot></div>
-      <div data-nz-identity-slot></div>
-
-      <!-- Comparison is authored media, not an explainer; keep its two Figma boxes independent. -->
-      <figure class="nz__comparison" data-nz-comparison aria-hidden="true">
-        <div class="nz__comparison-media-frame" data-nz-comparison-media-host></div>
-        <figcaption class="nz__comparison-footer">
-          <span>About the size of</span>
-          <strong data-nz-comparison-caption></strong>
-        </figcaption>
-      </figure>
-
-      <div data-nz-scroll-cue-slot></div>
-
-      <div class="nz__scrubber" data-nz-scrubber aria-hidden="true">
-        <span class="nz__scrubber-number" data-nz-number></span>
-        <span class="nz__scrubber-axis"></span>
-        ${ticks}
-        <span class="nz__scrubber-marker" data-nz-marker></span>
-      </div>
 
       ${finaleMarkup()}
 
@@ -394,8 +398,7 @@ function moduleMarkup() {
 function finaleMarkup() {
   const [scale] = NANOSCALE_V3_FINALE
   return `
-    <!-- Figma-authored full-stage scrollytelling: intentionally not a floating kiosk-explainer. -->
-    <div class="nz__finale" data-nz-finale aria-hidden="true" inert>
+    <div class="nz__finale" data-nz-finale data-nz-content aria-hidden="true" inert>
       <div class="nz__finale-track" data-nz-finale-track>
         <section class="nz__finale-section nz__finale-section--scale" data-nz-finale-section="scale" aria-labelledby="nz-finale-scale-title" aria-hidden="true" inert>
           <svg class="nz__finale-guide nz__finale-guide--scale" data-nz-finale-guide="scale" viewBox="0 0 20 470" aria-hidden="true" focusable="false">
@@ -612,7 +615,6 @@ export async function mount(container, options = {}) {
     from: root.querySelector('[data-nz-arrow="from"]'),
     to: root.querySelector('[data-nz-arrow="to"]')
   }
-  const intro = explainers.intro.element
   const instruction = explainers.instruction.element
   const scrollCue = explainers.scrollCue.element
   const identity = explainers.identity.element
@@ -687,6 +689,14 @@ export async function mount(container, options = {}) {
 
   writeCount(nanoscaleCountState(0, { target: countTarget }))
   const stack = root.querySelector('[data-nz-stack]')
+  const visual = root.querySelector('[data-nz-visual]')
+  const board = root.querySelector('[data-nz-board]')
+  const details = root.querySelector('[data-nz-details]')
+  const body = root.querySelector('[data-nz-body]')
+  let viewport = fitNanoscaleViewport(visual.clientWidth, visual.clientHeight)
+  comparisonMediaStack.style.width = '613px'
+  comparisonMediaStack.style.height = '662px'
+  comparisonMediaStack.style.transformOrigin = '0 0'
   const stackCameras = NANOSCALE_PRESENTATION_SEGMENTS.map(segment => (
     root.querySelector(`[data-nz-stack-camera="${segment}"]`)
   ))
@@ -724,49 +734,9 @@ export async function mount(container, options = {}) {
   const rasterRefresh = stackCameras.map(() => createNanoscaleRasterRefresh())
   let writtenFinalePromoted = null
 
-  root.style.setProperty('--nz-scrubber-x', `${NANOSCALE_SCRUBBER.x}px`)
-  root.style.setProperty('--nz-scrubber-y', `${NANOSCALE_SCRUBBER.y}px`)
-  root.style.setProperty('--nz-scrubber-width', `${NANOSCALE_SCRUBBER.width}px`)
   ticks.forEach((tick, index) => {
-    tick.style.left = `${NANOSCALE_SCRUBBER.tickOffsets[index]}px`
+    tick.style.left = `${NANOSCALE_SCRUBBER.tickOffsets[index] / NANOSCALE_SCRUBBER.width * 100}%`
   })
-
-  function placeBox(element, value) {
-    element.style.left = `${value.x}px`
-    element.style.top = `${value.y}px`
-    element.style.width = `${value.width}px`
-    element.style.height = `${value.height}px`
-  }
-
-  placeBox(intro, NANOSCALE_SPLASH_LAYOUT.ui.intro.explainerBox)
-  const introLayout = NANOSCALE_SPLASH_LAYOUT.ui.intro
-  const introTitle = introLayout.title
-  const introBody = introLayout.body
-  intro.style.setProperty('--nz-intro-title-width', `${introTitle.box.width}px`)
-  intro.style.setProperty('--nz-intro-title-height', `${introTitle.box.height}px`)
-  intro.style.setProperty('--nz-intro-title-size', `${introTitle.type.fontSize}px`)
-  intro.style.setProperty('--nz-intro-title-weight', String(introTitle.type.fontWeight))
-  intro.style.setProperty('--nz-intro-title-tracking', introTitle.type.letterSpacing)
-  intro.style.setProperty('--nz-intro-title-leading', `${introTitle.type.lineHeight}px`)
-  intro.style.setProperty('--nz-intro-body-width', `${introBody.box.width}px`)
-  intro.style.setProperty('--nz-intro-body-height', `${introBody.box.height}px`)
-  intro.style.setProperty('--nz-intro-body-size', `${introBody.type.fontSize}px`)
-  intro.style.setProperty('--nz-intro-body-weight', String(introBody.type.fontWeight))
-  intro.style.setProperty('--nz-intro-body-tracking', introBody.type.letterSpacing)
-  intro.style.setProperty('--nz-intro-body-leading', `${introBody.type.lineHeight}px`)
-
-  const instructionLayout = introLayout.instruction
-  const instructionBox = instructionLayout.box
-  instruction.style.left = `${instructionBox.x + (instructionBox.width / 2)}px`
-  instruction.style.top = `${instructionBox.y}px`
-  instruction.style.width = `${instructionBox.width}px`
-  instruction.style.height = `${instructionBox.height}px`
-  instruction.style.setProperty('--nz-instruction-padding-x', `${instructionLayout.padding.x}px`)
-  instruction.style.setProperty('--nz-instruction-padding-y', `${instructionLayout.padding.y}px`)
-  instruction.style.setProperty('--nz-instruction-size', `${instructionLayout.type.fontSize}px`)
-  instruction.style.setProperty('--nz-instruction-weight', String(instructionLayout.type.fontWeight))
-  instruction.style.setProperty('--nz-instruction-tracking', instructionLayout.type.letterSpacing)
-  instruction.style.setProperty('--nz-instruction-leading', `${instructionLayout.type.lineHeight}px`)
 
   function setSvgLine(element, geometry) {
     element.style.display = geometry ? '' : 'none'
@@ -835,18 +805,25 @@ export async function mount(container, options = {}) {
     const annotation = layout.annotation
     const { axis, from, to, label } = annotation
 
-    /* The number goes in the middle of the break, so both arrows come out the
-       same length however the retired plate box happened to be positioned. */
+    /* Keep the readable label centered on the registered measurement line. */
     const spanCentre = {
       x: (from.x + to.x) / 2,
       y: (from.y + to.y) / 2
     }
 
-    drawSpanHalves(annotation, spanCentre)
+    dimensionLabel.textContent = stop.dimension.label
+    dimensionLabel.style.left = `${viewport.left + spanCentre.x * viewport.scale}px`
+    dimensionLabel.style.top = `${viewport.top + spanCentre.y * viewport.scale}px`
+    const labelBox = dimensionLabel.getBoundingClientRect()
+    const labelExtent = axis === 'horizontal' ? labelBox.width : labelBox.height
+    drawSpanHalves({
+      ...annotation,
+      labelGap: (labelExtent + 12) / viewport.scale
+    }, spanCentre)
     setSvgLine(extensions.from, annotation.extensions.from)
     setSvgLine(extensions.to, annotation.extensions.to)
 
-    const arrowSize = annotation.arrow?.size ?? 20
+    const arrowSize = Math.max(annotation.arrow?.size ?? 20, 5 / viewport.scale)
     arrows.from.setAttribute('points', arrowPoints(from.x, from.y, axis, -1, arrowSize))
     arrows.to.setAttribute('points', arrowPoints(to.x, to.y, axis, 1, arrowSize))
 
@@ -863,22 +840,14 @@ export async function mount(container, options = {}) {
     extensions.to.style.stroke = annotation.extensionColor
     arrows.from.style.fill = annotation.arrowColors.from
     arrows.to.style.fill = annotation.arrowColors.to
-    root.style.setProperty('--nz-dimension-stroke', `${annotation.strokeWidth}px`)
+    root.style.setProperty('--nz-dimension-stroke', `${Math.max(annotation.strokeWidth, 1.5 / viewport.scale)}px`)
     root.style.setProperty('--nz-extension-dash', annotation.dashPattern.join(' '))
     root.style.setProperty('--nz-dimension-color', annotation.color)
     root.style.setProperty('--nz-dimension-label-color', label.color)
-
-    dimensionLabel.textContent = stop.dimension.label
-    dimensionLabel.style.left = `${spanCentre.x}px`
-    dimensionLabel.style.top = `${spanCentre.y}px`
   }
 
   function applyContentStop(stop) {
     const layout = nanoscaleLayoutAt(stop.index)
-    const identityBox = layout.ui.identity.box
-    const comparisonBox = layout.ui.comparison.box
-    placeBox(identity, identityBox)
-    placeBox(comparison, comparisonBox)
 
     root.style.setProperty(
       '--nz-comparison-media-fill',
@@ -914,49 +883,19 @@ export async function mount(container, options = {}) {
     )
     root.style.setProperty('--nz-comparison-caption-color', layout.ui.comparison.captionColor)
     root.style.setProperty(
-      '--nz-comparison-caption-size',
-      `${layout.ui.comparison.footer.type.fontSize}px`
-    )
-    root.style.setProperty(
       '--nz-comparison-caption-weight',
       String(layout.ui.comparison.footer.type.fontWeight)
     )
-    root.style.setProperty(
-      '--nz-comparison-caption-leading',
-      `${layout.ui.comparison.footer.type.lineHeight}px`
-    )
-    root.style.setProperty('--nz-comparison-caption-height', `${layout.ui.comparison.footer.box.height}px`)
-
     const identityLayout = layout.ui.identity
-    root.style.setProperty('--nz-identity-title-x', `${identityLayout.title.box.x}px`)
-    root.style.setProperty('--nz-identity-title-y', `${identityLayout.title.box.y}px`)
-    root.style.setProperty('--nz-identity-title-width', `${identityLayout.title.box.width}px`)
-    root.style.setProperty('--nz-identity-title-height', `${identityLayout.title.box.height}px`)
-    root.style.setProperty('--nz-identity-title-size', `${identityLayout.title.type.fontSize}px`)
     root.style.setProperty('--nz-identity-title-weight', String(identityLayout.title.type.fontWeight))
     root.style.setProperty('--nz-identity-title-tracking', identityLayout.title.type.letterSpacing)
-    root.style.setProperty('--nz-identity-title-leading', `${identityLayout.title.type.lineHeight}px`)
-    /* Only the stops that carry a qualifier write these. The element hides
-       itself when it has no text, so a stale box on the others is never
-       painted. */
+    /* Stops without a qualifier hide the shared subtitle element. */
     if (identityLayout.subtitle) {
-      root.style.setProperty('--nz-identity-subtitle-x', `${identityLayout.subtitle.box.x}px`)
-      root.style.setProperty('--nz-identity-subtitle-y', `${identityLayout.subtitle.box.y}px`)
-      root.style.setProperty('--nz-identity-subtitle-width', `${identityLayout.subtitle.box.width}px`)
-      root.style.setProperty('--nz-identity-subtitle-height', `${identityLayout.subtitle.box.height}px`)
-      root.style.setProperty('--nz-identity-subtitle-size', `${identityLayout.subtitle.type.fontSize}px`)
       root.style.setProperty('--nz-identity-subtitle-weight', String(identityLayout.subtitle.type.fontWeight))
       root.style.setProperty('--nz-identity-subtitle-tracking', identityLayout.subtitle.type.letterSpacing)
-      root.style.setProperty('--nz-identity-subtitle-leading', `${identityLayout.subtitle.type.lineHeight}px`)
     }
-    root.style.setProperty('--nz-identity-body-x', `${identityLayout.body.box.x}px`)
-    root.style.setProperty('--nz-identity-body-y', `${identityLayout.body.box.y}px`)
-    root.style.setProperty('--nz-identity-body-width', `${identityLayout.body.box.width}px`)
-    root.style.setProperty('--nz-identity-body-height', `${identityLayout.body.box.height}px`)
-    root.style.setProperty('--nz-identity-body-size', `${identityLayout.body.type.fontSize}px`)
     root.style.setProperty('--nz-identity-body-weight', String(identityLayout.body.type.fontWeight))
     root.style.setProperty('--nz-identity-body-tracking', identityLayout.body.type.letterSpacing)
-    root.style.setProperty('--nz-identity-body-leading', `${identityLayout.body.type.lineHeight}px`)
     const identitySurface = identityLayout.surface
     const identitySurfaceEnabled = identitySurface.effectVisible
     identity.style.setProperty(
@@ -976,7 +915,6 @@ export async function mount(container, options = {}) {
       identitySurfaceEnabled ? `blur(${identitySurface.refractionRadius}px)` : 'none'
     )
 
-
     updateKioskExplainer(explainers.identity, {
       body: stop.description,
       /* A stop may carry a longer heading for the card than the label used to
@@ -992,7 +930,6 @@ export async function mount(container, options = {}) {
     comparisonCaption.textContent = stop.comparison.caption
     scrubberNumber.textContent = stop.number
     drawDimension(stop, layout)
-
   }
 
   function applyTimelineStop(timelineIndex) {
@@ -1169,7 +1106,7 @@ export async function mount(container, options = {}) {
     const settled = settle === null && Math.abs(progress - nearest) <= 0.001
     const contentSettled = settled && nearest > 0 && arrivedStop === nearest
     const reveal = contentSettled
-      ? nanoscaleRevealState(reducedMotion?.matches ? Number.POSITIVE_INFINITY : performance.now() - settledAt)
+      ? nanoscaleRevealState(reducedMotion?.matches ? Number.MAX_SAFE_INTEGER : performance.now() - settledAt)
       : { visual: true, identity: false, measurement: false }
 
     applyTimelineStop(arrivedStop)
@@ -1178,8 +1115,7 @@ export async function mount(container, options = {}) {
     const finaleVisible = finaleEntryProgress > 0
     const finaleIsMoving = finaleVisible && (gesture !== null || settle !== null)
 
-    /* The two full-stage Figma frames form one virtual track. `progress` is its
-       only state, so reversing through any fractional position is deterministic. */
+    /* Progress drives the finale's entry and reveals, including reverse travel. */
     if (writtenFinalePromoted !== finaleIsMoving) {
       stack.style.willChange = 'auto'
       finaleTrack.style.willChange = finaleIsMoving ? 'transform' : 'auto'
@@ -1192,7 +1128,7 @@ export async function mount(container, options = {}) {
       finaleSample.scale.figure
     ].map(value => value.toFixed(4)).join('|')
     if (finaleKey !== writtenFinale) {
-      finaleTrack.style.transform = `translate3d(0, ${finaleSample.trackY.toFixed(2)}px, 0)`
+      finaleTrack.style.transform = `translate3d(0, ${(finaleSample.trackY / STAGE_HEIGHT * 100).toFixed(4)}%, 0)`
       finaleGuides.get('scale').style.opacity = finaleSample.scale.heading.toFixed(4)
       finaleHeadings.get('scale').style.opacity = finaleSample.scale.heading.toFixed(4)
       finaleSample.scale.paragraphs.forEach((opacity, index) => {
@@ -1222,6 +1158,7 @@ export async function mount(container, options = {}) {
     const splashVisible = settled && nearest === 0 && arrivedStop === 0
     const specimenSettled = contentSettled && arrivedStop <= NANOSCALE_LAST_CONTENT_STOP
     root.classList.toggle('is-splash', splashVisible)
+    root.classList.toggle('is-finale', finaleVisible)
     root.classList.toggle('has-science-ui', arrivedStop > 0)
     root.classList.toggle('is-settled', settled)
     root.classList.toggle('is-identity', reveal.identity && specimenSettled)
@@ -1258,9 +1195,7 @@ export async function mount(container, options = {}) {
     const markerLocalProgress = contentProgress - markerFromIndex
     const markerFrom = markerOffsets[markerFromIndex]
     const markerTo = markerOffsets[markerToIndex]
-    /* Figma's odd-width marker/number boxes are centred half a pixel left of
-       their 4px tick strokes. Preserve that authored subpixel registration. */
-    const markerX = `${(markerFrom + ((markerTo - markerFrom) * markerLocalProgress) - 0.5).toFixed(2)}px`
+    const markerX = `${((markerFrom + ((markerTo - markerFrom) * markerLocalProgress)) / NANOSCALE_SCRUBBER.width * 100).toFixed(4)}%`
     if (markerX !== writtenMarkerX) {
       marker.style.setProperty('--nz-marker-x', markerX)
       scrubberNumber.style.setProperty('--nz-marker-x', markerX)
@@ -1380,16 +1315,13 @@ export async function mount(container, options = {}) {
     const wasHidden = media.hidden
     const restoreMedia = snapshotInlineStyles(media, ['opacity', 'z-index', 'will-change'])
     const restoreComparison = snapshotInlineStyles(comparison, [
-      'left',
-      'top',
-      'width',
-      'height',
       'opacity',
       'will-change'
     ])
+    const restoreDetails = snapshotInlineStyles(details, ['display'])
 
     if (covered) {
-      placeBox(comparison, nanoscaleLayoutAt(timelineStop.index).ui.comparison.box)
+      details.style.display = 'grid'
       comparison.style.opacity = '1'
     }
     comparison.style.willChange = 'opacity'
@@ -1404,6 +1336,7 @@ export async function mount(container, options = {}) {
         media.hidden = wasHidden
         restoreMedia()
         restoreComparison()
+        restoreDetails()
       }
     }
   }
@@ -1564,7 +1497,9 @@ export async function mount(container, options = {}) {
      finger; clearing the offset on release lets that same transition spring it
      back. */
   function setOverscroll(edge, overshoot, axis) {
-    const distance = edge ? overshoot * DESIGN_PIXELS_PER_STOP : 0
+    const distance = edge
+      ? overshoot * nanoscaleGestureDistance(visual.clientWidth, visual.clientHeight) / viewport.scale
+      : 0
     /* Toward the finger: at the start of the journey backward is down and
        left, at the end forward is up and right. */
     const away = edge === 'start' ? 1 : -1
@@ -1630,7 +1565,9 @@ export async function mount(container, options = {}) {
       axis: null,
       blockedEdge: null,
       pinchStart: pointers.size >= 2 ? pinchDistance([...pointers.values()]) : null,
-      pointerStart: [...pointers.values()][0]
+      pointerStart: [...pointers.values()][0],
+      distance: nanoscaleGestureDistance(visual.clientWidth, visual.clientHeight),
+      scrollSurface: root.classList.contains('is-finale') ? finale : null
     }
     root.classList.add('is-zooming')
   }
@@ -1653,16 +1590,21 @@ export async function mount(container, options = {}) {
       const clientDeltaX = points[0].x - gesture.pointerStart.x
       const clientDeltaY = points[0].y - gesture.pointerStart.y
       gesture.axis ??= dominantDragAxis(clientDeltaX, clientDeltaY)
+      if (
+        gesture.axis !== 'horizontal'
+        && gesture.scrollSurface
+        && gesture.scrollSurface.scrollHeight > gesture.scrollSurface.clientHeight + 1
+      ) return
       delta = gesture.axis === 'horizontal'
         ? horizontalDragDeltaToProgress(
             clientDeltaX,
-            stageScaleOf(root),
-            DESIGN_PIXELS_PER_STOP
+            1,
+            gesture.distance
           )
         : dragDeltaToProgress(
             clientDeltaY,
-            stageScaleOf(root),
-            DESIGN_PIXELS_PER_STOP
+            1,
+            gesture.distance
           )
     }
 
@@ -1782,6 +1724,7 @@ export async function mount(container, options = {}) {
        press before it could become a click, so "Return to home" and the
        pop-up's controls did nothing at all. */
     if (event.target.closest('[data-nz-action], [data-kiosk-chrome]')) return
+    if (!event.target.closest('[data-nz-visual], [data-nz-finale]') || event.button > 0) return
     onActivity?.()
     pointers.set(event.pointerId, { x: event.clientX, y: event.clientY })
     root.setPointerCapture?.(event.pointerId)
@@ -1808,6 +1751,8 @@ export async function mount(container, options = {}) {
   }
 
   root.addEventListener('wheel', event => {
+    if (event.target.closest('[data-nz-content], [data-kiosk-chrome], [data-nz-action]')) return
+    if (!event.target.closest('[data-nz-visual]') && body.scrollHeight > body.clientHeight + 1) return
     /* Swallowed either way, so a blocked wheel cannot scroll the page behind
        the stage instead. */
     event.preventDefault()
@@ -1829,7 +1774,7 @@ export async function mount(container, options = {}) {
   }, { passive: false, signal: listeners.signal })
 
   root.addEventListener('keydown', event => {
-    if (event.target.closest('[data-nz-action]')) return
+    if (event.target.closest('[data-nz-action], [data-kiosk-chrome]')) return
     if (outroPopupRaised()) return
     const advanceKeys = new Set(['ArrowUp', 'ArrowRight', 'PageUp', '+', '='])
     const retreatKeys = new Set(['ArrowDown', 'ArrowLeft', 'PageDown', '-', '_'])
@@ -1851,6 +1796,31 @@ export async function mount(container, options = {}) {
     if (action === 'restart') restart()
     else if (action === 'exit') navigate.menu?.()
   }, { signal: listeners.signal })
+
+  function resizePresentation() {
+    if (disposed) return
+    viewport = fitNanoscaleViewport(visual.clientWidth, visual.clientHeight)
+    board.style.left = `${viewport.left}px`
+    board.style.top = `${viewport.top}px`
+    board.style.transform = `scale(${viewport.scale})`
+    comparisonMediaStack.style.transform = `scale(${Math.max(comparisonMediaHost.clientWidth, 1) / 613})`
+    if (gesture) {
+      for (const pointerId of pointers.keys()) {
+        if (root.hasPointerCapture?.(pointerId)) root.releasePointerCapture(pointerId)
+      }
+      pointers.clear()
+      endGesture()
+    }
+    if (arrivedStop > 0 && arrivedStop <= NANOSCALE_LAST_CONTENT_STOP) {
+      const stop = nanoscaleTimelineStopAt(arrivedStop)
+      drawDimension(stop, nanoscaleLayoutAt(stop.index))
+    }
+    requestRender()
+  }
+  const resizeObserver = new ResizeObserver(resizePresentation)
+  resizeObserver.observe(visual)
+  resizeObserver.observe(comparisonMediaHost)
+  resizePresentation()
 
   /* Establish the compact tooltip's hidden baseline before the initial splash
      class is applied so it uses the same authored entrance on first mount. */
@@ -1920,6 +1890,7 @@ export async function mount(container, options = {}) {
     misdirectedHintTimer = null
     cancelHoldSnap()
     cancelTextureWarmup()
+    resizeObserver.disconnect()
     listeners.abort()
     pointers.clear()
     disposeKioskExplainer(explainers.intro)
