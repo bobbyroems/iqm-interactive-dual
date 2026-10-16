@@ -17,7 +17,8 @@ import {
   nextNanowirePhase,
   resolveLoupeCenteringProgress,
   resolveLoupeMagneticPull,
-  resolveLoupeTarget
+  resolveLoupeTarget,
+  resolveNanowireLoupeLayout
 } from './interaction.js'
 import { createNanowireScene } from './nanowire-scene.js'
 import { mountModuleOutro } from '../module-outro.js'
@@ -26,14 +27,6 @@ import {
   createNanowireAbortError
 } from './scene-mount.js'
 
-const LOUPE_RADIUS = 262
-const LOUPE_LABEL_CLEARANCE = 168
-/* Nothing in this module may enter the bottom 30% of the stage: stage y 2688,
-   which is 2568 here because .nw__experience starts 120px down under the
-   header. The loupe is the only element a visitor can move, so it and its
-   label are clamped. */
-const SAFE_BOTTOM_Y = 2568
-const INITIAL_LOUPE_POSITION = Object.freeze({ x: 1660, y: 1580 })
 const FINAL_COPY_READING_LEAD_MS = 1_800
 const FOUND_CONFIRMATION_HOLD_MS = 1_400
 const CORRECTION_CONFIRMATION_HOLD_MS = 2_600
@@ -89,7 +82,9 @@ function moduleMarkup() {
         </div>
       </header>
 
-      <div class="nw__experience" data-nw-experience tabindex="0">
+      <div class="nw__experience">
+        <div class="nw__guidance" data-nw-guidance></div>
+        <div class="nw__workspace" data-nw-experience tabindex="0" aria-label="Nanowire interaction">
         <h1 class="nw__sr-only" id="nw-title">Building a nanowire</h1>
         <div class="nw__backdrop nw__backdrop--perturbation" aria-hidden="true"></div>
         <div class="nw__backdrop nw__backdrop--repair" aria-hidden="true"></div>
@@ -130,6 +125,7 @@ function moduleMarkup() {
         </div>
 
         <p class="nw__status nw__sr-only" data-nw-status aria-live="polite">Loading the nanowire.</p>
+        </div>
       </div>
     </section>
   `
@@ -170,7 +166,7 @@ export async function mount(container, options = {}) {
   instructionArrow.draggable = false
   instructionArrow.setAttribute('aria-hidden', 'true')
   instruction.element.append(instructionArrow)
-  experience.append(explainer.element, instruction.element)
+  root.querySelector('[data-nw-guidance]').append(explainer.element, instruction.element)
   const status = root.querySelector('[data-nw-status]')
   const loupe = root.querySelector('[data-nw-loupe]')
   const loupeView = root.querySelector('[data-nw-loupe-view]')
@@ -203,11 +199,12 @@ export async function mount(container, options = {}) {
   let disposed = false
   let swipeStart = null
   let loupeDrag = null
-  const loupePosition = { ...INITIAL_LOUPE_POSITION }
+  const loupePosition = { x: 0, y: 0 }
   const pointerPoint = { x: 0, y: 0, time: 0 }
   const magneticPoint = { x: 0, y: 0, distance: Infinity, amount: 0 }
   let experienceWidth = Math.max(experience.offsetWidth, 1)
   let experienceHeight = Math.max(experience.offsetHeight, 1)
+  let loupeLayout = resolveNanowireLoupeLayout(experienceWidth, experienceHeight, loupe.offsetWidth)
   let uiRaf = null
   let uiMotionFinish = null
   let startTargetRaf = null
@@ -297,15 +294,9 @@ export async function mount(container, options = {}) {
 
   const clampLoupeX = (x, allowOffscreen = false) => allowOffscreen
     ? x
-    : clamp(x, LOUPE_RADIUS, experienceWidth - LOUPE_RADIUS)
+    : clamp(x, loupeLayout.minX, loupeLayout.maxX)
 
-  const clampLoupeY = y => {
-    const lowestY = Math.min(
-      experienceHeight - LOUPE_RADIUS,
-      SAFE_BOTTOM_Y - LOUPE_RADIUS - LOUPE_LABEL_CLEARANCE
-    )
-    return clamp(y, LOUPE_RADIUS, lowestY)
-  }
+  const clampLoupeY = y => clamp(y, loupeLayout.minY, loupeLayout.maxY)
 
   const setLoupePosition = (x, y, allowOffscreen = false) => {
     const nextX = clampLoupeX(x, allowOffscreen)
@@ -368,6 +359,13 @@ export async function mount(container, options = {}) {
         const progress = options.easing === 'centering'
           ? resolveLoupeCenteringProgress(elapsed, NANOWIRE_LOUPE_TARGETING)
           : easeOut(elapsed / duration)
+        if (options.trackDefect) {
+          const target = scene?.getDefectScreenPosition()
+          if (target) {
+            x = target.x
+            y = target.y
+          }
+        }
         setLoupePosition(
           fromX + ((x - fromX) * progress),
           fromY + ((y - fromY) * progress),
@@ -386,7 +384,7 @@ export async function mount(container, options = {}) {
 
   const glideLoupeAway = async () => {
     const moved = await animateLoupeTo(
-      experienceWidth + LOUPE_RADIUS,
+      experienceWidth + loupeLayout.radius,
       loupePosition.y,
       { duration: 820, allowOffscreen: true }
     )
@@ -406,7 +404,8 @@ export async function mount(container, options = {}) {
     loupe.classList.add('is-locking')
     const centred = await animateLoupeTo(defectPosition.x, defectPosition.y, {
       duration: NANOWIRE_LOUPE_TARGETING.centeringDuration,
-      easing: 'centering'
+      easing: 'centering',
+      trackDefect: true
     })
     loupe.classList.remove('is-locking')
     if (!centred || disposed || phase !== NANOWIRE_PHASES.targeted) return
@@ -427,9 +426,9 @@ export async function mount(container, options = {}) {
     const defectPosition = scene?.getDefectScreenPosition()
     if (!defectPosition) return false
     const target = resolveLoupeTarget(loupePosition, defectPosition, {
-      lockRadius: NANOWIRE_LOUPE_TARGETING.lockRadius
+      lockRadius: loupeLayout.targeting.lockRadius
     })
-    loupe.classList.toggle('is-near-defect', target.distance < LOUPE_RADIUS * 0.72)
+    loupe.classList.toggle('is-near-defect', target.distance < loupeLayout.radius * 0.72)
     if (!target.targeted || !transition(NANOWIRE_EVENTS.targeted)) return false
     void lockLoupeToDefect(defectPosition)
     return true
@@ -459,7 +458,7 @@ export async function mount(container, options = {}) {
     resolveLoupeMagneticPull(
       { x: clampedX, y: clampedY },
       defectPosition,
-      NANOWIRE_LOUPE_TARGETING,
+      loupeLayout.targeting,
       magneticPoint
     )
     return loupeMoveQueue.schedule(
@@ -478,9 +477,10 @@ export async function mount(container, options = {}) {
     loupe.classList.remove('has-interacted', 'is-locking', 'is-locked')
     foundBadge.hidden = true
     correctedBadge.hidden = true
-    setLoupePosition(INITIAL_LOUPE_POSITION.x, INITIAL_LOUPE_POSITION.y)
+    setLoupePosition(loupeLayout.initialX, loupeLayout.initialY)
     scene?.beginInspection()
     scene?.setMagnifierVisible(true)
+    if (document.activeElement === experience) loupe.focus({ preventScroll: true })
     sound.whoosh()
   }
 
@@ -510,12 +510,13 @@ export async function mount(container, options = {}) {
       replay: true
     })
     setInstruction(NANOWIRE_COPY.ready.tooltip, true)
-    setStatus('Swipe down once to attach all four layers together.')
+    setStatus('Swipe down or press Arrow Down or Space to attach all four layers together.')
   }
 
   const startIntro = () => {
     if (!transition(NANOWIRE_EVENTS.started)) return false
     stopStartTargetTracking()
+    if (document.activeElement === startButton) experience.focus({ preventScroll: true })
     noteActivity()
     void runIntroFlow()
     return true
@@ -579,10 +580,41 @@ export async function mount(container, options = {}) {
     element.releasePointerCapture(pointerId)
   }
 
+  const resizeLayout = () => {
+    const previousWidth = experienceWidth
+    const previousHeight = experienceHeight
+    const previousRadius = loupeLayout.radius
+    experienceWidth = Math.max(experience.offsetWidth, 1)
+    experienceHeight = Math.max(experience.offsetHeight, 1)
+    loupeLayout = resolveNanowireLoupeLayout(experienceWidth, experienceHeight, loupe.offsetWidth)
+    if (
+      previousWidth === experienceWidth
+      && previousHeight === experienceHeight
+      && previousRadius === loupeLayout.radius
+    ) return
+    if (swipeStart) releaseCapturedPointer(experience, swipeStart.pointerId)
+    if (loupeDrag) releaseCapturedPointer(loupe, loupeDrag.pointerId)
+    swipeStart = null
+    loupeDrag = null
+    loupe.classList.remove('is-dragging')
+    loupeMoveQueue.cancel()
+    scene?.resize()
+    const locked = loupe.classList.contains('is-locked')
+    const point = locked ? scene?.getDefectScreenPosition() : null
+    setLoupePosition(
+      point?.x ?? loupePosition.x * experienceWidth / previousWidth,
+      point?.y ?? loupePosition.y * experienceHeight / previousHeight
+    )
+  }
+  const layoutObserver = new ResizeObserver(resizeLayout)
+  layoutObserver.observe(experience)
+  layoutObserver.observe(loupe)
+
   const abortMount = () => {
     if (disposed) return
     disposed = true
     listeners.abort()
+    layoutObserver.disconnect()
     for (const [timer, resolve] of timers) {
       window.clearTimeout(timer)
       resolve()
@@ -628,7 +660,9 @@ export async function mount(container, options = {}) {
     const start = swipeStart
     swipeStart = null
     releaseCapturedPointer(experience, event.pointerId)
-    if (isDownwardSwipe(start, toDesignPoint(event, start.mapping))) void runBuildFlow()
+    if (isDownwardSwipe(start, toDesignPoint(event, start.mapping), {
+      minimumDistance: loupeLayout.swipeDistance
+    })) void runBuildFlow()
   }, { signal: listeners.signal })
 
   experience.addEventListener('pointercancel', event => {
@@ -700,7 +734,7 @@ export async function mount(container, options = {}) {
 
   loupe.addEventListener('keydown', event => {
     if (phase !== NANOWIRE_PHASES.inspect) return
-    const movement = reducedMotion ? 64 : 36
+    const movement = loupeLayout.keyboardStep
     const moves = {
       ArrowLeft: [-movement, 0],
       ArrowRight: [movement, 0],
@@ -716,7 +750,7 @@ export async function mount(container, options = {}) {
     resolveLoupeMagneticPull(
       { x: loupePosition.x + delta[0], y: loupePosition.y + delta[1] },
       defectPosition,
-      NANOWIRE_LOUPE_TARGETING,
+      loupeLayout.targeting,
       magneticPoint
     )
     setLoupePosition(magneticPoint.x, magneticPoint.y)
@@ -756,6 +790,7 @@ export async function mount(container, options = {}) {
     setExplainer(NANOWIRE_COPY.intro, { replay: true })
     setInstruction(NANOWIRE_COPY.intro.tooltip, true)
     setStatus('Tap the atom to start building the qubit.')
+    resizeLayout()
     startTargetRaf = requestAnimationFrame(trackStartTarget)
   } catch (error) {
     abortMount()

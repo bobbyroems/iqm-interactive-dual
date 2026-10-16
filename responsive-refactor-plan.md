@@ -83,7 +83,10 @@ architecture.
   supported on that matrix with no polyfills needed, and dropping
   kiosk/Electron removes any legacy embedded-browser constraint.
 - **Testing approach:** manual resize/viewport checks for now; no automated
-  visual-regression or viewport test matrix in this phase.
+  visual-regression suite or full browser/device matrix in this phase.
+  `npm run check:nanowire-layout` now provides targeted Chromium viewport
+  and interaction coverage for `build-nanowire`; physical-device QA remains
+  separate.
 
 **Breakpoint strategy: fluid CSS first, few content-driven breakpoints.**
 
@@ -146,7 +149,7 @@ module view, dev HUD, screen transitions) is converted to fluid `clamp()`
 sizing. The module carousel — deferred here into Phase 3 because of its
 coupling to 3D camera/composition code — is also done (see below).
 
-### Phase 3 — Module-by-module migration (carousel done, per-module CSS not started)
+### Phase 3 — Module-by-module migration (carousel done, 5 of 9 modules converted)
 
 Tackle smallest to largest so the pattern is proven before the big ones:
 
@@ -162,6 +165,15 @@ Tackle smallest to largest so the pattern is proven before the big ones:
 
 Each module: rework CSS to fluid/reflowing layout, then adjust its JS/canvas
 sizing to match.
+
+**Main caveat:** "converted" does not yet mean fully reflowing or mobile-ready.
+Several modules still fit a portrait design board into the available space
+rather than rearranging its contents. In particular, `measurement-based`
+letterboxes and shrinks its copy on small screens; the States of Matter
+frost/steam keep-out masks still assume a 9:16 panel. These are outstanding
+responsive-layout limitations, not completed cross-device QA. Preserve the
+registered media where necessary, but do not treat uniform board scaling as
+the final responsive solution.
 
 **Done so far:** the shared module carousel (`.module-carousel`,
 `.module-card` and children in `app.css`) is fully converted — fixed
@@ -206,7 +218,20 @@ stage. Letterboxed on non-9:16 viewports. Copy scales with the board, so it
 shrinks proportionally on small screens. The stage uses only `transform`, so
 the connector glow's backdrop-filter still sees the video.
 
-**Not started:** the remaining 5 modules' own CSS files still hardcode
+**Module 5 (`build-nanowire`) converted:** guidance and instructions now flow
+above a separately sized 3D workspace, with scrolling on short viewports.
+Guidance is rendered at 50% size (including its minimum type sizes), capped
+at 200px on screen, with compact fluid type, spacing and image sizing that
+fit its content without internal scrolling. The microscope media stays left
+of the copy at every width; the
+panel never stacks. The magnifier bitmap, live lens and handle grip share
+one fluid diameter; drag bounds, magnetic targeting,
+keyboard steps and swipe thresholds follow the measured workspace/lens.
+Resize updates the camera framing and repositions the magnifier, including
+its locked defect position. The kiosk-only bottom-30% exclusion is removed.
+Manual visual review on physical devices remains outstanding.
+
+**Not started:** the remaining 4 modules' own CSS files still hardcode
 `width: 2160px` internally and need their own conversion pass, one at a
 time in the order above.
 

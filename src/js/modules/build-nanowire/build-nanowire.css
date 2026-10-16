@@ -7,10 +7,12 @@
   --nw-ink: #2a446f;
   --nw-loupe-x: -700px;
   --nw-loupe-y: -700px;
+  --nw-loupe-size: clamp(96px, 14cqw, 524px);
   position: absolute;
   inset: 0;
-  width: 2160px;
-  height: 3840px;
+  display: flex;
+  flex-direction: column;
+  container-type: inline-size;
   overflow: hidden;
   background: #fff;
   color: var(--nw-ink);
@@ -24,16 +26,41 @@
 
 .nw__header {
   width: 100%;
-  min-height: 120px;
   background: rgba(255, 255, 255, 0.72);
   backdrop-filter: blur(14px);
 }
 
 .nw__experience {
-  position: absolute;
-  inset: 120px 0 0;
-  overflow: hidden;
+  position: relative;
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  flex-direction: column;
+  padding-top: var(--band-height);
+  overflow: auto;
   background: #fff;
+}
+
+.nw__guidance {
+  --nw-guidance-scale: 0.5;
+  zoom: var(--nw-guidance-scale);
+  position: relative;
+  z-index: 5;
+  display: flex;
+  flex: 0 0 auto;
+  max-height: calc(200px / var(--nw-guidance-scale));
+  flex-direction: column;
+  align-items: center;
+  gap: clamp(8px, 0.5rem + 0.25cqw, 16px);
+  padding: clamp(8px, 0.5rem + 0.25cqw, 16px) clamp(16px, 4cqw, 120px);
+  overflow: clip;
+}
+
+.nw__workspace {
+  position: relative;
+  flex: 1 0 clamp(280px, 48svh, 1800px);
+  min-height: 280px;
+  overflow: hidden;
   outline: none;
   touch-action: none;
 }
@@ -128,10 +155,10 @@
 .nw__atom-start {
   position: absolute;
   z-index: 7;
-  top: var(--nw-atom-start-y, 1550px);
-  left: var(--nw-atom-start-x, 850px);
-  width: 460px;
-  height: 460px;
+  top: var(--nw-atom-start-y, 50%);
+  left: var(--nw-atom-start-x, 50%);
+  width: clamp(48px, 12cqw, 460px);
+  height: clamp(48px, 12cqw, 460px);
   padding: 0;
   border: 0;
   border-radius: 50%;
@@ -180,99 +207,99 @@
 }
 
 .nw__prompt {
-  --kiosk-explainer-body-size: 60px;
+  --kiosk-explainer-body-size: calc(clamp(16px, 1rem + 1cqw, 32px) * 1.15);
   --kiosk-explainer-body-white-space: normal;
-  --kiosk-explainer-content-gap: 48px;
+  --kiosk-explainer-content-gap: clamp(8px, 0.5rem + 0.25cqw, 16px);
   --kiosk-explainer-padding: 0;
-  --kiosk-explainer-title-size: 96px;
-  position: absolute;
+  --kiosk-explainer-title-size: calc(clamp(24px, 1.5rem + 2cqw, 48px) * 1.15);
+  position: relative;
   z-index: 5;
-  top: 430px;
-  left: 50%;
-  width: 1600px;
-  transform: translateX(-50%);
+  width: min(100%, 1600px);
+  min-width: 0;
+  flex-shrink: 0;
+  transform: none;
 }
 
 .nw__prompt.is-showing {
-  transform: translateX(-50%);
+  transform: none;
 }
 
 .nw__prompt .kiosk-explainer__body,
 .nw__prompt .kiosk-explainer__footer {
-  width: 1040px;
+  width: 100%;
   margin-inline: auto;
 }
 
 .nw__prompt--defect .kiosk-explainer__body {
-  width: 1240px;
+  width: 100%;
   max-width: 100%;
   text-wrap: pretty;
 }
 
 .nw__prompt[data-kiosk-explainer-layout="split"] {
-  --kiosk-explainer-border-radius: 20px;
+  --kiosk-explainer-border-radius: clamp(8px, 1cqw, 20px);
   --kiosk-explainer-box-shadow: 0 4px 104px rgba(0, 0, 0, 0.1);
-  /* 2.5 here plus the 53.5 margin on the media below is the 56 this gap used to
-     be, so moving the picture across does not carry the copy with it. */
-  --kiosk-explainer-content-gap: 2.5px;
-  --kiosk-explainer-padding: 8px;
-  top: 380px;
-  width: 1894px;
-  height: 672px;
+  --kiosk-explainer-content-gap: clamp(8px, 0.5rem + 0.5cqw, 20px);
+  --kiosk-explainer-padding: clamp(8px, 0.5rem + 0.25cqw, 16px);
+  width: min(100%, 1894px);
+  flex-direction: row;
+  flex-wrap: nowrap;
 }
 
-/* Height follows the supplied micrograph's 1764 x 1208 aspect: the shared media
-   image is `object-fit: fill`, so a slot of any other ratio would stretch the
-   lattice out of square. Centred rather than stretched, because the panel is
-   taller than the picture and the split layout would otherwise pin it to the
-   top edge and leave all the slack underneath. */
+/* Preserve the micrograph's aspect ratio rather than stretching its lattice. */
 .nw__prompt[data-kiosk-explainer-layout="split"] .kiosk-explainer__media {
-  width: 712px;
-  height: 488px;
-  align-self: center;
-  /* Centred in the space it has rather than pinned to the panel's padding: the
-     copy starts 835 in, so a 712 picture sits 61.5 from each side of that, and
-     8 of those 61.5 is already the panel's own padding. */
-  margin-left: 53.5px;
+  width: clamp(100px, 20cqw, 280px);
+  height: auto;
+  aspect-ratio: 1764 / 1208;
+  align-self: flex-start;
   overflow: hidden;
   border-radius: 14px;
 }
 
 .nw__prompt[data-kiosk-explainer-layout="split"] .kiosk-explainer__copy {
-  width: 1098px;
+  flex: 1;
+  min-width: 0;
   justify-content: center;
 }
 
 .nw__prompt[data-kiosk-explainer-layout="split"] .kiosk-explainer__title,
 .nw__prompt[data-kiosk-explainer-layout="split"] .kiosk-explainer__body {
-  width: 980px;
+  width: 100%;
   text-align: left;
 }
 
 .nw__instruction {
-  position: absolute;
+  --kiosk-tooltip-scale: 1;
+  position: relative;
   z-index: 6;
-  top: 1160px;
-  left: 50%;
+  min-width: 0;
+  max-width: 100%;
+  flex-shrink: 0;
   opacity: 0;
-  transform: translate(-50%, 18px);
+  transform: translateY(18px);
   transition: opacity 380ms var(--ease-out), transform 480ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .nw__instruction.is-showing {
   opacity: 1;
-  transform: translate(-50%, 0);
+  transform: translateY(0);
+}
+
+.nw__instruction .kiosk-tooltip__text {
+  min-width: 0;
+  font-size: calc(clamp(14px, 0.875rem + 1cqw, 32px) * 1.15);
+  white-space: normal;
 }
 
 .nw__instruction.has-swipe-arrow {
   grid-auto-flow: column;
-  column-gap: 18px;
+  column-gap: clamp(8px, 1cqw, 18px);
 }
 
 .nw__instruction-arrow {
   display: none;
-  width: 44px;
-  height: 54px;
+  width: clamp(20px, 2cqw, 44px);
+  height: auto;
   flex: 0 0 auto;
 }
 
@@ -290,8 +317,8 @@
   z-index: 9;
   top: 0;
   left: 0;
-  width: 524px;
-  height: 524px;
+  width: var(--nw-loupe-size);
+  height: var(--nw-loupe-size);
   overflow: visible;
   border-radius: 50%;
   opacity: 0;
@@ -347,7 +374,7 @@
 
 .nw__loupe-glass {
   position: absolute;
-  inset: 37px;
+  inset: 7.061069%;
   overflow: hidden;
   border: 2px solid rgba(70, 79, 89, 0.58);
   border-radius: 50%;
@@ -379,11 +406,11 @@
 .nw__loupe-grip {
   position: absolute;
   z-index: 5;
-  top: 733px;
-  left: 759px;
-  width: 520px;
-  height: 164px;
-  border-radius: 82px;
+  top: 139.885496%;
+  left: 144.847328%;
+  width: 99.236641%;
+  height: 31.29771%;
+  border-radius: 999px;
   transform: translate(-50%, -50%) rotate(44.4deg);
 }
 
@@ -396,11 +423,11 @@
      rendered opening over .nw__loupe-glass exactly. The source is intentionally
      composited with screen because its black field is part of the delivered
      bitmap. The radial mask makes the lens itself a genuine live viewport. */
-  top: -94px;
-  left: -338px;
+  top: -17.938931%;
+  left: -64.503817%;
   display: block;
-  width: 1593px;
-  height: 1062px;
+  width: 304.007634%;
+  height: 202.671756%;
   background-image: var(--nw-loupe-asset-image);
   background-position: center;
   background-repeat: no-repeat;
@@ -415,12 +442,12 @@
   pointer-events: none;
   transition: filter 900ms cubic-bezier(0.16, 1, 0.3, 1);
   -webkit-mask-image: radial-gradient(
-    circle 225px at 600px 356px,
+    circle calc(var(--nw-loupe-size) * 225 / 524) at 37.664783% 33.521657%,
     transparent 0 99%,
     #000 100%
   );
   mask-image: radial-gradient(
-    circle 225px at 600px 356px,
+    circle calc(var(--nw-loupe-size) * 225 / 524) at 37.664783% 33.521657%,
     transparent 0 99%,
     #000 100%
   );
@@ -499,24 +526,23 @@
 .nw .nw__corrected {
   position: absolute;
   z-index: 5;
-  top: -168px;
+  top: -32.061069%;
   bottom: auto;
   left: 50%;
   display: flex;
-  width: 458px;
-  height: 140px;
-  flex: 0 0 458px;
+  width: max-content;
+  min-height: clamp(36px, 4cqw, 140px);
   align-items: center;
   justify-content: center;
-  gap: 24px;
-  padding: 0 32px;
+  gap: clamp(8px, 1cqw, 24px);
+  padding: clamp(8px, 1cqw, 24px);
   border: 0;
-  border-radius: 16px;
+  border-radius: clamp(6px, 1cqw, 16px);
   background: #0055d4;
   box-shadow: 0 10px 28px rgba(0, 44, 116, 0.2);
   color: #fff;
   font-family: var(--font-display);
-  font-size: 50px;
+  font-size: clamp(14px, 0.875rem + 1cqw, 50px);
   font-weight: 400;
   line-height: 1;
   letter-spacing: -0.5px;
@@ -529,16 +555,14 @@
 }
 
 .nw .nw__corrected {
-  width: 499px;
-  flex-basis: 499px;
   background: #549900;
   box-shadow: 0 12px 30px rgba(49, 103, 0, 0.22);
 }
 
 .nw__action-check {
   display: grid;
-  width: 72px;
-  height: 72px;
+  width: 1.4em;
+  height: 1.4em;
   flex: 0 0 auto;
   border-radius: 50%;
   background: rgba(255, 255, 255, 0.2);
@@ -546,8 +570,8 @@
 }
 
 .nw__action-check img {
-  width: 61px;
-  height: 61px;
+  width: 85%;
+  height: 85%;
 }
 
 .nw[data-phase="targeted"] .nw__found,
@@ -683,7 +707,7 @@
   position: absolute;
   z-index: 8;
   left: 50%;
-  bottom: 440px;
+  bottom: 0;
   display: flex;
   align-items: center;
   flex-direction: column;

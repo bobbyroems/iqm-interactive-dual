@@ -111,6 +111,15 @@ export const NANOWIRE_LOUPE_OPTICS_MODES = Object.freeze({
 })
 
 const clamp = (value, min = 0, max = 1) => Math.min(max, Math.max(min, value))
+
+export function resolveNanowireCameraFov(width, height) {
+  const referenceAspect = 2160 / 3720
+  const aspect = Math.max(width, 1) / Math.max(height, 1)
+  const tangent = Math.tan(31 * Math.PI / 360)
+  // Limit wide-view zoom so the separated layers retain vertical headroom.
+  return Math.atan(tangent * Math.max(referenceAspect / aspect, 0.65)) * 360 / Math.PI
+}
+
 const smoothstep = (minimum, maximum, value) => {
   const t = clamp((value - minimum) / (maximum - minimum))
   return t * t * (3 - 2 * t)
@@ -1265,6 +1274,7 @@ export async function createNanowireScene(host, loupeHost, options = {}) {
       hostHeight = nextHostHeight
       renderer.setSize(hostWidth, hostHeight, false)
       camera.aspect = hostWidth / hostHeight
+      camera.fov = resolveNanowireCameraFov(hostWidth, hostHeight)
       camera.updateProjectionMatrix()
       defectProjectionDirty = true
       magnifierCameraDirty = true
@@ -1293,6 +1303,7 @@ export async function createNanowireScene(host, loupeHost, options = {}) {
   window.addEventListener('resize', resize)
   if (loupeHost) observer.observe(loupeHost)
   const controller = {
+    resize,
     playIntro(options = {}) {
       if (introPromise) return introPromise
       introStageCallback = typeof options.onStage === 'function' ? options.onStage : null

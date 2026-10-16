@@ -112,6 +112,32 @@ export const NANOWIRE_LOUPE_TARGETING = Object.freeze({
   pullCurve: 1.5
 })
 
+export function resolveNanowireLoupeLayout(width, height, diameter) {
+  const radius = diameter / 2
+  const minX = Math.min(radius, width / 2)
+  const minY = Math.min(radius + (diameter * 168 / 524), height / 2)
+  const maxX = Math.max(minX, width - radius)
+  const maxY = Math.max(minY, height - radius)
+  const scale = diameter / 524
+  return {
+    radius,
+    minX,
+    maxX,
+    minY,
+    maxY,
+    initialX: Math.min(maxX, Math.max(minX, width - (diameter * 1.6))),
+    initialY: Math.min(maxY, Math.max(minY, height * 0.45)),
+    swipeDistance: Math.min(150, Math.max(24, height * 0.08)),
+    keyboardStep: Math.max(12, 36 * scale),
+    targeting: {
+      ...NANOWIRE_LOUPE_TARGETING,
+      lockRadius: NANOWIRE_LOUPE_TARGETING.lockRadius * scale,
+      releaseRadius: NANOWIRE_LOUPE_TARGETING.releaseRadius * scale,
+      pullRadius: NANOWIRE_LOUPE_TARGETING.pullRadius * scale
+    }
+  }
+}
+
 export const NANOWIRE_INTRO_TIMING = Object.freeze({
   /* The hero atom is the first presentation-ready frame under the route wipe,
      so its entrance is intentionally immediate and its hold owns the opening beat. */
