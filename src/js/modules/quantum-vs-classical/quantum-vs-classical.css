@@ -12,20 +12,21 @@
   /* The flat blue the principle pills are drawn in on the 25 Aug board. */
   position: absolute;
   inset: 0;
-  width: 2160px;
-  height: 3840px;
+  display: flex;
+  flex-direction: column;
+  container-type: inline-size;
   overflow: hidden;
   /* Soft aurora wash (same family as the main carousel screen) instead
      of a flat surface. */
   background:
-    radial-gradient(1500px 1300px at 16% 10%, rgba(255, 227, 238, 0.6), transparent 62%),
-    radial-gradient(1700px 1500px at 86% 26%, rgba(217, 235, 252, 0.75), transparent 66%),
-    radial-gradient(1600px 1400px at 50% 92%, rgba(233, 240, 250, 0.6), transparent 70%),
+    radial-gradient(ellipse 70% 50% at 16% 10%, rgba(255, 227, 238, 0.6), transparent 62%),
+    radial-gradient(ellipse 80% 60% at 86% 26%, rgba(217, 235, 252, 0.75), transparent 66%),
+    radial-gradient(ellipse 75% 55% at 50% 92%, rgba(233, 240, 250, 0.6), transparent 70%),
     var(--qvc-surface);
   color: var(--qvc-ink);
   font-family: var(--font-text);
   isolation: isolate;
-  touch-action: none;
+  touch-action: pan-y;
 }
 
 .qvc[data-view='menu'] {
@@ -85,9 +86,10 @@
 }
 
 .qvc__experience {
-  position: absolute;
+  position: relative;
   z-index: 1;
-  inset: 120px 0 0;
+  flex: 1;
+  min-height: 0;
   overflow: hidden;
 }
 
@@ -121,6 +123,12 @@
 .qvc__transition-content {
   position: absolute;
   inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(24px, 3cqw, 96px);
+  padding: 24px;
   opacity: 0;
   transform: translateY(90px);
   transition:
@@ -129,29 +137,26 @@
 }
 
 .qvc__transition-title {
-  position: absolute;
-  top: 739px;
-  right: 0;
-  left: 0;
+  max-width: 100%;
   display: flex;
   align-items: center;
   justify-content: center;
   /* The board's 95px between the end of the word and the spinner. */
-  gap: 95px;
+  gap: clamp(12px, 2cqw, 64px);
   margin: 0;
   color: var(--band-ink);
   font-family: var(--font-display);
-  font-size: 96px;
+  font-size: clamp(24px, 1.5rem + 1cqw, 64px);
   font-weight: 600;
   letter-spacing: -0.02em;
   line-height: 1.33;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
 }
 
 .qvc__transition-spinner {
   display: block;
-  width: 120px;
-  height: 120px;
+  width: clamp(24px, 3cqw, 80px);
+  height: clamp(24px, 3cqw, 80px);
   flex: 0 0 auto;
   color: var(--band-deep);
   animation: qvc-transition-spin 900ms linear infinite;
@@ -170,10 +175,7 @@
 }
 
 .qvc__transition-path {
-  position: absolute;
-  top: 1167px;
-  right: 0;
-  left: 0;
+  width: 100%;
 }
 
 .qvc[data-transition='covering'] .qvc__transition {
@@ -237,6 +239,12 @@
 .qvc__menu {
   position: absolute;
   inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: clamp(24px, 3cqw, 96px);
+  padding: calc(var(--band-height) + 24px) clamp(16px, 3cqw, 72px) 32px;
+  overflow: auto;
 }
 
 /* Back precomposes the retained WebGL layers beneath the still-visible game.
@@ -256,103 +264,75 @@
 .qvc-copy {
   display: flex;
   flex-direction: column;
-  gap: 144px;
-  width: 1400px;
+  gap: clamp(16px, 1rem + 1cqw, 40px);
+  width: min(100%, 1200px);
   text-align: center;
 }
 
 .qvc-copy h2 {
   margin: 0;
   color: var(--qvc-ink);
-  font-size: 64px;
+  font-size: clamp(24px, 1.5rem + 1cqw, 64px);
   font-weight: 600;
   line-height: 1.25;
 }
 
 .qvc-copy p {
   align-self: center;
-  width: 1200px;
+  width: min(100%, 70ch);
   margin: 0;
   color: var(--qvc-ink);
-  font-size: 48px;
+  font-size: clamp(16px, 1rem + 0.5cqw, 32px);
   font-weight: 400;
   line-height: 1.4;
 }
 
-/*
- * Nothing in this module may sit in the bottom 30% of the stage (below stage
- * y 2688, which is y 2468 here inside .qvc__experience). The menu column is
- * compressed upward to fit copy, cards, hint and outro above that line.
- */
-/* Figma 255:3750 "Copy Box": centred at x480/y500, 1200 wide, both lines in
-   Dimensional/Blue Black rather than the navy the rest of the module uses. */
 .qvc__menu-copy {
-  position: absolute;
-  top: 500px;
-  left: 480px;
-  gap: 80px;
-  width: 1200px;
+  flex: 0 0 auto;
   margin: 0;
 }
 
 .qvc__menu-copy h2 {
-  width: 1200px;
+  width: 100%;
   color: var(--band-ink);
-  font-size: 96px;
+  font-size: clamp(24px, 1.5rem + 1cqw, 64px);
   letter-spacing: -0.02em;
-  line-height: 1.12;
+  line-height: 1.3;
 }
 
 .qvc__menu-copy p {
-  width: 1200px;
+  width: 100%;
   color: var(--band-ink);
   font-family: var(--font-display);
-  font-size: 60px;
+  font-size: clamp(16px, 1rem + 0.5cqw, 32px);
   font-weight: 600;
   letter-spacing: -0.02em;
-  line-height: 1.25;
+  line-height: 1.5;
 }
 
 /* The current Figma has no cards: each tappable principle is an authored
    asset floating over a soft contact shadow with its CTA below. */
 .qvc__menu-cards {
-  position: absolute;
-  top: 1602px;
-  left: 224.9135px;
-  width: 1710.0002px;
-  height: 891.0146px;
+  display: grid;
+  width: min(100%, 1800px);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: clamp(16px, 3cqw, 80px);
 }
 
 .qvc__menu-card {
-  position: absolute;
+  position: relative;
   z-index: 2;
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  align-items: center;
+  gap: clamp(16px, 2cqw, 48px);
   padding: 0;
   overflow: visible;
   border-radius: 0;
   background: transparent;
   box-shadow: none;
   touch-action: manipulation;
-}
-
-.qvc__menu-card--superposition {
-  top: 8.6813px;
-  left: 0;
-  width: 465px;
-  height: 882.3334px;
-}
-
-.qvc__menu-card--entanglement {
-  top: 353.0829px;
-  left: 625px;
-  width: 500.0003px;
-  height: 537.9318px;
-}
-
-.qvc__menu-card--interference {
-  top: 0;
-  left: 1285.0002px;
-  width: 425px;
-  height: 891.0146px;
 }
 
 .qvc__menu-card:active {
@@ -380,31 +360,12 @@
 }
 
 .qvc__menu-card-scene {
-  position: absolute;
+  position: relative;
   display: block;
+  width: 100%;
+  height: clamp(180px, 26svh, 900px);
   pointer-events: none;
   touch-action: none;
-}
-
-.qvc__menu-card--superposition .qvc__menu-card-scene {
-  top: 0;
-  left: 114px;
-  width: 237px;
-  height: 577px;
-}
-
-.qvc__menu-card--entanglement .qvc__menu-card-scene {
-  top: 0;
-  left: 0;
-  width: 500px;
-  height: 232.5984px;
-}
-
-.qvc__menu-card--interference .qvc__menu-card-scene {
-  top: 0;
-  left: 77.5px;
-  width: 270px;
-  height: 611.6813px;
 }
 
 .qvc__menu-render,
@@ -421,21 +382,6 @@
 
 .qvc__menu-render {
   background: transparent;
-}
-
-/* WebGL needs vertical breathing room beyond the authored asset bounds: the
-   coins rotate into silhouettes taller than their static Figma thumbnails.
-   Each padded canvas keeps the original visual centre and pixels-per-unit. */
-.qvc__menu-card--superposition .qvc__menu-render {
-  top: -111.5px;
-  bottom: auto;
-  height: 800px;
-}
-
-.qvc__menu-card--entanglement .qvc__menu-render {
-  top: -80px;
-  bottom: auto;
-  height: 392.5984px;
 }
 
 .qvc__menu-canvas {
@@ -472,26 +418,26 @@
 }
 
 .qvc__menu-card--superposition .qvc__menu-shadow {
-  top: 558px;
-  left: 6px;
-  width: 231px;
-  height: 19px;
+  bottom: 5%;
+  left: 30%;
+  width: 40%;
+  height: 8px;
   animation: qvc-menu-shadow-breathe 4.8s cubic-bezier(0.37, 0, 0.22, 1) infinite alternate;
 }
 
 .qvc__menu-card--entanglement .qvc__menu-shadow {
-  top: 211.0964px;
-  left: 35.0418px;
-  width: 441.204px;
-  height: 21.5027px;
+  bottom: 5%;
+  left: 10%;
+  width: 80%;
+  height: 8px;
   animation: qvc-menu-shadow-breathe 4.6s cubic-bezier(0.37, 0, 0.22, 1) infinite alternate;
 }
 
 .qvc__menu-card--interference .qvc__menu-shadow {
-  top: 563.5279px;
-  left: 78.2657px;
-  width: 114.4221px;
-  height: 22.8844px;
+  bottom: 5%;
+  left: 32%;
+  width: 36%;
+  height: 8px;
   animation: qvc-menu-buoy-shadow 4.2s cubic-bezier(0.37, 0, 0.22, 1) infinite alternate;
 }
 
@@ -500,28 +446,29 @@
    and a chevron in a soft disc against the right, rather than a centred label
    on a gradient. */
 .qvc__principle {
-  position: absolute;
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 32px;
-  height: 140px;
-  padding: 0 48px;
+  width: 100%;
+  min-height: 48px;
+  gap: clamp(8px, 1cqw, 24px);
+  padding: clamp(12px, 1.5cqw, 32px);
   border-radius: 16px;
   background: var(--band-deep);
   color: #ffffff;
   font-family: var(--font-display);
-  font-size: 50px;
+  font-size: clamp(16px, 1rem + 0.5cqw, 40px);
   font-weight: 400;
   letter-spacing: -0.01em;
-  line-height: 1;
+  line-height: 1.4;
   transition:
     filter 100ms ease-out,
     transform 140ms cubic-bezier(0.2, 0, 0, 1);
 }
 
 .qvc__principle-label {
-  white-space: nowrap;
+  overflow-wrap: anywhere;
 }
 
 /* White at a fifth over whatever the pill is, so the disc reads the same on the
@@ -531,37 +478,16 @@
   flex: 0 0 auto;
   align-items: center;
   justify-content: center;
-  width: 81.0475px;
-  height: 81.0475px;
+  width: clamp(24px, 3cqw, 64px);
+  height: clamp(24px, 3cqw, 64px);
   border-radius: 50%;
   background: rgba(255, 255, 255, 0.2);
 }
 
 .qvc__principle-icon img {
   display: block;
-  width: 60.7856px;
-  height: 60.7856px;
-}
-
-.qvc__menu-card--superposition .qvc__principle {
-  top: 749px;
-  /* The board's own width and offset: wider than before to seat the chevron
-     disc, and pulled left by half that growth so the pill stays centred on the
-     visual above it. */
-  left: -23.5238px;
-  width: 512.0475px;
-}
-
-.qvc__menu-card--entanglement .qvc__principle {
-  top: 404.5984px;
-  left: 0;
-  width: 508.0475px;
-}
-
-.qvc__menu-card--interference .qvc__principle {
-  top: 757.6813px;
-  left: -23.5237px;
-  width: 472.0475px;
+  width: 75%;
+  height: 75%;
 }
 
 .qvc__menu-card:active .qvc__principle {
@@ -574,10 +500,10 @@
    copy and cards sit tighter than the board's, so it keeps this screen's own
    offset and only the control inside it is the board's. 100px is the circle. */
 .qvc__sequence {
-  position: absolute;
+  position: relative;
   z-index: 3;
-  inset: 1287px 0 auto;
-  height: 100px;
+  width: 100%;
+  flex: 0 0 auto;
   pointer-events: none;
 }
 
@@ -629,17 +555,27 @@
 
 /* ============ Shared game chrome ============ */
 
-.qvc__game-host,
-.qvc-game {
+.qvc__game-host {
   position: absolute;
   inset: 0;
+  padding-top: var(--band-height);
+  overflow: auto;
 }
 
-/* The bottom quarter of the tall panel is out of comfortable reach; the
-   playfield and every control live in the top 75%. */
+.qvc-game {
+  position: relative;
+  display: flex;
+  min-height: 100%;
+  flex-direction: column;
+  gap: clamp(16px, 1rem + 0.5cqw, 40px);
+  padding: clamp(16px, 2cqw, 48px);
+}
+
 .qvc-game__scene {
-  position: absolute;
-  inset: 0 0 26%;
+  position: relative;
+  flex: 1 0 clamp(280px, 50svh, 2000px);
+  min-height: clamp(280px, 50svh, 2000px);
+  overflow: hidden;
   touch-action: none;
 }
 
@@ -654,78 +590,87 @@
   opacity: 1;
 }
 
+.qvc .kiosk-tooltip {
+  --kiosk-tooltip-scale: 1;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.qvc .kiosk-tooltip__text {
+  font-size: clamp(14px, 0.875rem + 0.25cqw, 24px);
+  line-height: 1.4;
+  white-space: normal;
+}
+
+@container (max-width: 44rem) {
+  .qvc__menu-cards {
+    grid-template-columns: minmax(0, 1fr);
+    max-width: 420px;
+  }
+
+  .qvc:not([data-view='menu']) .qvc__brand-rule,
+  .qvc:not([data-view='menu']) .qvc__brand-quantum,
+  .qvc__utility-action > span:not(.microsoft-header__action-icon) {
+    display: none;
+  }
+}
+
+@container (max-width: 52rem) {
+  .qvc-interference__lesson-panel.kiosk-explainer.qvc-interference__lesson-panel--graphic {
+    flex-direction: column;
+  }
+
+  .qvc .qvc-interference__guidance .qvc-interference__lesson-panel .qvc-interference__lesson-visual {
+    width: min(100%, 400px);
+  }
+}
+
 /* ============ Superposition (Figma 1:2578) ============ */
 
-/*
- * The authored sequence moves one copy block and one hint pill around the coin
- * rather than showing several panels at once. `data-place` picks the band:
- * "high" reads above the resting coin, "low" drops below the airborne one so
- * bullet time never narrates over the thing it is describing.
- *
- * Offsets are measured inside .qvc__experience, which starts 120px down the
- * stage under the header — subtract that from any figure read off the Figma
- * frame. The authored coin also sits ~500px lower than this build's camera puts
- * it, so the arrangement is honoured while the spacing follows the real render.
- */
+/* Copy and hints flow separately from the scene instead of overlaying the coin. */
 .qvc-flip__copy,
 .qvc-flip__hint,
 .qvc-flip__result,
 .qvc-flip__tally {
-  position: absolute;
-  left: 50%;
-  transform: translateX(-50%);
+  position: relative;
+  align-self: center;
+  max-width: 100%;
+  flex: 0 0 auto;
   pointer-events: none;
 }
 
 .qvc-flip__copy {
   display: flex;
-  width: 1200px;
+  width: min(100%, 1200px);
   flex-direction: column;
   align-items: center;
-  gap: 80px;
-  padding: 60px;
+  gap: clamp(12px, 1rem + 0.5cqw, 32px);
+  padding: 0;
   text-align: center;
-}
-
-.qvc-flip[data-place='high'] .qvc-flip__copy {
-  top: 340px;
-}
-
-/* Sits just under the airborne coin rather than down by the readout — the gap
-   between the two left the narration stranded at the bottom of the stage. */
-.qvc-flip[data-place='low'] .qvc-flip__copy {
-  top: 1400px;
 }
 
 .qvc-flip__title {
   margin: 0;
   color: #091f2c;
-  font-size: 96px;
+  font-size: clamp(24px, 1.5rem + 1cqw, 64px);
   font-weight: 600;
   letter-spacing: -0.02em;
-  line-height: 1.1;
+  line-height: 1.3;
 }
 
 .qvc-flip__title[hidden] {
   display: none;
 }
 
-/* The measure every other body of copy in the build uses: .qvc-pair__body in
-   this same module and .som__info-copy p in Module 03, all at 60px type. It is
-   also exactly what the container affords -- .qvc-flip__copy is 1200px with
-   60px of padding and border-box sizing -- so 880 was leaving 200px of the
-   block unused. That went unnoticed while these two stages had no body copy;
-   once the document's paragraphs went in, every one of them ran a line longer
-   than it needed to. */
 .qvc-flip__body {
-  width: 1080px;
+  width: 100%;
   margin: 0;
   color: #091f2c;
   font-family: var(--font-display);
-  font-size: 60px;
+  font-size: clamp(16px, 1rem + 0.5cqw, 32px);
   font-weight: 600;
   letter-spacing: -0.02em;
-  line-height: 1.3;
+  line-height: 1.5;
 }
 
 /* Two of the 25 Aug stages set their copy as a pair of paragraphs rather than
@@ -737,7 +682,7 @@
 }
 
 .qvc-flip__body-line + .qvc-flip__body-line {
-  margin-top: 36px;
+  margin-top: 1em;
 }
 
 /* The one phrase the design sets in accent blue. */
@@ -787,45 +732,9 @@
   opacity: 1;
 }
 
-/* One position for all three stages where the coin is at rest, which is what
-   the Superposition board does — they used to sit at 1300, 1560 and 1000, so
-   the pill jumped around the screen between stages instead of holding its
-   place while the copy above it changed.
-
-   The board puts that shared pill at 1856. It cannot go there here: the coin
-   rests higher in frame in the build than the board draws it, and at 1856 the
-   pill lands on top of the coin rather than introducing it — which is what the
-   comment this replaces had already found.
-
-   So this is measured against where things actually are. The copy ends at 291
-   and the coin's top edge is at 504, in the window the measurement was taken
-   in; centring the pill in that 213px gap puts it at 1360. It clears the
-   tallest of the three copy blocks by 64px and the coin by 95px.
-
-   The mismatch worth settling with design is the coin's rest height, not the
-   pill — fix that and this can go back to the board's own number. */
-.qvc-flip[data-stage='ready'] .qvc-flip__hint,
-.qvc-flip[data-stage='reframed'] .qvc-flip__hint,
-.qvc-flip[data-stage='landed'] .qvc-flip__hint {
-  top: 1230px;
-}
-
-/* Directly under the narration that drops below the airborne coin, roughly a
-   couple of lines beneath it so it reads as belonging to that copy. */
-.qvc-flip[data-stage='bullet'] .qvc-flip__hint {
-  top: 2120px;
-}
-
-/* Landed makes room between the hint and the coin for the result word. */
-
-/* The ready prompt's wipe used to live here, scoped to this one stage. Every
-   tooltip carries it now, so it comes from .kiosk-tooltip in app.css and this
-   game keeps only its placement rules. */
-
 .qvc-flip__result {
-  top: 1450px;
   color: #225b62;
-  font-size: 128px;
+  font-size: clamp(28px, 1.75rem + 1cqw, 72px);
   font-weight: 600;
   letter-spacing: -0.02em;
   /* Descenders need real line box room — 1.0 cropped the tail of "Tails". */
@@ -839,9 +748,7 @@
   opacity: 1;
 }
 
-/* Keep the counter row low on the stage, clear of the landed result. */
 .qvc-flip__tally {
-  top: 2570px;
   display: flex;
   flex-direction: column;
   align-items: flex-start;
@@ -861,20 +768,22 @@
 
 .qvc-flip__tally-groups {
   display: flex;
-  gap: 84px;
+  gap: clamp(16px, 3cqw, 64px);
+  flex-wrap: wrap;
+  justify-content: center;
   align-items: center;
 }
 
 .qvc-flip__tally-group {
   display: flex;
-  gap: 34px;
+  gap: clamp(8px, 1cqw, 24px);
   align-items: center;
 }
 
 .qvc-flip__tally-label {
   color: #091f2c;
   font-family: var(--font-text);
-  font-size: 42px;
+  font-size: clamp(16px, 1rem + 0.5cqw, 32px);
   font-weight: 700;
 }
 
@@ -892,8 +801,8 @@
 .qvc-flip__tally-digit {
   position: relative;
   display: flex;
-  width: 100px;
-  height: 144px;
+  width: clamp(28px, 3cqw, 80px);
+  height: clamp(40px, 4.3cqw, 116px);
   align-items: center;
   justify-content: center;
   border-radius: 14px;
@@ -909,7 +818,7 @@
     inset 0 2px 0 rgba(255, 255, 255, 0.14);
   color: #fff;
   font-family: var(--font-text);
-  font-size: 76px;
+  font-size: clamp(24px, 2.5cqw, 64px);
   font-weight: 700;
   font-variant-numeric: tabular-nums;
   line-height: 1;
@@ -955,12 +864,6 @@
 
 /* ============ Entanglement (Figma 1:2579) ============ */
 
-/*
- * Same staged shape as Superposition: one copy block, one call to action, and
- * a result row that only the measured stage shows. The pair of coins holds the
- * middle of the stage throughout, so the copy stays above it and the control
- * below it rather than either moving between bands.
- */
 /* Entanglement is the one thing on this screen that cannot be drawn on the
    coins themselves — they look the same entangled as not. So the stage says
    it: from the moment the pair are linked the backdrop takes the module's
@@ -996,30 +899,22 @@
 .qvc-pair__copy,
 .qvc-pair__outcome,
 .qvc-pair__hint {
-  position: absolute;
-  left: 50%;
-  transform: translateX(-50%);
+  position: relative;
+  align-self: center;
+  max-width: 100%;
+  flex: 0 0 auto;
   pointer-events: none;
 }
 
-/* The board's upper block, over the coins (Figma 4:3695). Its lead sits at 560
-   on the two stages that name an idea and at 660 on the one that explains it,
-   which is the padding difference below rather than two positions. */
 .qvc-pair__lead {
-  top: 360px;
   display: flex;
-  width: 1200px;
+  width: min(100%, 1200px);
   flex-direction: column;
   align-items: center;
-  gap: 48px;
-  padding: 60px;
+  gap: clamp(12px, 1rem + 0.5cqw, 32px);
+  padding: 0;
   text-align: center;
   transition: opacity 220ms ease;
-}
-
-.qvc-pair[data-stage='measured'] .qvc-pair__lead {
-  top: 600px;
-  width: 1800px;
 }
 
 /* Honours the authored break in the copy. It was `nowrap`, which held the whole
@@ -1031,54 +926,48 @@
 .qvc-pair__lead-title {
   margin: 0;
   color: #091f2c;
-  font-size: 128px;
-  font-weight: 600;
-  letter-spacing: -0.02em;
-  line-height: 1;
-}
-
-.qvc-pair__lead-body {
-  width: 1000px;
-  margin: 0;
-  color: #091f2c;
-  font-family: var(--font-display);
-  font-size: 60px;
+  font-size: clamp(24px, 1.5rem + 1cqw, 64px);
   font-weight: 600;
   letter-spacing: -0.02em;
   line-height: 1.3;
 }
 
-/* Down with the coins it labels, rather than stacked under the lead: the board
-   puts the phase label at 1920 and its body at 2098. */
-/* Measured against the board: there the sentence ends around 62% down the
-   screen and the button starts at 67%, leaving a clear five per cent of air.
-   At 1860 this block ended at 65% with the button at 66% — all but touching. */
+.qvc-pair__lead-body {
+  width: 100%;
+  margin: 0;
+  color: #091f2c;
+  font-family: var(--font-display);
+  font-size: clamp(16px, 1rem + 0.5cqw, 32px);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.5;
+}
+
 .qvc-pair__copy {
-  top: 1700px;
   display: flex;
-  width: 1200px;
+  width: min(100%, 1200px);
   flex-direction: column;
   align-items: center;
-  gap: 60px;
-  padding: 60px;
+  gap: clamp(12px, 1rem + 0.5cqw, 32px);
+  padding: 0;
   text-align: center;
-  transition: opacity 220ms ease, top 420ms cubic-bezier(0.2, 0, 0, 1);
+  transition: opacity 220ms ease;
 }
 
 /* The measured stage carries nothing below the coins — the result does — so
    this block is hidden there rather than repositioned. */
 .qvc-pair[data-stage='measured'] .qvc-pair__copy {
-  top: 1860px;
+  top: auto;
 }
 
 /* Phase subtitles use the body ink and sit below the 128px main heading. */
 .qvc-pair__title {
   margin: 0;
   color: #091f2c;
-  font-size: 96px;
+  font-size: clamp(20px, 1.25rem + 0.75cqw, 48px);
   font-weight: 600;
   letter-spacing: -0.02em;
-  line-height: 1.1;
+  line-height: 1.3;
 }
 
 /* 1080 rather than the board's 1000: at 1000 this sentence wraps to five lines
@@ -1086,14 +975,14 @@
    block into the button. Widening keeps the label at the y the board draws it
    at, which moving the block would not. */
 .qvc-pair__body {
-  width: 1080px;
+  width: 100%;
   margin: 0;
   color: #091f2c;
   font-family: var(--font-display);
-  font-size: 60px;
+  font-size: clamp(16px, 1rem + 0.5cqw, 32px);
   font-weight: 600;
   letter-spacing: -0.02em;
-  line-height: 1.3;
+  line-height: 1.5;
 }
 
 /* The one phrase the design sets in accent magenta. */
@@ -1120,13 +1009,14 @@
    coin from the projected coin position (see positionOutcomeLabels), so the
    container is the coordinate space and the children carry the placement. */
 .qvc-pair__outcome {
-  top: 1580px;
+  position: absolute;
+  top: 12%;
   left: 0;
-  width: 2160px;
+  width: 100%;
   height: 0;
   transform: none;
   color: #225b62;
-  font-size: 128px;
+  font-size: clamp(18px, 1.125rem + 0.5cqw, 48px);
   font-weight: 600;
   letter-spacing: -0.02em;
   /* Descenders need real line box room — 1.0 cropped the tail of "Tails". */
@@ -1160,7 +1050,6 @@
 }
 
 .qvc-pair__hint {
-  top: 1360px;
   transition: opacity 220ms ease;
 }
 
@@ -1175,24 +1064,24 @@
    gradient — the same #2C5B61 the mint callouts set their type in, so the
    button and the pills read as one palette. */
 .qvc-pair__action {
-  position: absolute;
-  bottom: 1093px;
-  left: 50%;
+  position: relative;
+  align-self: center;
+  max-width: 100%;
+  flex: 0 0 auto;
   display: inline-flex;
-  min-height: 160px;
+  min-height: 48px;
   align-items: center;
   justify-content: center;
-  padding: 0 110px;
+  padding: clamp(12px, 1rem, 24px) clamp(24px, 3cqw, 80px);
   border: 0;
-  border-radius: 27px;
+  border-radius: 12px;
   background: #2c5b61;
   box-shadow: 0 10px 28px rgba(21, 51, 55, 0.24);
   color: #fff;
   font-family: var(--font-text);
-  font-size: 60px;
+  font-size: clamp(16px, 1rem + 0.5cqw, 32px);
   font-weight: 600;
   letter-spacing: -0.02em;
-  transform: translateX(-50%);
   transition: opacity 220ms ease, filter 160ms ease;
   touch-action: manipulation;
 }
@@ -1221,7 +1110,6 @@
 
 /* ============ Interference ============ */
 
-.qvc-interference,
 .qvc-interference__scene {
   overflow: hidden;
 }
@@ -1253,15 +1141,16 @@
 }
 
 .qvc-interference__guidance {
-  position: absolute;
-  top: 280px;
-  left: 0;
+  position: relative;
+  flex: 0 0 auto;
   z-index: 27;
   display: grid;
+  min-width: 0;
+  grid-template-columns: minmax(0, 1fr);
   width: 100%;
   justify-items: center;
-  gap: 60px;
-  pointer-events: none;
+  gap: clamp(16px, 1rem + 0.5cqw, 40px);
+  pointer-events: auto;
 }
 
 /* Both cards occupy one row during their crossfade. The next row always starts
@@ -1312,7 +1201,9 @@
   --kiosk-explainer-body-color: var(--color-ink);
   --kiosk-explainer-strong-color: var(--color-ink);
   --kiosk-explainer-body-white-space: normal;
-  --kiosk-explainer-content-gap: 60px;
+  --kiosk-explainer-content-gap: clamp(16px, 1rem + 0.5cqw, 32px);
+  --kiosk-explainer-title-size: clamp(24px, 1.5rem + 0.5cqw, 48px);
+  --kiosk-explainer-body-size: clamp(16px, 1rem + 0.25cqw, 28px);
   /* Split, because the two axes want opposite things here. Sideways, 40 rather
      than the shared 60 hands the text a 1120px measure on a 1200px card
      instead of 1080, and four of the five readings lose a line to it. That
@@ -1320,9 +1211,9 @@
      other way and takes some of it back as breathing room above the title and
      under the last line. The graphic variant sets padding: 0 on itself and is
      unaffected by either. */
-  --kiosk-explainer-padding: 72px 40px;
-  width: 1200px;
-  max-width: calc(100% - 120px);
+  --kiosk-explainer-padding: clamp(16px, 1rem + 1cqw, 40px);
+  width: min(100%, 1200px);
+  max-width: 100%;
   height: auto;
   align-self: start;
 }
@@ -1361,7 +1252,7 @@
   gap: 0;
   opacity: 0;
   pointer-events: none;
-  transform: translate(-100%, -50%);
+  transform: translate(-50%, -50%);
   transition: opacity 320ms ease;
   white-space: nowrap;
 }
@@ -1373,23 +1264,27 @@
 }
 
 .qvc-interference__annotation-text {
+  position: absolute;
+  bottom: calc(100% + 12px);
+  left: 50%;
+  width: min(240px, 60cqw);
+  transform: translateX(-50%);
   color: #2a446f;
   font-family: var(--font-display);
-  font-size: 44px;
+  font-size: clamp(14px, 0.875rem + 0.25cqw, 24px);
   font-weight: 600;
   letter-spacing: -0.01em;
+  text-align: center;
+  white-space: normal;
 }
 
 .qvc-interference__annotation-line {
-  width: 120px;
-  height: 3px;
-  margin-left: 24px;
-  background: #2a446f;
+  display: none;
 }
 
 .qvc-interference__annotation-dot {
-  width: 22px;
-  height: 22px;
+  width: 8px;
+  height: 8px;
   border-radius: 50%;
   background: #2a446f;
 }
@@ -1397,7 +1292,7 @@
 .qvc-interference__target-arrow {
   position: absolute;
   z-index: 25;
-  width: 164px;
+  width: clamp(40px, 5cqw, 100px);
   color: #168cff;
   opacity: 0;
   pointer-events: none;
@@ -1425,8 +1320,8 @@
 
 .qvc-interference__target-arrow svg {
   display: block;
-  width: 134px;
-  height: 148px;
+  width: 100%;
+  height: auto;
   overflow: visible;
 }
 
@@ -1505,18 +1400,19 @@
 }
 
 .qvc-interference__lesson-panel[data-lesson-stage='bridge'] {
-  width: 1000px;
+  width: min(100%, 1000px);
 }
 
 .qvc-interference__lesson-panel.kiosk-explainer.qvc-interference__lesson-panel--graphic {
-  width: 1800px;
+  width: min(100%, 1600px);
   align-items: center;
   padding: 0;
 }
 
 .qvc-interference__lesson-visual {
-  width: 800px;
-  height: 639px;
+  width: 45%;
+  height: auto;
+  aspect-ratio: 800 / 639;
 }
 
 /* The graphs are 4:3 masters in a slightly wider slot. `contain` rather than
@@ -1538,14 +1434,14 @@
 }
 
 .qvc-interference__lesson-panel[data-lesson-stage='one'] .qvc-interference__lesson-visual {
-  width: 808px;
+  width: 45%;
 }
 
 .qvc-interference__lesson-panel--graphic .qvc-interference__lesson-copy {
   flex: 1 1 0;
   align-items: flex-start;
   justify-content: center;
-  padding: 60px 60px 60px 0;
+  padding: clamp(16px, 1rem + 1cqw, 40px);
 }
 
 /* Left-aligned paragraphs fill the diagram's adjacent text column. */

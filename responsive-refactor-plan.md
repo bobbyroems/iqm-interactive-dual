@@ -149,7 +149,7 @@ module view, dev HUD, screen transitions) is converted to fluid `clamp()`
 sizing. The module carousel — deferred here into Phase 3 because of its
 coupling to 3D camera/composition code — is also done (see below).
 
-### Phase 3 — Module-by-module migration (carousel done, 7 of 9 modules converted)
+### Phase 3 — Module-by-module migration (carousel done, 8 of 9 modules converted)
 
 Tackle smallest to largest so the pattern is proven before the big ones:
 
@@ -263,9 +263,24 @@ landscape, tablet, desktop, portrait kiosk and ultrawide sizes, including tuning
 completion, leaving the target zone, restart, pointer drag, resize and cleanup.
 Manual visual review on physical devices remains outstanding.
 
-**Not started:** the remaining 2 modules (`quantum-vs-classical`,
-`build-majorana-2`) need their own conversion pass,
-one at a time in the order above.
+**Module 8 (`quantum-vs-classical`) converted:** the principle menu now uses
+fluid copy, responsive preview cards and normal-flow sequence navigation.
+Superposition, Entanglement and Interference have independently readable
+copy/controls above measured 3D scenes, with scrolling on short viewports
+instead of scaling a fixed portrait board. The compact header keeps Back,
+Restart and Exit available on narrow screens with accessible icon labels.
+Interference diagrams stack only when needed; coin outcomes, buoy captions
+and target arrows remain registered to their scene's projected coordinates.
+Renderer pixel density follows the shared render budget. Resizing cancels
+captured gestures, canceled pointers do not flip/restart, and new lessons
+and header restarts reset their scroll position. Automated browser coverage
+exercises the menu and all three lessons at six sizes from 320x568 through
+3440x1440, including touch/mouse input, resize during a swipe, completion
+gates, restart and disposal. The Interference panel audit also covers longer
+copy and fallback fonts across all seven panels.
+Manual visual review on physical devices remains outstanding.
+
+**Not started:** `build-majorana-2` is the final module conversion.
 
 ### Phase 4 — Interaction/accessibility pass
 

@@ -24,6 +24,7 @@ import { createUpNextPopup, UP_NEXT_POPUP_DELAY_MS } from '../../core/up-next-po
 import { areUpNextCardsEnabled } from '../../core/kiosk-settings.js'
 import { disposeObject3DResources } from '../../core/three-resource-disposal.js'
 import { leaseWebGLRenderer } from '../../core/webgl-renderer-pool.js'
+import { calculateQvcPixelRatio } from './render-quality.js'
 
 const ENTANGLE_DURATION = 1.15
 const SPHERE_MEASURE_FADE_DURATION = 0.5
@@ -105,7 +106,6 @@ const STAGE_COPY = Object.freeze({
 function gameMarkup() {
   return `
     <div class="qvc-game qvc-pair" data-state="independent" data-stage="independent" data-measured="false">
-      <div class="qvc-game__scene" data-game-scene></div>
       <!-- The board's upper block: names the idea over the coins, while the
            phase label below stays with the thing it labels. -->
       <div class="qvc-pair__lead" data-pair-lead>
@@ -116,6 +116,7 @@ function gameMarkup() {
         <h2 class="qvc-pair__title" data-pair-title>Independent phase</h2>
         <p class="qvc-pair__body" data-pair-body></p>
       </div>
+      <div class="qvc-game__scene" data-game-scene>
       <!-- Both sides resolve together, so the result is authored as one row
            rather than a single string: the join stays quiet while the two
            outcomes carry the colour. -->
@@ -123,6 +124,7 @@ function gameMarkup() {
         <span class="qvc-pair__outcome-side" data-outcome-left>Heads</span>
         <span class="qvc-pair__outcome-join">+</span>
         <span class="qvc-pair__outcome-side" data-outcome-right>Heads</span>
+      </div>
       </div>
       <button class="qvc-pair__action" type="button" data-action>Entangle the coins</button>
       <p class="qvc__sr" data-announce aria-live="polite"></p>
@@ -691,8 +693,7 @@ async function buildEntanglementGame(host, { assets, RoomEnvironment, onActivity
   const outcomeProjection = new THREE.Vector3()
 
   function positionOutcomeLabels() {
-    /* Layout pixels, not client pixels: the stage is CSS-scaled to the panel
-       and these labels are positioned in its own 2160-wide space. */
+    /* Labels and canvas share the scene's measured layout coordinates. */
     const stageWidth = sceneHost.offsetWidth
     if (!stageWidth) return
     const labels = [outcomeLeft, outcomeRight]
@@ -867,14 +868,17 @@ async function buildEntanglementGame(host, { assets, RoomEnvironment, onActivity
      so visitors who learned the gesture on the earlier screens are not stuck. */
   const TAP_SLOP = 24
   let restartActive = false
+  let restartPointerId = null
   let restartStartX = 0
   let restartStartY = 0
   let restartCurrentX = 0
   let restartCurrentY = 0
 
   function onRestartStart(event) {
-    if (state !== STATE.MEASURED) return
+    if (state !== STATE.MEASURED || event.button > 0) return
     restartActive = true
+    restartPointerId = event.pointerId
+    renderer.domElement.setPointerCapture(event.pointerId)
     restartStartX = event.clientX
     restartStartY = event.clientY
     restartCurrentX = event.clientX
@@ -882,14 +886,23 @@ async function buildEntanglementGame(host, { assets, RoomEnvironment, onActivity
   }
 
   function onRestartMove(event) {
-    if (!restartActive) return
+    if (!restartActive || event.pointerId !== restartPointerId) return
     restartCurrentX = event.clientX
     restartCurrentY = event.clientY
   }
 
-  function finishRestart() {
-    if (!restartActive) return
+  function cancelRestart() {
     restartActive = false
+    if (restartPointerId !== null && renderer.domElement.hasPointerCapture(restartPointerId)) {
+      renderer.domElement.releasePointerCapture(restartPointerId)
+    }
+    restartPointerId = null
+  }
+
+  function finishRestart(event) {
+    if (!restartActive || event.pointerId !== restartPointerId) return
+    cancelRestart()
+    if (event.type === 'pointercancel') return
     if (state !== STATE.MEASURED) return
     const dx = restartCurrentX - restartStartX
     const dy = restartCurrentY - restartStartY
@@ -1124,6 +1137,7 @@ async function buildEntanglementGame(host, { assets, RoomEnvironment, onActivity
   }
 
   function resize() {
+    cancelRestart()
     const rect = sceneHost.getBoundingClientRect()
     if (rect.width < 2 || rect.height < 2) return
     /* Portrait kiosk framing (the prototype's portrait branch). */
@@ -1138,7 +1152,9 @@ async function buildEntanglementGame(host, { assets, RoomEnvironment, onActivity
        whenever the projection changes. */
     positionOutcomeLabels()
     renderer.setSize(rect.width, rect.height, false)
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
+    renderer.setPixelRatio(calculateQvcPixelRatio({
+      devicePixelRatio: window.devicePixelRatio, width: rect.width, height: rect.height
+    }))
     renderer.domElement.style.width = '100%'
     renderer.domElement.style.height = '100%'
     linkedOrbit.scale.set(0.66, 0.84, 1)

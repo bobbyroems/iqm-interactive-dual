@@ -72,19 +72,19 @@ function moduleMarkup() {
           <span class="microsoft-brand__quantum qvc__brand-quantum">Quantum</span>
         </div>
         <div class="microsoft-header__actions qvc__actions">
-          <button class="microsoft-header__action qvc__utility-action qvc__utility-action--back" type="button" data-qvc-action="back">
+          <button class="microsoft-header__action qvc__utility-action qvc__utility-action--back" type="button" data-qvc-action="back" aria-label="Back">
             <span class="microsoft-header__action-icon microsoft-header__action-icon--back" aria-hidden="true">
               <img src="${backIcon}" alt="" draggable="false">
             </span>
             <span>Back</span>
           </button>
-          <button class="microsoft-header__action qvc__utility-action" type="button" data-qvc-action="restart">
+          <button class="microsoft-header__action qvc__utility-action" type="button" data-qvc-action="restart" aria-label="Restart">
             <span>Restart</span>
             <span class="microsoft-header__action-icon" aria-hidden="true">
               <img src="${restartIcon}" alt="" draggable="false">
             </span>
           </button>
-          <button class="microsoft-header__action qvc__utility-action" type="button" data-qvc-action="exit">
+          <button class="microsoft-header__action qvc__utility-action" type="button" data-qvc-action="exit" aria-label="Exit">
             <span>Exit</span>
             <span class="microsoft-header__action-icon" aria-hidden="true">
               <img src="${exitIcon}" alt="" draggable="false">
@@ -99,10 +99,9 @@ function moduleMarkup() {
         <div class="qvc__menu" data-qvc-menu>
           <div class="qvc-copy qvc__menu-copy">
             <h2>Three quantum principles</h2>
-            <!-- Broken where the board breaks it: the block is wide enough to
-                 wrap differently on its own. -->
-            <p>Classical computers have limits.<br>Key quantum phenomena allow us to solve<br>complex problems in entirely new ways.</p>
+            <p>Classical computers have limits. Key quantum phenomena allow us to solve complex problems in entirely new ways.</p>
           </div>
+          <div class="qvc__sequence" data-qvc-sequence aria-hidden="true"></div>
           <div class="qvc__menu-cards" data-qvc-menu-strip>
             <button class="qvc__menu-card qvc__menu-card--superposition" type="button" data-qvc-game="superposition" aria-label="Step 1 of 3: Superposition">
               <span class="qvc__menu-card-scene" aria-hidden="true">
@@ -126,10 +125,6 @@ function moduleMarkup() {
               <span class="qvc__principle"><span class="qvc__principle-label">Interference</span><span class="qvc__principle-icon" aria-hidden="true"><img src="${principleIcon}" alt="" draggable="false"></span></span>
             </button>
           </div>
-          <!-- A sibling of the principles, not a child: it is placed against the
-               menu like the copy above it, and nesting it in the strip made its
-               offset relative to the strip instead of the screen. -->
-          <div class="qvc__sequence" data-qvc-sequence aria-hidden="true"></div>
         </div>
 
         <div class="qvc__game-host" data-qvc-game-host hidden></div>
@@ -617,6 +612,7 @@ export async function mount(container, options = {}) {
       return
     }
     gameController = nextController
+    gameHost.scrollTop = 0
     await waitForGameFrame(requestedTransition)
     if (!transitionIsCurrent(requestedTransition)) return
     disposeAfterViewSwap(outgoingGame)
@@ -633,7 +629,10 @@ export async function mount(container, options = {}) {
       onActivity?.()
       if (action === 'back') void showMenu().catch(reportInteractionError)
       else if (action === 'restart') {
-        if (root.dataset.view === 'game') gameController?.restart()
+        if (root.dataset.view === 'game') {
+          gameController?.restart()
+          gameHost.scrollTop = 0
+        }
         else void showMenu().catch(reportInteractionError)
       } else if (action === 'exit') navigate.menu?.()
       return

@@ -24,8 +24,8 @@ async function main() {
       <link rel="stylesheet" href="/styles/base.css">
       <link rel="stylesheet" href="/styles/app.css">
       <link rel="stylesheet" href="/js/modules/quantum-vs-classical/quantum-vs-classical.css">
-      </head><body><div id="audit-stage" style="position:absolute;width:2160px;height:3840px;transform-origin:top left">
-      <div class="qvc"><div class="qvc-game qvc-interference" id="audit-host"></div></div>
+      </head><body><div id="audit-stage" style="position:absolute;inset:0">
+      <div class="qvc"><div class="qvc__game-host"><div class="qvc-game qvc-interference" id="audit-host"></div></div></div>
       </div></body></html>`)
   }
   server = await createServer({
@@ -76,7 +76,7 @@ async function main() {
     await document.fonts.ready;
     window.auditFrame = () => new Promise(resolve => setTimeout(resolve, 40));
     window.measurePanel = panel => {
-      const scale = innerWidth / 2160;
+      const scale = 1;
       const box = panel.getBoundingClientRect();
       const title = panel.querySelector('.kiosk-explainer__title');
       const body = panel.querySelector('.kiosk-explainer__body');
@@ -96,13 +96,22 @@ async function main() {
       const topBox = (title.hidden ? body : title).getBoundingClientRect();
       return {
         textBoxes: [title, body].map(e => ({ text: e.textContent, hidden: e.hidden, width: e.clientWidth, scrollWidth: e.scrollWidth, height: e.clientHeight, scrollHeight: e.scrollHeight, box: e.getBoundingClientRect().toJSON(), font: getComputedStyle(e).fontFamily })),
+        box: box.toJSON(),
+        tip: tipBox.toJSON(),
+        host: document.querySelector('#audit-host').getBoundingClientRect().toJSON(),
         height: box.height / scale,
         contained: [title, body].every(textFits),
-        onScreen: box.left >= 0 && box.right <= innerWidth + 1 && tipBox.bottom <= innerHeight,
+        onScreen: box.left >= 0 && box.right <= innerWidth + 1 &&
+          tipBox.bottom <= document.querySelector('#audit-host').getBoundingClientRect().bottom,
         topPadding: (topBox.top - box.top) / scale,
         bottomPadding: (box.bottom - bodyBox.bottom) / scale,
         titleGap: title.hidden ? null : (bodyBox.top - title.getBoundingClientRect().bottom) / scale,
         mediaGap: media ? (copy.getBoundingClientRect().left - media.getBoundingClientRect().right) / scale : null,
+        mediaSeparated: !media || copy.getBoundingClientRect().left >= media.getBoundingClientRect().right - 1 ||
+          copy.getBoundingClientRect().top >= media.getBoundingClientRect().bottom - 1,
+        readable: [title, body].every(e => e.hidden || parseFloat(getComputedStyle(e).fontSize) >= 16),
+        expectedGap: parseFloat(getComputedStyle(audit.element).rowGap),
+        expectedCopyGap: parseFloat(getComputedStyle(copy).rowGap),
         tipGap: (tipBox.top - box.bottom) / scale,
         tipFits: tip.scrollWidth <= tip.clientWidth + 1 && tipBox.left >= 0 && tipBox.right <= innerWidth + 1,
         infoIcon: tip.querySelector('.kiosk-tooltip__icon svg').getBoundingClientRect().width > 0
@@ -112,13 +121,12 @@ async function main() {
   const keys = ['intro', 'one', 'bridge', 'constructive', 'destructive', 'add', 'finale']
   const samples = []
   console.log('Checking panel geometry…')
-  for (const width of [720, 1080]) {
-    window.setContentSize(width, width * 16 / 9)
+  for (const [width, height] of [[320, 568], [568, 320], [768, 1024], [1440, 900], [2160, 3840], [3440, 1440]]) {
+    window.setContentSize(width, height)
     await run(`new Promise(resolve => {
       if (innerWidth === ${width}) resolve();
       else addEventListener('resize', resolve, { once: true });
     })`)
-    await run(`document.querySelector('#audit-stage').style.transform = 'scale(' + innerWidth / 2160 + ')'`)
     for (const mode of ['current', 'longer-copy', 'fallback-font']) {
       for (const key of keys) {
         const sample = await run(`(async () => {
@@ -141,20 +149,16 @@ async function main() {
         })()`)
         const label = `${width}px ${key} ${mode}`
         samples.push({ label, ...sample })
-        if (!sample.contained) {
+        if (!sample.contained || !sample.onScreen || !sample.tipFits) {
           fs.writeFileSync(path.join(output, 'failure.png'), (await page.capturePage()).toPNG())
           console.error(JSON.stringify({ output, sample }, null, 2))
         }
         assert(sample.contained, `${label}: clipped text`)
         assert(sample.onScreen && sample.tipFits, `${label}: outside screen`)
-        assert(sample.topPadding >= 59 && sample.bottomPadding >= 59, `${label}: insufficient padding`)
-        assert(sample.titleGap === null || Math.abs(sample.titleGap - 60) < 1, `${label}: title/body spacing`)
-        assert(sample.mediaGap === null || Math.abs(sample.mediaGap - 60) < 1, `${label}: diagram spacing`)
-        assert(Math.abs(sample.tipGap - 60) < 1 && sample.infoIcon, `${label}: hint spacing/icon`)
-        if (width === 720 && mode === 'current') {
-          const crop = { x: 0, y: 60, width, height: Math.ceil((280 + sample.height + 180) / 3 - 60) }
-          fs.writeFileSync(path.join(output, `${key}.png`), (await page.capturePage(crop)).toPNG())
-        }
+        assert(sample.topPadding >= 15 && sample.bottomPadding >= 15, `${label}: insufficient padding`)
+        assert(sample.titleGap === null || Math.abs(sample.titleGap - sample.expectedCopyGap) < 1, `${label}: title/body spacing`)
+        assert(sample.mediaSeparated && sample.readable, `${label}: diagram separation/readability`)
+        assert(Math.abs(sample.tipGap - sample.expectedGap) < 1 && sample.infoIcon, `${label}: hint spacing/icon`)
       }
     }
   }

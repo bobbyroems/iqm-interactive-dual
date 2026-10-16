@@ -15,6 +15,7 @@ import { createUpNextPopup, UP_NEXT_POPUP_DELAY_MS } from '../../core/up-next-po
 import { areUpNextCardsEnabled } from '../../core/kiosk-settings.js'
 import { disposeObject3DResources } from '../../core/three-resource-disposal.js'
 import { leaseWebGLRenderer } from '../../core/webgl-renderer-pool.js'
+import { calculateQvcPixelRatio } from './render-quality.js'
 import {
   COIN_RADIUS,
   ENTANGLEMENT_COIN_MATERIAL_SEEDS,
@@ -124,11 +125,11 @@ const STAGE_COPY = Object.freeze({
 function gameMarkup() {
   return `
     <div class="qvc-game qvc-flip" data-state="ready" data-place="high" data-flipped="false">
-      <div class="qvc-game__scene" data-game-scene></div>
       <div class="qvc-flip__copy" data-flip-copy>
         <h2 class="qvc-flip__title" data-flip-title>Superposition</h2>
         <p class="qvc-flip__body" data-flip-body></p>
       </div>
+      <div class="qvc-game__scene" data-game-scene></div>
       <div class="qvc-flip__result" data-result aria-hidden="true">Heads</div>
       <section class="qvc-flip__tally" aria-label="Running tally">
         <div class="qvc-flip__tally-groups">
@@ -475,6 +476,7 @@ async function buildSuperpositionGame(host, { assets, RoomEnvironment, onActivit
   let flipPass = 0
   let targetAngle = 0
   let pointerActive = false
+  let capturedPointerId = null
   let pointerStartY = 0
   let pointerCurrentY = 0
   let disposed = false
@@ -832,26 +834,30 @@ async function buildSuperpositionGame(host, { assets, RoomEnvironment, onActivit
   }
 
   function onPointerDown(event) {
+    if (event.button > 0 || pointerActive) return
     onActivity?.()
     if (state !== STATE.READY && state !== STATE.LANDED) return
     pointerActive = true
+    capturedPointerId = event.pointerId
     pointerStartY = event.clientY
     pointerCurrentY = event.clientY
     renderer.domElement.setPointerCapture(event.pointerId)
   }
 
   function onPointerMove(event) {
-    if (!pointerActive) return
+    if (!pointerActive || event.pointerId !== capturedPointerId) return
     pointerCurrentY = event.clientY
   }
 
   function finishPointer(event) {
-    if (!pointerActive) return
+    if (!pointerActive || event.pointerId !== capturedPointerId) return
     pointerActive = false
     const distance = pointerStartY - pointerCurrentY
     if (renderer.domElement.hasPointerCapture(event.pointerId)) {
       renderer.domElement.releasePointerCapture(event.pointerId)
     }
+    capturedPointerId = null
+    if (event.type === 'pointercancel') return
     /* clientY is physical screen pixels, so the prototype's swipe
        threshold carries over unchanged. */
     if (distance > 52) {
@@ -867,6 +873,11 @@ async function buildSuperpositionGame(host, { assets, RoomEnvironment, onActivit
   renderer.domElement.addEventListener('pointercancel', finishPointer, { signal: listeners.signal })
 
   function resize() {
+    pointerActive = false
+    if (capturedPointerId !== null && renderer.domElement.hasPointerCapture(capturedPointerId)) {
+      renderer.domElement.releasePointerCapture(capturedPointerId)
+    }
+    capturedPointerId = null
     const rect = sceneHost.getBoundingClientRect()
     if (rect.width < 2 || rect.height < 2) return
     camera.aspect = rect.width / rect.height
@@ -874,7 +885,9 @@ async function buildSuperpositionGame(host, { assets, RoomEnvironment, onActivit
     camera.updateProjectionMatrix()
     camera.lookAt(0, -0.15, 0)
     renderer.setSize(rect.width, rect.height, false)
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
+    renderer.setPixelRatio(calculateQvcPixelRatio({
+      devicePixelRatio: window.devicePixelRatio, width: rect.width, height: rect.height
+    }))
     renderer.domElement.style.width = '100%'
     renderer.domElement.style.height = '100%'
   }

@@ -395,7 +395,7 @@ function damp(current, target, smoothing, delta) {
 function gameMarkup() {
   return `
     <div class="qvc-game qvc-interference" data-phase="ready" data-stage="first-source" data-outcome="false">
-      <div class="qvc-game__scene qvc-interference__scene" data-game-scene></div>
+      <div class="qvc-game__scene qvc-interference__scene" data-game-scene>
 
       <!-- Names the buoy the first time one appears. The dot sits on the buoy
            and the label reaches away from it, so the line does the pointing
@@ -414,6 +414,7 @@ function gameMarkup() {
         </div>
       </div>
 
+      </div>
       <p class="qvc__sr" data-announce aria-live="polite"></p>
     </div>
   `
@@ -618,7 +619,7 @@ async function buildInterferenceGame(
   const targetArrow = root.querySelector('[data-target-arrow]')
   const buoyAnnotation = root.querySelector('[data-buoy-annotation]')
   const announcement = root.querySelector('[data-announce]')
-  announcement.before(guidance.element)
+  root.prepend(guidance.element)
   host.replaceChildren(root)
   defer(() => root.remove())
 
