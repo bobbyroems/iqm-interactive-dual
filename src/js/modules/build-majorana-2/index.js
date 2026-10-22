@@ -81,7 +81,7 @@ const BUILD_TOOLTIP_COPY = Object.freeze({
   initial: 'Drag and drop the missing components on M2',
   'qpu-first': 'Awaiting instructions. Add missing component.',
   'cryo-first': 'Awaiting quantum hardware. Add missing component.',
-  complete: 'Tap anywhere to finish'
+  complete: 'Continue to see the full system'
 })
 const COMPONENTS_RELOCATION_MS = 1_800
 const COMPONENTS_RELOCATION_FALLBACK_MS = COMPONENTS_RELOCATION_MS + 180
@@ -147,21 +147,21 @@ function moduleMarkup() {
   )
   return `
     <div class="majorana-module is-intro" data-majorana-root>
-      <header class="majorana-module__header">
-        <div class="majorana-brand" aria-label="Microsoft Quantum">
-          <span class="majorana-brand__microsoft">
+      <header class="microsoft-header majorana-module__header">
+        <div class="microsoft-brand" aria-label="Microsoft Quantum">
+          <span class="microsoft-brand__logo">
             <img src="${microsoftLogo}" alt="Microsoft">
           </span>
-          <span class="majorana-brand__rule" aria-hidden="true"></span>
-          <span class="majorana-brand__quantum">Quantum</span>
+          <span class="microsoft-brand__divider" aria-hidden="true"></span>
+          <span class="microsoft-brand__quantum">Quantum</span>
         </div>
 
         <div class="microsoft-header__actions">
-          <button class="microsoft-header__action" type="button" data-majorana-action="restart">
+          <button class="microsoft-header__action" type="button" data-majorana-action="restart" aria-label="Restart">
             <span>Restart</span>
             <span class="microsoft-header__action-icon" aria-hidden="true"><img src="${restartIcon}" alt=""></span>
           </button>
-          <button class="microsoft-header__action" type="button" data-majorana-action="exit">
+          <button class="microsoft-header__action" type="button" data-majorana-action="exit" aria-label="Exit">
             <span>Exit</span>
             <span class="microsoft-header__action-icon" aria-hidden="true"><img src="${exitIcon}" alt=""></span>
           </button>
@@ -170,9 +170,13 @@ function moduleMarkup() {
 
       <div class="majorana-module__views">
         <section class="majorana-view majorana-intro" data-majorana-view="intro">
-          <div class="majorana-intro__light-sweep" aria-hidden="true"></div>
-          <img class="majorana-intro__shadow" src="${introShadow}" alt="" aria-hidden="true">
-          <div class="majorana-model-slot majorana-model-slot--intro" data-model-slot="intro"></div>
+          <div class="majorana-intro__artwork">
+            <div class="majorana-intro__visual">
+              <div class="majorana-intro__light-sweep" aria-hidden="true"></div>
+              <img class="majorana-intro__shadow" src="${introShadow}" alt="" aria-hidden="true">
+              <div class="majorana-model-slot majorana-model-slot--intro" data-model-slot="intro"></div>
+            </div>
+          </div>
           <button class="majorana-primary-action" type="button" data-majorana-action="start" disabled>
             <span>Get started</span>
             <span class="majorana-primary-action__icon" aria-hidden="true">
@@ -182,11 +186,16 @@ function moduleMarkup() {
         </section>
 
         <section class="majorana-view majorana-components" data-majorana-view="components" hidden>
-          <div class="majorana-model-slot majorana-model-slot--components" data-model-slot="components"></div>
+          <div class="majorana-components__schematic">
+            <div class="majorana-components__artwork">
+              <div class="majorana-model-slot majorana-model-slot--components" data-model-slot="components"></div>
+            </div>
+          </div>
+
+          <div class="majorana-components-focus__intro" data-majorana-explainer="components-summary"></div>
 
           <div class="majorana-components-focus" data-components-focus aria-hidden="true" inert>
-            <div class="majorana-components-focus__intro" data-majorana-explainer="components-summary"></div>
-
+            <div class="majorana-components__part">
             <button
               class="majorana-focus-component majorana-focus-component--qpu"
               type="button"
@@ -208,7 +217,10 @@ function moduleMarkup() {
                 </span>
               </span>
             </button>
+            <div class="majorana-components-focus__card majorana-components-focus__card--qpu" id="majorana-qpu-description" data-majorana-explainer="qpu"></div>
+            </div>
 
+            <div class="majorana-components__part">
             <button
               class="majorana-focus-component majorana-focus-component--cmos"
               type="button"
@@ -233,17 +245,30 @@ function moduleMarkup() {
                 </span>
               </span>
             </button>
-
-            <div class="majorana-components-focus__card majorana-components-focus__card--qpu" id="majorana-qpu-description" data-majorana-explainer="qpu"></div>
-
             <div class="majorana-components-focus__card majorana-components-focus__card--cmos" id="majorana-cmos-description" data-majorana-explainer="cmos"></div>
+            </div>
           </div>
 
-          <button class="majorana-tap-target" type="button" data-majorana-action="next-pathways" aria-label="Continue to quantum information channels" hidden></button>
-          <div class="majorana-stage-tooltip majorana-stage-tooltip--components" data-majorana-tooltip="components" aria-hidden="true"></div>
+          <div class="majorana-components__actions">
+            <p class="majorana-components__instruction">Drag a component to rotate and inspect it.</p>
+            <button class="majorana-components__continue" type="button" data-majorana-action="next-pathways" hidden>Continue to Pathways</button>
+          </div>
         </section>
 
         <section class="majorana-view majorana-pathways" data-majorana-view="pathways" hidden>
+          <div class="majorana-pathways__content">
+            <div class="majorana-pathways__copy" data-majorana-explainer="pathways" data-pathways-copy></div>
+            <ol class="majorana-pathways__key" aria-label="Information channels">
+              <li data-pathway-key="external"><span aria-hidden="true">1</span>Instructions from external instrumentation</li>
+              <li data-pathway-key="control"><span aria-hidden="true">2</span>Control signals to QPU</li>
+              <li data-pathway-key="readout"><span aria-hidden="true">3</span>Quantum information readout</li>
+            </ol>
+            <div class="majorana-pathways__actions">
+              <button class="majorana-pathways__continue" type="button" data-majorana-action="next-build" hidden>Continue to assembly</button>
+            </div>
+          </div>
+          <div class="majorana-pathways__workspace">
+          <div class="majorana-pathways__artwork" role="img" aria-label="Majorana 2 schematic. Numbered channels match the information channels key.">
           <div class="majorana-model-slot majorana-model-slot--pathways" data-model-slot="pathways"></div>
 
           <div class="majorana-pathways__diagram" aria-hidden="true">
@@ -293,27 +318,20 @@ function moduleMarkup() {
             </div>
           </div>
 
-          <!-- These labels are attached to artwork geometry, so they are the
-               documented local-label exception to the shared explainer surface. -->
           <img class="majorana-pathway-connector majorana-pathway-connector--external" src="${pathwayLabelLine}" alt="" aria-hidden="true">
-          <div class="majorana-pathway-tooltip majorana-pathway-tooltip--external" data-pathway-label="external">
-            <span class="majorana-pathway-tooltip__title">Instructions from external instrumentation</span>
+          <div class="majorana-pathway-tooltip majorana-pathway-tooltip--external" data-pathway-label="external" aria-hidden="true">
+            <span class="majorana-pathway-tooltip__title">1</span>
           </div>
 
           <img class="majorana-pathway-connector majorana-pathway-connector--readout" src="${pathwayLabelLine}" alt="" aria-hidden="true">
-          <div class="majorana-pathway-tooltip majorana-pathway-tooltip--readout" data-pathway-label="readout">
-            <span class="majorana-pathway-tooltip__title">Quantum information readout</span>
+          <div class="majorana-pathway-tooltip majorana-pathway-tooltip--readout" data-pathway-label="readout" aria-hidden="true">
+            <span class="majorana-pathway-tooltip__title">3</span>
           </div>
 
           <img class="majorana-pathway-connector majorana-pathway-connector--control" src="${pathwayLabelLineControl}" alt="" aria-hidden="true">
-          <div class="majorana-pathway-tooltip majorana-pathway-tooltip--control" data-pathway-label="control">
-            <span class="majorana-pathway-tooltip__title">Control signals to QPU</span>
+          <div class="majorana-pathway-tooltip majorana-pathway-tooltip--control" data-pathway-label="control" aria-hidden="true">
+            <span class="majorana-pathway-tooltip__title">2</span>
           </div>
-
-          <div class="majorana-pathways__copy" data-majorana-explainer="pathways" data-pathways-copy></div>
-
-          <button class="majorana-tap-target" type="button" data-majorana-action="next-build" aria-label="Continue to build the Majorana 2" hidden></button>
-          <div class="majorana-stage-tooltip majorana-stage-tooltip--pathways" data-majorana-tooltip="pathways" aria-hidden="true"></div>
 
           <div class="majorana-pathways__component-holder" aria-hidden="true">
             <!-- Figma's longer dash cadence cannot be expressed by a native
@@ -355,9 +373,22 @@ function moduleMarkup() {
               <figcaption>Cryo-CMOS</figcaption>
             </figure>
           </div>
+          </div>
+          </div>
         </section>
 
         <section class="majorana-view majorana-build" data-majorana-view="build" hidden>
+          <div class="majorana-build__content">
+            <h2 class="majorana-build__heading">Drag and drop the components</h2>
+            <div class="majorana-build__explanation majorana-build__explanation--qpu" data-majorana-explainer="build-qpu" aria-live="polite" hidden></div>
+            <div class="majorana-build__explanation majorana-build__explanation--cryo" data-majorana-explainer="build-cryo" aria-live="polite" hidden></div>
+            <div class="majorana-build__summary" data-majorana-explainer="build-summary" aria-live="polite" hidden></div>
+            <div class="majorana-build__instruction" data-majorana-tooltip="build" aria-live="polite"></div>
+            <button class="majorana-build__finish" type="button" data-majorana-action="finish" hidden>Continue</button>
+          </div>
+
+          <div class="majorana-build__workspace">
+          <div class="majorana-build__artwork">
           <div class="majorana-model-slot majorana-model-slot--build" data-model-slot="build"></div>
 
           <div class="majorana-build__pathways" aria-hidden="true">
@@ -407,18 +438,11 @@ function moduleMarkup() {
             <span class="majorana-build__placed-label majorana-build__placed-label--cryo-cmos">Cryo-CMOS</span>
           </div>
 
-          <div class="majorana-build__explanation majorana-build__explanation--qpu" data-majorana-explainer="build-qpu" aria-live="polite"></div>
-          <div class="majorana-build__explanation majorana-build__explanation--cryo" data-majorana-explainer="build-cryo" aria-live="polite"></div>
-          <div class="majorana-build__summary" data-majorana-explainer="build-summary" aria-live="polite"></div>
-          <div class="majorana-build__instruction" data-majorana-tooltip="build" aria-live="polite"></div>
-          <button class="majorana-tap-target" type="button" data-majorana-action="finish" aria-label="Finish building Majorana 2" hidden></button>
-
           <div class="majorana-build__tray" aria-label="Components to place">
             <!-- Same Figma-authored frame as the read-only holder above. -->
             <svg class="majorana-component-holder__border" viewBox="0 0 1310.068 830.757" preserveAspectRatio="none" focusable="false" aria-hidden="true">
               <rect x="2.25" y="2.25" width="1305.568" height="826.257" rx="31.191" />
             </svg>
-            <p class="majorana-component-holder__title">Drag and drop the components</p>
             <button
               class="majorana-build-part majorana-build-part--qpu-stack"
               type="button"
@@ -459,6 +483,8 @@ function moduleMarkup() {
               <span class="majorana-build-part__label">Cryo-CMOS</span>
               <span class="majorana-build-part__guidance-label">Cryo-CMOS</span>
             </button>
+          </div>
+          </div>
           </div>
 
           <p class="majorana-build__feedback" data-build-feedback aria-live="assertive"></p>
@@ -591,6 +617,13 @@ export function mount(container, options = {}) {
   let pathwayReturnFocus = null
   let pathwayDetailClosing = false
   let finalePlaying = false
+  let componentsWorkspaceWidth = 0
+  let componentsWorkspaceHeight = 0
+  let pathwaysWorkspaceWidth = 0
+  let pathwaysWorkspaceHeight = 0
+  let buildWorkspaceWidth = 0
+  let buildWorkspaceHeight = 0
+  let buildLayoutFinaleComplete = false
   let sectionTransition = null
   let sectionTransitionRun = 0
   const pathwaysVisits = createPathwaysVisitController()
@@ -651,8 +684,6 @@ export function mount(container, options = {}) {
     className: 'majorana-shared-explainer majorana-shared-explainer--build-summary',
     hidden: true
   })
-  const componentsContinueTooltip = attachTooltip('components', 'Tap anywhere to continue')
-  const pathwaysContinueTooltip = attachTooltip('pathways', 'Tap anywhere to continue')
   const buildActionTooltip = attachTooltip('build', '')
   const sharedExplainers = [
     componentSummaryExplainer,
@@ -710,16 +741,16 @@ export function mount(container, options = {}) {
   const loadingPanel = root.querySelector('[data-model-loading]')
   const progressLabel = root.querySelector('[data-model-progress]')
   const buildSection = root.querySelector('[data-majorana-view="build"]')
+  const buildWorkspace = root.querySelector('.majorana-build__workspace')
+  const buildArtwork = root.querySelector('.majorana-build__artwork')
   const finale = createMajoranaFinale({
     reducedMotion: reducedMotion.matches,
-    stage: buildSection
+    stage: buildArtwork
   })
-  buildSection.prepend(finale.element, finale.chipElement)
+  buildArtwork.prepend(finale.element, finale.chipElement)
   const componentsContinueAction = root.querySelector('[data-majorana-action="next-pathways"]')
   const pathwaysContinueAction = root.querySelector('[data-majorana-action="next-build"]')
-  const buildTrayTitle = root.querySelector(
-    '.majorana-build__tray > .majorana-component-holder__title'
-  )
+  const buildHeading = root.querySelector('.majorana-build__heading')
   const finishAction = root.querySelector('[data-majorana-action="finish"]')
   const buildFeedback = root.querySelector('[data-build-feedback]')
 
@@ -739,7 +770,11 @@ export function mount(container, options = {}) {
   const buildSlots = [...root.querySelectorAll('[data-build-slot]')]
   const buildPaths = [...root.querySelectorAll('[data-build-path-index]')]
   const pathwaysSection = root.querySelector('[data-majorana-view="pathways"]')
+  const pathwaysWorkspace = root.querySelector('.majorana-pathways__workspace')
+  const pathwaysArtwork = root.querySelector('.majorana-pathways__artwork')
   const componentsSection = root.querySelector('[data-majorana-view="components"]')
+  const componentsSchematic = root.querySelector('.majorana-components__schematic')
+  const componentsArtwork = root.querySelector('.majorana-components__artwork')
   const pathwaysCopy = root.querySelector('[data-pathways-copy]')
   const pathwaySelectButtons = [...root.querySelectorAll('[data-pathway-select]')]
   const pathwayElements = Object.fromEntries(
@@ -773,6 +808,7 @@ export function mount(container, options = {}) {
       dimensions: { width: 0, height: 0 },
       element: pathway,
       label: pathwayLabels[pathwayId],
+      key: root.querySelector(`[data-pathway-key="${pathwayId}"]`),
       neutralTrack: pathway.querySelector('.majorana-pathway__track--neutral'),
       pulse: pathway.querySelector('[data-pathway-pulse]')
     }]
@@ -966,6 +1002,8 @@ export function mount(container, options = {}) {
     section.style.setProperty('visibility', 'hidden', 'important')
     section.style.setProperty('pointer-events', 'none', 'important')
     section.style.setProperty('animation', 'none', 'important')
+    if (section === buildSection) resizeBuildPresentation()
+    if (section === pathwaysSection) resizePathwaysPresentation()
 
     const targets = Object.fromEntries(
       Object.entries(selectors).map(([key, selector]) => [
@@ -1394,7 +1432,7 @@ export function mount(container, options = {}) {
 
   function cachePathwayDimensions() {
     if (!pathwayDimensionsDirty) return
-    const stageScale = currentStageScale()
+    const stageScale = pathwaysArtwork.getBoundingClientRect().width / pathwaysArtwork.offsetWidth || 1
     let allDimensionsReady = true
 
     for (const pathwayId of PATHWAY_IDS) {
@@ -1462,6 +1500,7 @@ export function mount(container, options = {}) {
       visual.element.classList.toggle('is-active', isActive)
       visual.element.classList.toggle('is-selected', isHighlighted)
       visual.label.classList.toggle('is-active', isActive)
+      visual.key.classList.toggle('is-active', isActive)
 
       visual.arrows.forEach((arrow, index) => {
         setInlineStyle(
@@ -1496,6 +1535,7 @@ export function mount(container, options = {}) {
       }
 
       setInlineStyle(visual.label, 'opacity', String(labelOpacity))
+      setInlineStyle(visual.key, 'opacity', String(labelOpacity))
       const labelOffset = 18 * (1 - labelOpacity)
       setInlineStyle(
         visual.label,
@@ -1537,11 +1577,6 @@ export function mount(container, options = {}) {
     }
     const continueVisible = pathwaysSelectionEnabled && currentView() === 'pathways'
     pathwaysContinueAction.hidden = !continueVisible
-    updateKioskTooltip(pathwaysContinueTooltip, {
-      replay: continueVisible,
-      text: 'Tap anywhere to continue',
-      visible: continueVisible
-    })
     syncPathwaySelectionControls()
     syncProgressNavigationControls()
   }
@@ -1565,6 +1600,16 @@ export function mount(container, options = {}) {
     stopPathwaysTimeline()
     const selectedPathwayId = state.selectedPathwayId
     pathwaysElapsedMs = Math.max(0, initialElapsedMs)
+    if (reducedMotion.matches && !selectedPathwayId) {
+      pathwaysElapsedMs = PATHWAYS_TIMINGS.loopStartMs
+      renderPathwaysFrame({
+        ...getPathwaysFrame(pathwaysElapsedMs),
+        activePathwayId: null,
+        pulse: { visible: false }
+      })
+      setPathwaySelectionEnabled(true)
+      return
+    }
     if (!selectedPathwayId && showGuidance) {
       pathwaysGuidance.start()
     }
@@ -1628,7 +1673,27 @@ export function mount(container, options = {}) {
 
   window.addEventListener('resize', () => {
     pathwayDimensionsDirty = true
+    resetComponentInspection()
+    if (currentView() === 'components') {
+      stageAnimation?.cancel()
+      stageAnimation = null
+      if (['priming', 'focusing'].includes(componentsPhase)) {
+        clearComponentsSequence()
+        componentsPhase = 'focus'
+        componentsSpotlight = 'both'
+        render()
+        for (const animation of componentsFocus.getAnimations({ subtree: true })) {
+          if (animation instanceof CSSTransition) animation.finish()
+        }
+      }
+    }
     settleSectionTransition()
+  }, { signal })
+
+  reducedMotion.addEventListener?.('change', () => {
+    if (currentView() === 'pathways' && !sectionTransition) {
+      startPathwaysTimeline({ initialElapsedMs: pathwaysElapsedMs })
+    }
   }, { signal })
 
   function syncProgressNavigationControls() {
@@ -1711,6 +1776,9 @@ export function mount(container, options = {}) {
           ? 'initial'
           : null
     const instructionCopy = promptKey ? BUILD_TOOLTIP_COPY[promptKey] : ''
+    buildQpuExplainer.element.parentElement.hidden = !qpuCopy
+    buildCryoExplainer.element.parentElement.hidden = !cryoCopy
+    buildSummaryExplainer.element.parentElement.hidden = !summaryCopy
 
     root.dataset.buildPhase = snapshot.phase
     root.dataset.buildPathCount = String(snapshot.activePathwayCount)
@@ -1939,8 +2007,7 @@ export function mount(container, options = {}) {
   function animateStageRelocation(before, after, options = {}) {
     if (!before || !after || before.width <= 0 || after.width <= 0) return null
 
-    const rootBounds = root.getBoundingClientRect()
-    const stageScale = root.offsetWidth > 0 ? rootBounds.width / root.offsetWidth : 1
+    const stageScale = after.width / modelStage.offsetWidth
     const inverseScale = stageScale > 0 ? 1 / stageScale : 1
     const translateX = (before.left - after.left) * inverseScale
     const translateY = (before.top - after.top) * inverseScale
@@ -2155,6 +2222,9 @@ export function mount(container, options = {}) {
       section.hidden = !isActive
       section.setAttribute('aria-hidden', String(!isActive))
     })
+    if (view === 'build') resizeBuildPresentation()
+    if (view === 'pathways') resizePathwaysPresentation()
+    if (view === 'components') resizeComponentsPresentation()
 
     progressTabButtons.forEach(button => {
       const isActive = button.dataset.majoranaTab === view
@@ -2223,11 +2293,6 @@ export function mount(container, options = {}) {
       String(view === 'components' && !isComponentsReady)
     )
     componentsContinueAction.hidden = !isComponentsReady
-    updateKioskTooltip(componentsContinueTooltip, {
-      replay: isComponentsReady,
-      text: 'Tap anywhere to continue',
-      visible: isComponentsReady
-    })
 
     const progress = getMajoranaBuildProgress(state)
     const complete = isMajoranaBuildComplete(state)
@@ -2235,7 +2300,7 @@ export function mount(container, options = {}) {
       ? 'That component belongs in the other highlighted position. Try again.'
       : ''
     root.classList.toggle('is-build-complete', complete)
-    buildTrayTitle?.setAttribute('aria-hidden', String(complete))
+    buildHeading.textContent = complete ? 'Majorana assembled' : 'Drag and drop the components'
     root.classList.toggle('is-build-qpu-placed', Boolean(state.placements['qpu-stack']))
     root.classList.toggle('is-build-cmos-placed', Boolean(state.placements['cryo-cmos']))
     root.style.setProperty('--majorana-build-progress', String(progress / MAJORANA_PARTS.length))
@@ -2357,6 +2422,8 @@ export function mount(container, options = {}) {
     if (!completed || disposed || !finalePlaying) return
     sceneController?.setSuspended(true)
     root.classList.add('is-finale-complete')
+    buildSection.scrollTop = 0
+    resizeBuildPresentation()
     upNextBanner?.offer()
   }
 
@@ -2567,8 +2634,7 @@ export function mount(container, options = {}) {
 
     const visual = card.querySelector('.majorana-build-part__visual')
     if (!visual) return
-    const rootBounds = root.getBoundingClientRect()
-    const stageScale = root.offsetWidth > 0 ? rootBounds.width / root.offsetWidth : 1
+    const stageScale = currentBuildScale()
     const visualBounds = baseVisualRect || visual.getBoundingClientRect()
     const target = centeredBuildSnap({
       baseVisualRect: visualBounds,
@@ -2661,8 +2727,7 @@ export function mount(container, options = {}) {
       event.preventDefault()
       activity()
       if (componentInspection) return
-      const rootBounds = root.getBoundingClientRect()
-      const scale = root.offsetWidth > 0 ? rootBounds.width / root.offsetWidth : 1
+      const scale = currentStageScale()
       componentInspection = {
         element: inspectableComponent,
         partId: inspectableComponent.dataset.majoranaComponentInspect,
@@ -2690,8 +2755,7 @@ export function mount(container, options = {}) {
 
     event.preventDefault()
     activity()
-    const rootBounds = root.getBoundingClientRect()
-    const scale = root.offsetWidth > 0 ? rootBounds.width / root.offsetWidth : 1
+    const scale = currentBuildScale()
     const visual = card.querySelector('.majorana-build-part__visual')
     const pointerTime = Number.isFinite(event.timeStamp) ? event.timeStamp : performance.now()
     clearBuildDragFrame()
@@ -2801,11 +2865,13 @@ export function mount(container, options = {}) {
       { rotateX: 0, rotateY: 0 },
       false
     )
-    state = reduceMajoranaState(state, {
-      type: 'DROP_PART',
-      partId: activeDrag.partId,
-      slotId
-    })
+    if (!cancelled) {
+      state = reduceMajoranaState(state, {
+        type: 'DROP_PART',
+        partId: activeDrag.partId,
+        slotId
+      })
+    }
     resetDraggedCard(activeDrag.card, true)
     buildGuidance.setInteractionActive(false)
     activity()
@@ -2993,6 +3059,76 @@ export function mount(container, options = {}) {
     )
   }
 
+  function currentBuildScale() {
+    return buildArtwork.getBoundingClientRect().width / buildArtwork.offsetWidth || 1
+  }
+
+  function fitArtwork(workspace, artwork, bottomAligned = false) {
+    const width = workspace.clientWidth
+    const height = workspace.clientHeight
+    const scale = Math.min(width / artwork.offsetWidth, height / artwork.offsetHeight)
+    const top = (height - artwork.offsetHeight * scale) / (bottomAligned ? 1 : 2)
+    artwork.style.transform = `translate(${(width - artwork.offsetWidth * scale) / 2}px, ${top}px) scale(${scale})`
+    return scale
+  }
+
+  function resizeComponentsPresentation() {
+    if (disposed || componentsSchematic.clientWidth <= 0 || componentsSchematic.clientHeight <= 0) return
+    const width = componentsSchematic.clientWidth
+    const height = componentsSchematic.clientHeight
+    if (width === componentsWorkspaceWidth && height === componentsWorkspaceHeight) return
+    componentsWorkspaceWidth = width
+    componentsWorkspaceHeight = height
+    resetComponentInspection()
+    fitArtwork(componentsSchematic, componentsArtwork)
+    sceneController?.resize()
+  }
+
+  function resizePathwaysPresentation() {
+    if (disposed || pathwaysWorkspace.clientWidth <= 0 || pathwaysWorkspace.clientHeight <= 0) return
+    const width = pathwaysWorkspace.clientWidth
+    const height = pathwaysWorkspace.clientHeight
+    if (width === pathwaysWorkspaceWidth && height === pathwaysWorkspaceHeight) return
+    pathwaysWorkspaceWidth = width
+    pathwaysWorkspaceHeight = height
+    const scale = fitArtwork(pathwaysWorkspace, pathwaysArtwork)
+    pathwaysWorkspace.style.setProperty('--majorana-pathways-scale', String(scale))
+    pathwayDimensionsDirty = true
+    sceneController?.resize()
+  }
+
+  function resizeBuildPresentation() {
+    if (disposed || buildWorkspace.clientWidth <= 0 || buildWorkspace.clientHeight <= 0) return
+    const width = buildWorkspace.clientWidth
+    const height = buildWorkspace.clientHeight
+    const finaleComplete = root.classList.contains('is-finale-complete')
+    if (
+      width === buildWorkspaceWidth &&
+      height === buildWorkspaceHeight &&
+      finaleComplete === buildLayoutFinaleComplete
+    ) return
+    buildWorkspaceWidth = width
+    buildWorkspaceHeight = height
+    buildLayoutFinaleComplete = finaleComplete
+    if (drag) finishDrag({ pointerId: drag.pointerId }, true)
+    cancelPendingBuildSnap()
+    const scale = fitArtwork(buildWorkspace, buildArtwork, finaleComplete)
+    buildWorkspace.style.setProperty('--majorana-build-scale', String(scale))
+    sceneController?.resize()
+  }
+
+  const buildResizeObserver = new ResizeObserver(resizeBuildPresentation)
+  buildResizeObserver.observe(buildWorkspace)
+  const pathwaysResizeObserver = new ResizeObserver(resizePathwaysPresentation)
+  pathwaysResizeObserver.observe(pathwaysWorkspace)
+  const componentsResizeObserver = new ResizeObserver(resizeComponentsPresentation)
+  componentsResizeObserver.observe(componentsSchematic)
+  componentsSection.addEventListener('scroll', resetComponentInspection, { signal, passive: true })
+  buildSection.addEventListener('scroll', () => {
+    if (drag) finishDrag({ pointerId: drag.pointerId }, true)
+    cancelPendingBuildSnap()
+  }, { signal, passive: true })
+
   function markComponentsReady() {
     if (!disposed) root.classList.add('has-component-models')
   }
@@ -3043,6 +3179,7 @@ export function mount(container, options = {}) {
       return
     }
     sceneController = controller
+    sceneController.resize()
     const view = currentView()
     syncSceneView(view, { force: true })
     syncSceneComponentPresentation(view)
@@ -3070,6 +3207,9 @@ export function mount(container, options = {}) {
     pathwaysGuidance.dispose()
     buildGuidance.dispose()
     lifecycle.abort()
+    buildResizeObserver.disconnect()
+    pathwaysResizeObserver.disconnect()
+    componentsResizeObserver.disconnect()
     returnTimers.forEach(timerId => window.clearTimeout(timerId))
     returnTimers.clear()
     clearPathwayDetailCloseWait()

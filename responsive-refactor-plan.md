@@ -84,9 +84,11 @@ architecture.
   kiosk/Electron removes any legacy embedded-browser constraint.
 - **Testing approach:** manual resize/viewport checks for now; no automated
   visual-regression suite or full browser/device matrix in this phase.
-  `npm run check:nanowire-layout` now provides targeted Chromium viewport
-  and interaction coverage for `build-nanowire`; physical-device QA remains
-  separate.
+  Targeted Chromium viewport/interaction diagnostics are available via
+  `npm run check:nanowire-layout`, `npm run check:nanoscale-layout`,
+  `npm run check:protection-layout`, `npm run check:qvc-layout` and
+  `npm run check:majorana-layout` (Majorana header/intro, Components, Pathways and assembly).
+  Physical-device QA remains separate.
 
 **Breakpoint strategy: fluid CSS first, few content-driven breakpoints.**
 
@@ -280,7 +282,103 @@ gates, restart and disposal. The Interference panel audit also covers longer
 copy and fallback fonts across all seven panels.
 Manual visual review on physical devices remains outstanding.
 
-**Not started:** `build-majorana-2` is the final module conversion.
+**Module 9 (`build-majorana-2`) in progress:** the shared header and intro are
+converted. Header controls reuse the shared chrome
+with accessible compact actions; the intro lays out a separately fitted
+artwork area and a readable, normal-flow Get started button. Short viewports
+can scroll instead of shrinking the controls. Loading errors must remain
+readable and Restart/Exit remain reachable.
+
+**Assembly follow-up:** the build screen now separates normal-flow copy from
+a fitted 2160x3000 registered artwork area containing the tray, schematic,
+drop zones and finale. Wide layouts put explanations beside the workspace;
+narrow layouts stack them, with scrolling on short viewports. Part labels
+compensate for artwork scaling to remain readable, and the workspace retains
+a 20rem minimum height so the source parts remain usable touch targets.
+Drag and snap calculations use the artwork's measured local scale; resize
+and scrolling cancel active gestures/snaps safely rather than using stale
+bounds. Render budgets account for the artwork fit. The closing animation
+shares the artwork's coordinate system so its live-board handoff stays
+registered. Completion uses an explicit normal-flow Continue button instead
+of a viewport-wide tap target, allowing the completed screen to scroll.
+After the closing animation finishes, the hidden copy is removed from layout
+and the workspace fills the view. The artwork uses the largest contained fit,
+centred horizontally and bottom-aligned inside the view's fluid padding; the
+ending no longer reserves an empty copy row/column or retains assembly scroll.
+
+**Pathways follow-up:** the model slot, signal tracks, numbered callouts and
+component preview now share a fitted 2160x3000 artwork area. Explanations and
+a matching numbered channel key remain readable normal-flow content, above
+the artwork on narrow screens and beside it on wide screens. Short screens
+scroll rather than clipping the model or shrinking the copy. Callout numbers
+and component labels compensate for the artwork scale. An explicit Continue
+to assembly button replaces the full-view tap target, preserving scrolling.
+The existing linear lesson is retained; retired hit targets/detail controls
+are not reintroduced. Pulse motion uses artwork-local dimensions, transition
+targets are measured after fitting, and renderer budgets include that fit.
+Reduced motion presents the completed diagram without looping pulses and
+enables Continue immediately; preference changes apply while the view is open.
+
+**Components follow-up:** the registered background schematic fits a separate
+2160x2700 artwork area. The live inspectable QPU and Cryo-CMOS models now use
+responsive cards rather than kiosk-sized absolute offsets, stacked on narrow
+screens and side by side when space permits. Model size is bounded by both
+available width and viewport height; headings, explanations and inspection
+instructions remain unscaled normal-flow text. Short screens can scroll, and
+an explicit Continue to Pathways button replaces the full-view tap target so
+inspection no longer competes with advancement. The entrance still measures
+the fitted schematic origins, and the Pathways handoff measures the current
+cards. Resize releases inspection and settles an in-progress component
+entrance; scrolling also releases inspection. Renderer budgets include the
+background artwork scale.
+
+`npm run check:majorana-layout` covers the real intro scene at six sizes
+from 320x568 through 3440x1440 in normal/reduced motion, 200% browser text
+size, keyboard focus/entry, restart during the Components entry transition,
+Exit, carousel shared-scene portal handoff, failed loading and cleanup.
+Assembly coverage checks empty/partial/complete layouts at the same six
+sizes, invalid/valid touch and mouse drops, cancellation during resize,
+seated-part alignment after resize, reverse-order keyboard placement,
+completion and normal/reduced-motion finale behavior (including resize
+during the animated handoff).
+Pathways coverage checks the six viewport sizes in normal/reduced motion,
+200% text reflow, numbered-key correspondence, model/track registration,
+readable callouts, keyboard continuation, artwork touch without accidental
+advancement, locally scaled pulses and live motion-preference changes.
+Components coverage checks the six viewport sizes in normal/reduced motion,
+200% text reflow, contained model canvases, reachable cards and continuation,
+real touch/mouse inspection, resize cancellation and resize during entrance.
+This is Chromium coverage, not visual sign-off or mobile/browser-matrix QA.
+
+All Majorana lesson sections now have responsive passes. Visual sign-off on
+Components, Pathways, assembly, finale and their lesson transitions remains
+outstanding; registered-artwork fitting is not a substitute for that review.
+
+### Remaining risks and working assumptions
+
+The goal remains a single reflowing web layout from 320px to ultrawide.
+All nine modules have migration passes; this **does not establish mobile
+readiness or a percentage of the total work completed**.
+
+| Area | Remaining risk / assumption | Required follow-through |
+| --- | --- | --- |
+| Majorana | All lesson sections have responsive passes. Components uses reflowing model cards with a fitted background; Pathways/assembly/finale fit registered artwork rather than reflowing its internal geometry. | Visually review all transitions, model inspection, registered layers, the numbered Pathways key, assembly guidance and finale on real devices. |
+| Measurement-based | Its entire portrait board, including copy, scales to fit and letterboxes. Readability on phones is not established. | Separate readable text/controls from the registered footage and SVG artwork; verify the full sequence on narrow and short viewports. |
+| States of Matter | Board-relative copy still shrinks with the panel; frost/steam keep-out masks assume 9:16. | Reflow copy/controls and derive effect masks from measured DOM geometry at other aspect ratios. |
+| Qubit Explorer | Its scale-unit pass preserves portrait-board positions rather than establishing independent readable copy and touch targets. | Review small-screen readability, callouts and interaction reachability; reflow where needed. |
+| Artwork fitting | Some modules intentionally fit or crop registered artwork. This is acceptable for media, not a substitute for reflowing text and controls. Nanoscale's cover treatment can crop measurement features. | Review all learning-critical features at non-portrait aspect ratios; keep text, labels and controls independently readable. |
+| Accessibility/input | Per-module improvements are not a completed app-wide pass. Browser zoom is still restricted by `maximum-scale=1, user-scalable=no` in `src/index.html`. | Complete keyboard/focus, hover, pointer cancellation, touch-target, zoom and reduced-motion review. |
+| Verification | Targeted Electron/Chromium diagnostics do not establish Safari/Firefox support, physical-device usability or performance. A prior QVC diagnostic timed out, leaving that run incomplete rather than proving an app defect. | Resolve incomplete diagnostics and complete Phase 5 across the agreed browser/device matrix, orientation changes and representative inputs. |
+| WebGL/media | WebGL2 remains required; no low-power quality tier or static fallback is included. Large media still ships independently of viewport size. | Measure startup, memory and frame behavior on real mobile hardware; track asset optimization separately rather than assuming fluid CSS solves delivery/performance. |
+| Legacy tooling/docs | Electron, kiosk configuration and Windows packaging remain deferred cleanup. README/HANDOFF still describe the old fixed canvas and obsolete deployment surfaces. | Keep this plan as the migration status reference; align runtime tooling and contributor docs before declaring the web migration complete. |
+
+**Acceptance boundary:** preserve the nine modules' content, interactions and
+shared navigation. Use measured container geometry for scene sizing and input;
+resize or orientation changes must not leave captured pointers or stale
+hit-test bounds. Physical-device visual review remains outstanding even for
+modules with automated viewport coverage. Deep links, telemetry integration,
+asset re-encoding and Electron removal are separate work, not prerequisites
+silently added to each module conversion.
 
 ### Phase 4 — Interaction/accessibility pass
 
@@ -315,11 +413,14 @@ are baked in throughout.
   be picked up whenever, ideally after Phase 3 so module IDs/screens are
   stable.
 
-## Suggested starting point
+## Next implementation work
 
-Start with **Phase 0** (a quick breakpoint/target decision) and then
-**Phase 1 + Phase 2** as a first PR, since that's the shared foundation
-everything else depends on.
+Visually review Majorana's responsive Components cards and fitted Pathways,
+assembly and finale, including inspection, guidance and lesson transitions.
+Resolve the remaining portrait-board
+readability/effect-mask gaps before signing off Phase 3; finish the shared
+interaction/accessibility pass and cross-device QA before calling the app
+mobile-ready.
 
 ## Addendum: media asset size audit (not yet scheduled as a phase)
 

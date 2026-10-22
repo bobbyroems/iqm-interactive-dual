@@ -154,7 +154,8 @@ function smoothStep(progress) {
 }
 
 function elementCssScale(element) {
-  const scaleReference = element.closest?.('#kiosk-stage') || element
+  const scaleReference = element.closest?.('.majorana-build__artwork, .majorana-pathways__artwork, .majorana-components__artwork') ||
+    element.closest?.('#kiosk-stage') || element
   const bounds = scaleReference.getBoundingClientRect()
   return calculateCssScale({
     layoutWidth: scaleReference.offsetWidth || scaleReference.clientWidth,
@@ -2568,6 +2569,7 @@ export async function createMajoranaScene({
     setComponentAppearance,
     setComponentViewsActive,
     setSuspended,
+    resize: handleWindowResize,
     dispose
   }
 }

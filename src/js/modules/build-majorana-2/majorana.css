@@ -4,6 +4,8 @@
 }
 
 .majorana-module {
+  --header-height: clamp(3.5rem, 5.6vw, 5.5rem);
+  --band-top: var(--header-height);
   --majorana-blue: #0078d4;
   --majorana-ink: #243c63;
   --majorana-muted: #66778f;
@@ -15,6 +17,7 @@
   height: 100%;
   min-height: 0;
   flex-direction: column;
+  container-type: inline-size;
   overflow: hidden;
   background: #fff;
   color: var(--majorana-ink);
@@ -36,64 +39,41 @@
 }
 
 .majorana-module__header {
-  position: relative;
   z-index: 20;
-  display: flex;
-  min-height: 120px;
-  flex: 0 0 120px;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 100px;
   background: #fefefe;
-  box-shadow: 0 0 1px rgba(0, 0, 0, 0.12), 0 2px 2px rgba(0, 0, 0, 0.14);
 }
 
-.majorana-brand,
 .majorana-primary-action,
 .majorana-next-action {
   display: flex;
   align-items: center;
 }
 
-.majorana-brand {
-  width: 435px;
-  height: 76px;
+.majorana-module__header .microsoft-header__action {
+  min-width: 44px;
+  min-height: 44px;
 }
 
-.majorana-brand__microsoft {
-  position: relative;
-  display: block;
-  width: 223px;
-  height: 76px;
-  flex: 0 0 223px;
-  overflow: hidden;
+.majorana-module :is(.microsoft-header__action, .majorana-primary-action):focus-visible {
+  outline: 3px solid var(--majorana-blue);
+  outline-offset: 3px;
 }
 
-.majorana-brand__microsoft img {
-  position: absolute;
-  top: -16.89px;
-  left: -37px;
-  width: 260px;
-  height: 116.53px;
-  max-width: none;
+@container (max-width: 44rem) {
+  .majorana-module__header {
+    padding-inline: 1rem;
+    gap: 0.75rem;
+  }
+
+  .majorana-module__header .microsoft-header__action > span:not(.microsoft-header__action-icon) {
+    display: none;
+  }
 }
 
-.majorana-brand__rule {
-  width: 2px;
-  height: 50px;
-  flex: 0 0 2px;
-  margin-right: 39px;
-  background: #737373;
-}
-
-.majorana-brand__quantum {
-  color: #737373;
-  font-family: var(--font-display);
-  font-size: 32px;
-  font-weight: 600;
-  letter-spacing: -0.64px;
-  line-height: 18.35px;
-  white-space: nowrap;
+@container (max-width: 28rem) {
+  .majorana-module__header :is(.microsoft-brand__divider, .microsoft-brand__quantum) {
+    display: none;
+  }
 }
 
 .majorana-module.is-entering-components .majorana-module__header {
@@ -592,17 +572,20 @@
   top: 50%;
   left: 50%;
   display: flex;
-  min-width: 500px;
+  width: max-content;
+  min-width: 0;
+  max-width: calc(100% - 2rem);
   align-items: center;
   flex-direction: column;
-  gap: 22px;
-  padding: 46px 54px;
+  gap: clamp(0.5rem, 0.5rem + 0.5cqw, 1.375rem);
+  padding: clamp(0.75rem, 0.5rem + 1cqw, 2.875rem);
   border: 2px solid rgba(0, 120, 212, 0.15);
-  border-radius: 32px;
+  border-radius: clamp(0.75rem, 0.5rem + 1cqw, 2rem);
   background: rgba(255, 255, 255, 0.9);
   box-shadow: 0 26px 100px rgba(37, 77, 112, 0.13);
   color: var(--majorana-muted);
-  font-size: 26px;
+  font-size: clamp(1rem, 0.875rem + 0.5cqw, 1.625rem);
+  overflow-wrap: anywhere;
   text-align: center;
   transform: translate(-50%, -50%);
   transition: opacity 260ms ease, visibility 0s linear 260ms;
@@ -610,17 +593,13 @@
 
 .majorana-model-stage__loading strong {
   color: var(--majorana-ink);
-  font-size: 34px;
+  font-size: clamp(1.125rem, 1rem + 0.75cqw, 2.125rem);
   font-weight: 620;
 }
 
 .majorana-model-stage__loading.is-complete {
   opacity: 0;
   visibility: hidden;
-}
-
-.majorana-model-stage__loading.has-error {
-  min-width: 680px;
 }
 
 .majorana-model-stage__spinner {
@@ -637,7 +616,29 @@
 }
 
 .majorana-intro {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: clamp(1rem, 0.75rem + 1cqw, 3rem);
+  padding: clamp(1rem, 0.5rem + 2cqw, 4rem);
+  overflow-y: auto;
+  touch-action: pan-y;
   background: #fff;
+}
+
+.majorana-intro__artwork {
+  display: grid;
+  width: 100%;
+  min-height: 12rem;
+  flex: 1 0 12rem;
+  place-items: center;
+  container-type: size;
+}
+
+.majorana-intro__visual {
+  position: relative;
+  width: min(100cqw, 100cqh * 1800 / 2100);
+  aspect-ratio: 1800 / 2100;
 }
 
 .majorana-module.is-intro .majorana-model-stage,
@@ -656,10 +657,10 @@
 .majorana-intro__light-sweep {
   position: absolute;
   z-index: 3;
-  top: 1514px;
-  left: 580px;
-  width: 1000px;
-  height: 1033px;
+  top: 41%;
+  left: 22.22%;
+  width: 55.56%;
+  height: 49.19%;
   overflow: hidden;
   mix-blend-mode: screen;
   pointer-events: none;
@@ -667,57 +668,53 @@
 
 .majorana-intro__light-sweep::before {
   position: absolute;
-  top: -920px;
-  left: -349px;
-  width: 300px;
-  height: 1581px;
+  top: -89.06%;
+  left: -34.9%;
+  width: 30%;
+  height: 153.05%;
   background: linear-gradient(79.84deg, #8c8c8c 26.718%, #fff 82.517%);
   content: "";
-  filter: blur(45px);
+  filter: blur(clamp(0.25rem, 1cqw, 2.8125rem));
   opacity: 0.4;
   transform: rotate(45deg);
 }
 
 .majorana-model-slot--intro {
   z-index: 2;
-  top: 653px;
-  left: 180px;
-  width: 1800px;
-  height: 1952px;
+  inset: 0 0 auto;
+  width: 100%;
+  height: calc(100% * 1952 / 2100);
 }
 
 .majorana-intro__shadow {
   position: absolute;
   z-index: 1;
-  top: 2560px;
+  bottom: 3%;
   left: 50%;
-  width: 1260px;
-  height: 130px;
+  width: 70%;
+  height: 6.19%;
   pointer-events: none;
   transform: translateX(-50%);
 }
 
 .majorana-primary-action {
-  position: absolute;
+  position: relative;
   z-index: 5;
-  bottom: 872.7px;
-  left: 50%;
-  width: 514.7px;
-  min-height: 160.7px;
+  max-width: 100%;
+  min-height: 44px;
+  flex: 0 0 auto;
   justify-content: center;
-  gap: 40px;
-  padding: 40px 80px;
-  border-radius: 26.7px;
+  gap: clamp(0.75rem, 0.5rem + 1cqw, 2.5rem);
+  padding: clamp(0.75rem, 0.5rem + 1cqw, 2.5rem) clamp(1rem, 0.5rem + 3cqw, 5rem);
+  border-radius: clamp(0.5rem, 0.5rem + 0.5cqw, 1.66875rem);
   background: var(--majorana-blue) !important;
   box-shadow: none;
   color: #fff !important;
   font-family: var(--font-text);
-  font-size: 50px;
+  font-size: clamp(1rem, 0.875rem + 1.5cqw, 3.125rem);
   font-weight: 600;
-  letter-spacing: -1px;
-  line-height: 73.3px;
-  white-space: nowrap;
-  transform: translateX(-50%);
+  letter-spacing: -0.02em;
+  line-height: 1.3;
   transition:
     opacity 520ms 180ms cubic-bezier(0.22, 1, 0.36, 1),
     transform 700ms 180ms cubic-bezier(0.22, 1, 0.36, 1);
@@ -726,11 +723,23 @@
 .majorana-primary-action:disabled {
   opacity: 0;
   pointer-events: none;
-  transform: translate(-50%, 12px);
+  transform: translateY(12px);
 }
 
 .majorana-primary-action:active {
-  transform: translateX(-50%) scale(0.98);
+  transform: scale(0.98);
+}
+
+@media (hover: hover) {
+  .majorana-primary-action:not(:disabled):hover {
+    box-shadow: 0 4px 16px rgb(0 120 212 / 0.25);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .majorana-primary-action {
+    transition: none;
+  }
 }
 
 .majorana-next-action:active {
@@ -739,15 +748,15 @@
 
 .majorana-primary-action__icon {
   display: grid;
-  width: 66.7px;
-  height: 66.7px;
-  flex: 0 0 66.7px;
+  width: 1.33em;
+  height: 1.33em;
+  flex: 0 0 1.33em;
   place-items: center;
 }
 
 .majorana-primary-action__icon img {
-  width: 22.5px;
-  height: 40px;
+  width: 0.45em;
+  height: 0.8em;
 }
 
 .majorana-section-heading {
@@ -3811,10 +3820,6 @@
   visibility: visible;
 }
 
-.majorana-build__instruction:has(.kiosk-tooltip[data-build-prompt="initial"]) {
-  top: 1399px;
-}
-
 .majorana-build__instruction .kiosk-tooltip[data-build-prompt="initial"],
 .majorana-build__instruction .kiosk-tooltip[data-build-prompt="qpu-first"],
 .majorana-build__instruction .kiosk-tooltip[data-build-prompt="cryo-first"] {
@@ -4078,5 +4083,486 @@
   .majorana-module.is-finale .majorana-build__placed-labels,
   .majorana-module.is-finale .majorana-build__pathways {
     transition-duration: 1ms;
+  }
+}
+
+.majorana-components {
+  display: flex;
+  flex-direction: column;
+  gap: clamp(1rem, 0.5rem + 1cqw, 2rem);
+  padding: clamp(1rem, 0.5rem + 1cqw, 3rem);
+  overflow-y: auto;
+  scrollbar-gutter: stable;
+  touch-action: pan-y;
+}
+
+.majorana-components[aria-busy="true"] {
+  overflow-y: hidden;
+}
+
+.majorana-components__schematic {
+  position: absolute;
+  z-index: 2;
+  inset: clamp(1rem, 0.5rem + 1cqw, 3rem);
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.majorana-components__artwork {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 2160px;
+  height: 2700px;
+  transform-origin: 0 0;
+}
+
+.majorana-components .majorana-components-focus {
+  position: relative;
+  inset: auto;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: clamp(1rem, 0.5rem + 1cqw, 2rem);
+  flex: 1 0 auto;
+}
+
+.majorana-components__part {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.majorana-components .majorana-focus-component {
+  position: relative;
+  inset: auto;
+  width: min(80%, 20rem, 42svh);
+  height: auto;
+  flex: 0 0 auto;
+  aspect-ratio: 926.913 / 966;
+  margin-block: 2rem;
+  border-radius: 1.25rem;
+}
+
+.majorana-components .majorana-focus-component--cmos {
+  aspect-ratio: 957.86 / 966;
+}
+
+.majorana-components .majorana-focus-component:focus-visible {
+  outline-width: 3px;
+  outline-offset: 6px;
+}
+
+.majorana-components .majorana-focus-component__qpu-shell {
+  border-width: 2px;
+  border-radius: 1.25rem;
+}
+
+.majorana-components .majorana-focus-component__qpu-crop {
+  top: 8.36%;
+  left: 8.81%;
+  width: 82.05%;
+  height: 82.35%;
+}
+
+.majorana-components .majorana-focus-component__green-mask {
+  top: 27.53%;
+  left: 35.01%;
+  width: 33.15%;
+  height: 43.68%;
+}
+
+.majorana-components .majorana-focus-component__cryo-chip {
+  top: 34.77%;
+  left: 42.27%;
+  width: 15.57%;
+  height: 29.37%;
+  border-radius: 0.5rem;
+}
+
+.majorana-components .majorana-components-focus__intro,
+.majorana-components .majorana-components-focus__card {
+  position: relative;
+  z-index: 6;
+  inset: auto;
+  width: 100%;
+  height: auto;
+  min-width: 0;
+  min-height: 0;
+  flex: 0 0 auto;
+  padding: 0;
+  overflow-wrap: anywhere;
+}
+
+.majorana-components .majorana-shared-explainer {
+  --kiosk-explainer-padding: clamp(0.75rem, 0.5rem + 0.5cqw, 1.5rem);
+  --kiosk-explainer-content-gap: 0.75rem;
+  --kiosk-explainer-border-radius: 0.75rem;
+  --kiosk-explainer-box-shadow: 0 2px 12px rgb(37 77 112 / 0.12);
+  height: auto;
+}
+
+.majorana-components .kiosk-explainer__title {
+  font-size: clamp(1.25rem, 1rem + 1cqw, 2.5rem);
+  line-height: 1.4;
+  white-space: normal;
+}
+
+.majorana-components .majorana-components-focus__intro .kiosk-explainer__title {
+  font-size: clamp(1.5rem, 1rem + 1.5cqw, 3rem);
+}
+
+.majorana-components .kiosk-explainer__body {
+  max-width: none;
+  font-size: clamp(1rem, 0.875rem + 0.5cqw, 1.5rem);
+  line-height: 1.45;
+}
+
+.majorana-components__actions {
+  position: relative;
+  z-index: 6;
+  display: flex;
+  min-height: 3rem;
+  align-items: flex-start;
+  flex: 0 0 auto;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.majorana-components__instruction {
+  margin: 0;
+  color: var(--majorana-muted);
+  font-size: 1rem;
+  line-height: 1.4;
+  visibility: hidden;
+}
+
+.majorana-module[data-components-phase="focus"] .majorana-components__instruction {
+  visibility: visible;
+}
+
+@container (min-width: 32rem) {
+  .majorana-components .majorana-components-focus {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.majorana-pathways {
+  --majorana-pathways-scale: 1;
+  display: grid;
+  grid-template-rows: auto minmax(24rem, 1fr);
+  gap: clamp(1rem, 0.5rem + 1cqw, 2rem);
+  padding: clamp(1rem, 0.5rem + 1cqw, 3rem);
+  overflow-y: auto;
+  touch-action: pan-y;
+}
+
+.majorana-pathways__content {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: clamp(1rem, 0.5rem + 1cqw, 2rem);
+}
+
+.majorana-pathways .majorana-pathways__copy {
+  position: relative;
+  inset: auto;
+  width: 100%;
+  height: auto;
+  overflow-wrap: anywhere;
+}
+
+.majorana-pathways .majorana-shared-explainer {
+  --kiosk-explainer-padding: clamp(0.75rem, 0.5rem + 0.5cqw, 1.5rem);
+  --kiosk-explainer-content-gap: 1rem;
+  --kiosk-explainer-border-radius: 0.75rem;
+  --kiosk-explainer-box-shadow: 0 2px 12px rgb(37 77 112 / 0.12);
+  height: auto;
+}
+
+.majorana-pathways .majorana-pathways__copy .kiosk-explainer__title {
+  font-size: clamp(1.5rem, 1rem + 1.5cqw, 3rem);
+  line-height: 1.4;
+}
+
+.majorana-pathways .majorana-pathways__copy .kiosk-explainer__body {
+  max-width: none;
+  font-size: clamp(1rem, 0.875rem + 0.5cqw, 1.5rem);
+  line-height: 1.45;
+}
+
+.majorana-pathways__key {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.majorana-pathways__key li {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem;
+  border: 1px solid var(--majorana-line);
+  border-radius: 0.75rem;
+  color: var(--majorana-ink);
+  font-size: clamp(1rem, 0.875rem + 0.5cqw, 1.5rem);
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+  opacity: 0;
+  transition: background-color 220ms ease;
+}
+
+.majorana-pathways__key li.is-active {
+  background: var(--majorana-pale);
+}
+
+.majorana-pathways__key li > span {
+  display: grid;
+  width: 2rem;
+  height: 2rem;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: var(--majorana-blue);
+  color: #fff;
+  place-items: center;
+  font-weight: 600;
+}
+
+.majorana-pathways__actions {
+  min-height: 3rem;
+}
+
+.majorana-components__continue,
+.majorana-pathways__continue {
+  min-width: 44px;
+  min-height: 44px;
+  max-width: 100%;
+  padding: 0.75rem 1.25rem;
+  border-radius: 0.5rem;
+  background: var(--majorana-blue) !important;
+  color: #fff !important;
+  font-size: 1rem;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.majorana-components__continue:focus-visible,
+.majorana-pathways__continue:focus-visible {
+  outline: 3px solid var(--majorana-blue);
+  outline-offset: 3px;
+}
+
+.majorana-pathways__workspace {
+  position: relative;
+  min-width: 0;
+  min-height: 24rem;
+  overflow: hidden;
+}
+
+.majorana-pathways__artwork {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 2160px;
+  height: 3000px;
+  transform-origin: 0 0;
+}
+
+.majorana-pathways__artwork .majorana-pathway-tooltip {
+  display: grid;
+  width: calc(2rem / var(--majorana-pathways-scale));
+  height: calc(2rem / var(--majorana-pathways-scale));
+  border-radius: 50%;
+  translate: -50% -50%;
+  place-items: center;
+}
+
+.majorana-pathways__artwork .majorana-pathway-tooltip--external {
+  top: 1501.5px;
+  left: 1567.5px;
+}
+
+.majorana-pathways__artwork .majorana-pathway-tooltip--readout {
+  top: 1501.5px;
+  left: 628.5px;
+}
+
+.majorana-pathways__artwork .majorana-pathway-tooltip--control {
+  top: 2141px;
+  left: 1177.5px;
+}
+
+.majorana-pathways__artwork .majorana-pathway-tooltip .majorana-pathway-tooltip__title {
+  position: static;
+  font-size: calc(1rem / var(--majorana-pathways-scale));
+  line-height: 1;
+  transform: none;
+}
+
+.majorana-pathways__component figcaption {
+  margin-top: calc(0.5rem / var(--majorana-pathways-scale));
+  font-size: calc(clamp(0.875rem, 0.8rem + 0.25cqw, 1.25rem) / var(--majorana-pathways-scale));
+  letter-spacing: -0.02em;
+  line-height: 1.3;
+}
+
+.majorana-build {
+  --majorana-build-scale: 1;
+  display: grid;
+  grid-template-rows: auto minmax(20rem, 1fr);
+  gap: clamp(1rem, 0.5rem + 1cqw, 2rem);
+  padding: clamp(1rem, 0.5rem + 1cqw, 3rem);
+  overflow-y: auto;
+  touch-action: pan-y;
+}
+
+.majorana-build__content {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: clamp(0.75rem, 0.5rem + 0.5cqw, 1.5rem);
+}
+
+.majorana-build__heading {
+  margin: 0;
+  font-size: clamp(1.25rem, 1rem + 1cqw, 2.5rem);
+  font-weight: 600;
+  line-height: 1.25;
+}
+
+.majorana-build__workspace {
+  position: relative;
+  min-width: 0;
+  min-height: 20rem;
+  overflow: hidden;
+}
+
+/* Only the registered artwork uses design coordinates; copy stays in flow. */
+.majorana-build__artwork {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 2160px;
+  height: 3000px;
+  transform-origin: 0 0;
+}
+
+.majorana-build .majorana-build__explanation,
+.majorana-build .majorana-build__summary,
+.majorana-build .majorana-build__instruction {
+  position: relative;
+  inset: auto;
+  width: 100%;
+  height: auto;
+  min-height: 0;
+  padding: 0;
+  transform: none;
+}
+
+.majorana-build .majorana-shared-explainer {
+  --kiosk-explainer-padding: clamp(0.75rem, 0.5rem + 0.5cqw, 1.5rem);
+  --kiosk-explainer-border-radius: 0.75rem;
+  --kiosk-explainer-box-shadow: 0 2px 12px rgb(37 77 112 / 0.12);
+  height: auto;
+}
+
+.majorana-build .kiosk-explainer__body {
+  max-width: none;
+  font-size: clamp(1rem, 0.875rem + 0.5cqw, 1.5rem);
+  line-height: 1.45;
+}
+
+.majorana-build .majorana-shared-tooltip {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  min-height: 0;
+  padding: 0.75rem 1rem;
+}
+
+.majorana-build .majorana-build__instruction {
+  min-height: calc(1.5rem + 4.2em);
+  font-size: clamp(1rem, 0.875rem + 0.5cqw, 1.5rem);
+}
+
+.majorana-build .majorana-shared-tooltip .kiosk-tooltip__text {
+  font-size: clamp(1rem, 0.875rem + 0.5cqw, 1.5rem);
+  line-height: 1.4;
+  white-space: normal;
+}
+
+.majorana-build__finish {
+  align-self: flex-start;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0.75rem 1.25rem;
+  border-radius: 0.5rem;
+  background: var(--majorana-blue) !important;
+  color: #fff !important;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.majorana-build-part {
+  height: max(584px, calc(523.076px + 3rem / var(--majorana-build-scale)));
+}
+
+.majorana-build-part__label,
+.majorana-build-part__guidance-label,
+.majorana-build__placed-label {
+  font-size: calc(clamp(0.875rem, 0.8rem + 0.25cqw, 1.25rem) / var(--majorana-build-scale));
+  letter-spacing: -0.02em;
+  line-height: 1.3;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.majorana-build-part:focus-visible {
+  outline-width: calc(3px / var(--majorana-build-scale));
+  outline-offset: calc(3px / var(--majorana-build-scale));
+}
+
+.majorana-module.is-finale .majorana-build__content {
+  visibility: hidden;
+}
+
+.majorana-module.is-finale-complete .majorana-build {
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
+  gap: 0;
+  overflow: hidden;
+}
+
+.majorana-module.is-finale-complete .majorana-build__content {
+  display: none;
+}
+
+.majorana-module.is-finale-complete .majorana-build__workspace {
+  min-height: 0;
+}
+
+@container (min-width: 60rem) {
+  .majorana-pathways {
+    grid-template-columns: minmax(16rem, 0.75fr) minmax(0, 1.25fr);
+    grid-template-rows: minmax(24rem, 1fr);
+  }
+
+  .majorana-build {
+    grid-template-columns: minmax(16rem, 0.75fr) minmax(0, 1.25fr);
+    grid-template-rows: minmax(20rem, 1fr);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .majorana-pathways,
+    .majorana-pathways__artwork .majorana-pathway-tooltip,
+    .majorana-pathways__key li {
+      animation: none;
+      transition: none;
+    }
   }
 }
