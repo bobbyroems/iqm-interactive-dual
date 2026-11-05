@@ -228,7 +228,7 @@ export class DomModuleHostView {
  * experience.
  */
 export class ModuleHost {
-  constructor({ root, view, onActivity = noop, navigate = {}, mountTimeoutMs = 30000 }) {
+  constructor({ root, view, onActivity = noop, navigate = {}, mountTimeoutMs = 30000, telemetry = null }) {
     this.view = view || new DomModuleHostView(root)
     this.navigate = Object.freeze({
       home: navigate.home || noop,
@@ -238,6 +238,7 @@ export class ModuleHost {
       module: navigate.module || noop
     })
     this.activityCallback = onActivity
+    this.telemetry = telemetry
     this.currentModule = null
     this.abortController = null
     this.disposer = null
@@ -264,6 +265,7 @@ export class ModuleHost {
       return { status: 'concept' }
     }
 
+    this.telemetry?.loading(module.id)
     const abortController = new AbortController()
     this.abortController = abortController
     const cancelLoadingView = this.#scheduleLoadingView(module, token, abortController)
@@ -318,6 +320,7 @@ export class ModuleHost {
           if (abortController.signal.aborted) throw error
           /* Compositor warm-up is an enhancement; a failure must not block the module. */
           console.warn(`Module “${module.id}” presentation warm-up failed.`, error)
+          this.telemetry?.report(error, 'module_warmup', module.id)
         }
       }
       if (!this.#isCurrent(token, abortController)) {
@@ -325,6 +328,7 @@ export class ModuleHost {
         return { status: 'stale' }
       }
       container.setAttribute?.('aria-busy', 'false')
+      this.telemetry?.ready(module.id)
       return { status: 'active' }
     } catch (error) {
       cancelLoadingView()
@@ -334,6 +338,7 @@ export class ModuleHost {
       }
 
       console.error(`Module “${module.id}” failed to mount.`, error)
+      this.telemetry?.failed(module.id, error, 'module_load')
       abortController.abort()
       this.abortController = null
       const disposer = this.disposer
@@ -362,6 +367,7 @@ export class ModuleHost {
     const context = retryContext
     if (!module) return
     console.error(`Module “${module.id}” interaction failed.`, error)
+    this.telemetry?.failed(module.id, error, 'module_interaction')
     this.#invalidate({ clear: false })
     this.currentModule = module
     const token = this.requestToken

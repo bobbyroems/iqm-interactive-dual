@@ -32,6 +32,7 @@
     "check:assets": "node scripts/check-media-assets.mjs public",
     "leak:soak": "electron scripts/leak-soak.cjs",
     "check:recovery": "electron scripts/check-runtime-recovery.cjs && electron scripts/check-stalled-load-recovery.cjs",
+    "check:telemetry": "node scripts/check-telemetry.mjs",
     "check:qvc-warmup": "electron scripts/check-qvc-warmup.cjs",
     "check:interference-layout": "electron scripts/check-interference-layout.cjs"
   },
@@ -39,6 +40,7 @@
     "node": ">=22.12"
   },
   "dependencies": {
+    "@sentry/electron": "^8.3.0",
     "gsap": "^3.14.2",
     "lottie-web": "^5.13.0",
     "three": "^0.185.1"
@@ -58,7 +60,8 @@
     "appId": "com.makeshiftstudios.iqm-kiosk",
     "productName": "IQM Interactive Kiosk",
     "extraMetadata": {
-      "defaultLaunchMode": "kiosk"
+      "defaultLaunchMode": "kiosk",
+      "telemetryRuntime": "production"
     },
     "asar": true,
     "asarUnpack": [

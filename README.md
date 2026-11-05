@@ -33,6 +33,7 @@ npm run dev             # Vite + resizable Electron development window
 npm run build           # Syntax checks and renderer build
 npm run preview         # Built renderer in a safe window
 npm run preview:kiosk   # Local fullscreen preview; Ctrl+Shift+Q exits
+npm run check:telemetry # Built-renderer Electron telemetry smoke test (run build first)
 npm run package:win     # Production Windows NSIS application installer
 npm run package:win:kiosk # Complete client ZIP with one-click install/update
 npm run package:win:pro # Windows Pro event ZIP: fullscreen + Explorer/session control
@@ -112,6 +113,16 @@ supplied reference media and production 3D assets. Module 08, "From quantum
 signal to readout", has been dropped from the carousel — it never received design
 or production assets, and shipping it as a concept placeholder ended the menu on
 an unexplained abstract sphere.
+
+## Telemetry
+
+Optional PostHog EU analytics and Sentry EU diagnostics collect locally on
+configured production kiosks. Uploads require an operator to launch the app
+with `--telemetry-upload` and explicitly confirm; reconnecting never uploads.
+Replay, autocapture, persistent visitor profiles and native crash dumps are
+not enabled. Development and review builds do not collect production data.
+See [docs/TELEMETRY.md](docs/TELEMETRY.md) for project setup, local configuration,
+event definitions, retention, privacy and validation.
 
 ## Project structure
 

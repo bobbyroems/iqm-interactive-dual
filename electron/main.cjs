@@ -2,6 +2,7 @@ const {
   app,
   BrowserWindow,
   dialog,
+  ipcMain,
   Menu,
   powerSaveBlocker,
   protocol,
@@ -17,6 +18,12 @@ const {
   createAppUrl,
 } = require('./app-protocol.cjs')
 const { resolveRuntimeMode } = require('./runtime-mode.cjs')
+const {
+  KioskTelemetry,
+  isTelemetryRuntimeEnabled,
+  loadTelemetryConfig,
+  registerTelemetryIpc
+} = require('./telemetry.cjs')
 
 protocol.registerSchemesAsPrivileged([
   {
@@ -31,7 +38,8 @@ function readPackagedDefaults() {
     const metadata = JSON.parse(fs.readFileSync(metadataPath, 'utf8'))
     return {
       defaultLaunchMode: metadata.defaultLaunchMode,
-      defaultAllowQuit: metadata.defaultAllowQuit
+      defaultAllowQuit: metadata.defaultAllowQuit,
+      telemetryRuntime: metadata.telemetryRuntime
     }
   } catch (error) {
     console.warn(`[main] Could not read packaged launch mode: ${error.message}`)
@@ -79,6 +87,13 @@ let unresponsiveReloadTimer = null
 let placementInFlight = false
 let activeDisplayId = null
 let displaySettleTimer = null
+let telemetry = null
+let telemetryInitializationError = null
+let telemetryDialogOpen = false
+let shutdownFlushed = false
+let shutdownFlushStarted = false
+let telemetryConfigPath = null
+let telemetryUploadRequested = process.argv.includes('--telemetry-upload')
 
 app.commandLine.appendSwitch('disable-pinch')
 app.commandLine.appendSwitch('overscroll-history-navigation', '0')
@@ -124,6 +139,78 @@ function loadConfig() {
 function registerRendererProtocol() {
   const rendererRoot = path.resolve(__dirname, '..', 'dist')
   protocol.handle(APP_PROTOCOL_SCHEME, createAppProtocolHandler({ rendererRoot }))
+}
+
+async function initializeTelemetry() {
+  const configPath = process.env.IQM_TELEMETRY_CONFIG ||
+    path.join(app.getPath('userData'), 'telemetry.config.json')
+  telemetryConfigPath = configPath
+  const config = await loadTelemetryConfig(configPath)
+  const candidate = new KioskTelemetry({
+    directory: path.join(app.getPath('userData'), 'telemetry'),
+    config,
+    appVersion: app.getVersion(),
+    runtimeEnabled: isTelemetryRuntimeEnabled({
+      isPackaged: app.isPackaged,
+      isKiosk,
+      telemetryRuntime: readPackagedDefaults().telemetryRuntime
+    })
+  })
+  try {
+    await candidate.initialize()
+    telemetry = candidate
+    registerTelemetryIpc({ ipcMain, getWebContents: () => mainWindow?.webContents, telemetry })
+  } catch (error) {
+    telemetryInitializationError = 'Telemetry could not initialize. Check the local configuration, disk space and permissions.'
+    console.error(`[telemetry] ${telemetryInitializationError}`, error)
+  }
+}
+
+async function showTelemetryUpload() {
+  if (telemetryDialogOpen) return
+  telemetryDialogOpen = true
+  try {
+    if (!telemetry) throw new Error(telemetryInitializationError || 'Telemetry is not ready.')
+    const status = await telemetry.status()
+    const response = await dialog.showMessageBox(mainWindow, {
+      type: 'question',
+      title: 'Kiosk telemetry',
+      message: 'Upload locally collected telemetry to the EU projects?',
+      detail: [
+        `PostHog: ${status.posthog} queued; collection ${status.analyticsEnabled ? 'enabled' : 'disabled'}.`,
+        `Sentry: ${status.sentry} queued; collection ${status.diagnosticsEnabled ? 'enabled' : 'disabled'}.`,
+        `Storage: ${(status.bytes / 1048576).toFixed(1)} MiB. Dropped this run: ${status.droppedThisRun}.`,
+        `Configuration: ${telemetryConfigPath}`,
+        status.oldestAt ? `Oldest event: ${new Date(status.oldestAt).toISOString()}.` : 'The queue is empty.',
+        status.lastError || '',
+        'Only this upload is authorized. Failed events remain local; there are no automatic retries.'
+      ].filter(Boolean).join('\n'),
+      buttons: ['Cancel', 'Upload now'],
+      defaultId: 0,
+      cancelId: 0,
+      noLink: true
+    })
+    if (response.response !== 1) return
+    const result = await telemetry.upload()
+    await dialog.showMessageBox(mainWindow, {
+      type: result.errors.length ? 'warning' : 'info',
+      title: 'Kiosk telemetry upload',
+      message: `Uploaded ${result.posthog} analytics events and ${result.sentry} diagnostics.`,
+      detail: result.errors.length
+        ? result.errors.join('\n')
+        : 'No further uploads will run until an operator requests another upload.'
+    })
+  } catch (error) {
+    console.error('[telemetry] Operator workflow failed.', error)
+    await dialog.showMessageBox(mainWindow, {
+      type: 'error',
+      title: 'Kiosk telemetry',
+      message: 'Telemetry upload could not complete.',
+      detail: error.message
+    })
+  } finally {
+    telemetryDialogOpen = false
+  }
 }
 
 function listDisplays(displays, primaryDisplay) {
@@ -421,7 +508,11 @@ function createWindow() {
     isDevelopment,
     isKiosk,
     isWindowed,
-    config
+    config,
+    telemetry: {
+      analyticsEnabled: telemetry?.analyticsEnabled || false,
+      diagnosticsEnabled: telemetry?.diagnosticsEnabled || false
+    }
   }))
 
   mainWindow = new BrowserWindow({
@@ -462,10 +553,13 @@ function createWindow() {
   mainWindow.webContents.on('unresponsive', () => {
     if (unresponsiveReloadTimer !== null) return
     console.warn('[main] Renderer became unresponsive; waiting for recovery.')
+    telemetry?.captureError(new Error('Renderer unresponsive'), 'renderer_unresponsive')
     unresponsiveReloadTimer = setTimeout(() => {
       unresponsiveReloadTimer = null
       if (!quitting && mainWindow && !mainWindow.isDestroyed()) {
         console.error('[main] Renderer did not recover; reloading.')
+        telemetry?.captureError(new Error('Renderer reloaded'), 'renderer_reload')
+        telemetry?.interrupt('renderer_reload')
         mainWindow.webContents.reload()
       }
     }, 5000)
@@ -473,12 +567,16 @@ function createWindow() {
   mainWindow.webContents.on('responsive', () => {
     if (unresponsiveReloadTimer === null) return
     console.info('[main] Renderer recovered without a reload.')
+    telemetry?.captureError(new Error('Renderer recovered'), 'renderer_recovered')
     clearUnresponsiveReloadTimer()
   })
   mainWindow.webContents.on('render-process-gone', (_event, details) => {
     clearUnresponsiveReloadTimer()
     console.error('[main] Renderer process exited.', details)
     if (!quitting && mainWindow && !mainWindow.isDestroyed()) {
+      const reason = details.reason === 'clean-exit' ? 'renderer_reload' : 'renderer_crash'
+      telemetry?.captureError(new Error('Renderer process exited'), reason)
+      telemetry?.interrupt(reason)
       setTimeout(() => mainWindow?.webContents.reload(), 1000)
     }
   })
@@ -526,13 +624,19 @@ const hasSingleInstanceLock = app.requestSingleInstanceLock()
 if (!hasSingleInstanceLock) {
   app.quit()
 } else {
-  app.on('second-instance', () => {
+  app.on('second-instance', (_event, argv) => {
+    if (argv.includes('--telemetry-upload')) telemetryUploadRequested = true
     if (!mainWindow) return
     if (mainWindow.isMinimized()) mainWindow.restore()
     mainWindow.focus()
+    if (telemetryUploadRequested) {
+      telemetryUploadRequested = false
+      void showTelemetryUpload()
+    }
   })
 
-  app.whenReady().then(() => {
+  app.whenReady().then(async () => {
+    await initializeTelemetry()
     registerRendererProtocol()
     console.info('[main] GPU feature status', app.getGPUFeatureStatus())
     app.getGPUInfo('basic')
@@ -551,6 +655,10 @@ if (!hasSingleInstanceLock) {
     }
 
     createWindow()
+    if (telemetryUploadRequested) {
+      telemetryUploadRequested = false
+      void showTelemetryUpload()
+    }
 
     app.on('activate', () => {
       if (BrowserWindow.getAllWindows().length === 0) createWindow()
@@ -558,7 +666,21 @@ if (!hasSingleInstanceLock) {
   })
 }
 
-app.on('before-quit', () => {
+app.on('before-quit', event => {
+  if ((telemetry?.analyticsEnabled || telemetry?.diagnosticsEnabled) && !shutdownFlushed) {
+    event.preventDefault()
+    if (shutdownFlushStarted) return
+    shutdownFlushStarted = true
+    quitting = true
+    telemetry.interrupt('shutdown')
+    void telemetry.flush().catch(error => {
+      console.error('[telemetry] Shutdown flush failed.', error)
+    }).finally(() => {
+      shutdownFlushed = true
+      app.quit()
+    })
+    return
+  }
   quitting = true
   clearUnresponsiveReloadTimer()
   clearDisplaySettleTimer()

@@ -10,7 +10,8 @@ module.exports = {
   },
   extraMetadata: {
     ...baseConfig.extraMetadata,
-    defaultLaunchMode: 'windowed'
+    defaultLaunchMode: 'windowed',
+    telemetryRuntime: 'review'
   },
   win: {
     ...baseConfig.win,

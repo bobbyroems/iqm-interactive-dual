@@ -1,0 +1,10 @@
+{
+  "enabled": true,
+  "kioskId": "kiosk-01",
+  "posthog": {
+    "projectToken": ""
+  },
+  "sentry": {
+    "dsn": ""
+  }
+}

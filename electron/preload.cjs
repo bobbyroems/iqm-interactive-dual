@@ -1,4 +1,4 @@
-const { contextBridge } = require('electron')
+const { contextBridge, ipcRenderer } = require('electron')
 
 function readRuntimePayload() {
   const prefix = '--kiosk-runtime='
@@ -21,5 +21,25 @@ contextBridge.exposeInMainWorld('kiosk', Object.freeze({
   appVersion: runtime.appVersion || '0.0.0',
   isDevelopment: Boolean(runtime.isDevelopment),
   isKiosk: Boolean(runtime.isKiosk),
-  config: Object.freeze(runtime.config || {})
+  config: Object.freeze(runtime.config || {}),
+  telemetry: Object.freeze({
+    analyticsEnabled: Boolean(runtime.telemetry?.analyticsEnabled),
+    diagnosticsEnabled: Boolean(runtime.telemetry?.diagnosticsEnabled),
+    track(name, properties) {
+      if (!runtime.telemetry?.analyticsEnabled) return
+      ipcRenderer.send('kiosk:telemetry', { type: 'analytics', name, properties })
+    },
+    reportError(error, kind, moduleId) {
+      if (!runtime.telemetry?.diagnosticsEnabled) return
+      ipcRenderer.send('kiosk:telemetry', {
+        type: 'error',
+        error: {
+          name: typeof error?.name === 'string' ? error.name.slice(0, 40) : 'Error',
+          stack: typeof error?.stack === 'string' ? error.stack.slice(0, 12000) : ''
+        },
+        kind,
+        moduleId
+      })
+    }
+  })
 }))

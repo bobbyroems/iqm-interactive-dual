@@ -3,6 +3,7 @@ dist/
 build/
 .DS_Store
 *.log
+telemetry.local.json
 
 threejs-water-pro/demo/*.pem
 

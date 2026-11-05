@@ -17,6 +17,7 @@ import { initAudio, sound, startAmbient, stopAmbient } from './core/kiosk-audio.
 import { installPressBloom } from './core/press-bloom.js'
 import { installButtonTapSound } from './core/button-tap-sound.js'
 import { createKioskSettings } from './core/kiosk-settings.js'
+import { KioskTelemetry } from './core/kiosk-telemetry.js'
 import { configureIdleTimeouts } from './core/idle-timeouts.js'
 import { splitTextForReveal } from './core/text-reveal.js'
 import { ModuleHost } from './core/module-host.js'
@@ -136,6 +137,7 @@ export class KioskApp {
   constructor(root = document) {
     this.root = root
     this.runtime = window.kiosk || {}
+    this.telemetry = new KioskTelemetry({ bridge: this.runtime.telemetry })
     this.config = {
       ...fallbackConfig,
       ...this.runtime.config,
@@ -186,10 +188,11 @@ export class KioskApp {
     this.moduleHost = new ModuleHost({
       root: root.getElementById('module-host'),
       onActivity: this.onActivity,
+      telemetry: this.telemetry,
       navigate: {
         home: () => this.goHome(),
         menu: () => this.openMenu(),
-        module: moduleId => this.openModule(moduleId)
+        module: moduleId => this.openModule(moduleId, 'module')
       }
     })
 
@@ -322,7 +325,12 @@ export class KioskApp {
   }
 
   bindEvents() {
-    this.root.getElementById('start-button').addEventListener('click', () => this.openMenu())
+    this.root.getElementById('start-button').addEventListener('click', () => this.openMenu('start'))
+
+    window.addEventListener('error', event => this.telemetry.report(event.error, 'renderer_error'))
+    window.addEventListener('unhandledrejection', event => {
+      this.telemetry.report(event.reason, 'unhandled_rejection')
+    })
 
     this.root.addEventListener('click', event => {
       const action = event.target.closest('[data-action]')?.dataset.action
@@ -331,6 +339,7 @@ export class KioskApp {
     })
 
     document.addEventListener('pointerdown', () => {
+      this.telemetry.activity(this.router.currentScreen)
       initAudio()
       startAmbient()
     }, true)
@@ -350,8 +359,9 @@ export class KioskApp {
     })
   }
 
-  openMenu() {
+  openMenu(reason = 'menu') {
     if (this.isOpeningExperience) return
+    this.telemetry.menu(reason)
     // Following the outro can advance through modules without touching the
     // carousel. Select the module being left before revealing the menu.
     const moduleIndex = MODULES.findIndex(module => module.id === this.activeModuleId)
@@ -368,12 +378,13 @@ export class KioskApp {
     void this.ensureMajoranaMenuPreview()
   }
 
-  openModule(moduleId) {
+  openModule(moduleId, source = 'menu') {
     const module = getModule(moduleId)
     if (!module || this.isOpeningExperience) return
     /* Placeholder slots sit in the carousel so the run of eight reads as
        complete, but there is nothing behind them to mount. */
     if (!isPlayable(module)) return
+    this.telemetry.select(moduleId, source)
     this.cancelDeferredModuleUnmount()
     this.moduleCarousel.setActive(false)
 
@@ -728,8 +739,9 @@ export class KioskApp {
     }
   }
 
-  goHome() {
+  goHome(reason = 'home') {
     if (this.isOpeningExperience) return
+    this.telemetry.end(reason)
     this.moduleCarousel.setActive(false)
     this.majoranaPreviewController?.setSuspended(true)
     this.activeModuleId = null
@@ -742,6 +754,7 @@ export class KioskApp {
   }
 
   onActivity() {
+    this.telemetry.activity(this.router.currentScreen)
     this.idleController.reset()
   }
 
@@ -752,10 +765,10 @@ export class KioskApp {
   onIdle() {
     routeIdle({
       activeModuleId: this.activeModuleId,
-      goHome: () => this.goHome(),
+      goHome: () => this.goHome('idle'),
       idleController: this.idleController,
       isOpeningExperience: this.isOpeningExperience,
-      openMenu: () => this.openMenu()
+      openMenu: () => this.openMenu('idle')
     })
   }
 
