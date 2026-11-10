@@ -113,6 +113,17 @@ signal to readout", has been dropped from the carousel — it never received des
 or production assets, and shipping it as a concept placeholder ended the menu on
 an unexplained abstract sphere.
 
+## Analytics
+
+The renderer loads Microsoft Clarity project `yq1mx1084q` through the local
+`src/js/clarity.js` module. Analytics requires internet access; a failed script
+load logs a warning without blocking the offline-first kiosk.
+
+The CSP permits HTTPS scripts from `*.clarity.ms` and connections/images from
+`*.clarity.ms` and `c.bing.com`, covering Clarity's load-balanced endpoints.
+It does not permit inline scripts or broaden `default-src`. See
+[Clarity's CSP requirements](https://learn.microsoft.com/en-us/clarity/setup-and-installation/clarity-csp).
+
 ## Project structure
 
 ```text
