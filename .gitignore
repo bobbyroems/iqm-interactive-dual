@@ -3,6 +3,7 @@ dist/
 build/
 .DS_Store
 *.log
+_reference/
 
 threejs-water-pro/demo/*.pem
 

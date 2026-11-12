@@ -220,6 +220,31 @@
   height: clamp(20px, 4vw + 12px, 30px);
 }
 
+/* Hand-pointer that taps the welcome CTA on an idle loop, to make the button
+   read as obviously interactive on an unattended kiosk. Hidden by default;
+   the attract-screen rule further down animates it in, through a tap, and
+   back out. Anchored near the button's own content, not the viewport, so it
+   keeps working regardless of where the button lands on screen. */
+.cta-pointer {
+  position: absolute;
+  z-index: 1;
+  right: 18px;
+  bottom: -34px;
+  width: 260px;
+  height: 260px;
+  opacity: 0;
+  transform-origin: 68% 22%;
+  pointer-events: none;
+  filter: drop-shadow(0 14px 20px rgba(10, 22, 46, 0.35));
+  /* Start (off/retracted) and end (tap) positions for the cta-pointer-tap
+     keyframes below, so the travel path can be tuned without touching the
+     animation itself. */
+  --cta-pointer-start-x: 396px;
+  --cta-pointer-start-y: -206px;
+  --cta-pointer-end-x: 90px;
+  --cta-pointer-end-y: 125px;
+}
+
 /* ---------------------------------------------------------------------------
  * Attract screen (Figma "Home -1")
  * ------------------------------------------------------------------------- */
@@ -3036,6 +3061,74 @@
 
 .screen--attract.is-leaving .attract-chip {
   animation: attract-chip-out 300ms ease forwards;
+}
+
+/* Idle attract CTA: a hand pointer slides in and taps the button on a loop.
+   Starts once the entrance animation above has settled, pauses for the
+   press-bloom ripple and the :active press state (so a real touch doesn't
+   fight the simulated one), and is dropped entirely under reduced motion. */
+@media (prefers-reduced-motion: no-preference) {
+  .screen--attract.is-active #start-button .cta-pointer {
+    animation: cta-pointer-tap 4.5s ease-in-out 1700ms infinite;
+  }
+
+  .screen--attract.is-active #start-button:active .cta-pointer,
+  .screen--attract.is-active #start-button.is-pressing .cta-pointer {
+    animation-play-state: paused;
+    opacity: 0;
+  }
+
+  /* Independent glow pulse on the button itself, looping on its own cadence
+     regardless of the tap gesture above. */
+  .screen--attract.is-active #start-button {
+    animation: cta-pulse-glow 1.5s ease-in-out infinite;
+  }
+
+  .screen--attract.is-active #start-button:active,
+  .screen--attract.is-active #start-button.is-pressing {
+    animation-play-state: paused;
+  }
+}
+
+@keyframes cta-pulse-glow {
+  0% {
+    box-shadow: 0 10px 28px rgba(42, 68, 111, 0.22), 0 0 0 0 rgba(0, 85, 212, 0.6);
+  }
+
+  100% {
+    box-shadow: 0 10px 28px rgba(42, 68, 111, 0.22), 0 0 0 48px rgba(0, 85, 212, 0);
+  }
+}
+
+@keyframes cta-pointer-tap {
+  0%,
+  100% {
+    opacity: 0;
+    transform: translate(var(--cta-pointer-start-x), var(--cta-pointer-start-y)) scale(0.8);
+  }
+
+  18% {
+    opacity: 1;
+    transform: translate(var(--cta-pointer-end-x), var(--cta-pointer-end-y)) scale(1);
+  }
+
+  30% {
+    transform: translate(calc(var(--cta-pointer-end-x) - 8px), calc(var(--cta-pointer-end-y) - 14px)) scale(0.94);
+  }
+
+  40% {
+    transform: translate(var(--cta-pointer-end-x), var(--cta-pointer-end-y)) scale(1);
+  }
+
+  55% {
+    opacity: 1;
+    transform: translate(var(--cta-pointer-end-x), var(--cta-pointer-end-y)) scale(1);
+  }
+
+  70% {
+    opacity: 0;
+    transform: translate(var(--cta-pointer-start-x), var(--cta-pointer-start-y)) scale(0.8);
+  }
 }
 
 .screen--menu.is-active .module-carousel {
