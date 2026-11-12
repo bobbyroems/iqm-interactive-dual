@@ -295,8 +295,10 @@ async function main() {
   await ready(0)
   await run(`document.querySelector('[data-nz-action="exit"]').click()`)
   assert(await run('window.exited'))
+  await run("window.retainedImages = [...document.querySelectorAll('.nz img')]")
   await run('abortNanoscale()')
   assert.equal(await run("document.querySelectorAll('.nz').length"), 0)
+  assert(await run("window.retainedImages.every(image => !image.hasAttribute('src'))"), 'disposal releases sources even on images detached by child controllers')
   assert.deepEqual(errors, [])
   console.log('Nanoscale viewport layouts, registered artwork, timeline, pointer/wheel flow and disposal passed.')
 }

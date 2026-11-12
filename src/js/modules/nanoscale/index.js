@@ -9,6 +9,7 @@
  */
 
 import { assetUrl } from '../../core/asset-url.js'
+import { nanoscaleImagePath, nanoscaleImageSize } from './nanoscale-image-source.js'
 import { mountModuleOutro } from '../module-outro.js'
 import {
   createKioskExplainer,
@@ -247,7 +248,7 @@ function shadowToCss(value) {
   return `${value.x ?? 0}px ${value.y ?? 0}px ${value.blur}px ${value.color ?? '#00000040'}`
 }
 
-function sceneMarkup() {
+function sceneMarkup(imagePath) {
   return UNIQUE_CAMERA_LAYERS.map(layerId => {
     const source = VISUAL_SOURCES[layerId]
     if (!source) throw new Error(`Missing nanoscale visual source for ${layerId}`)
@@ -264,7 +265,7 @@ function sceneMarkup() {
       <img
         class="nz__scene-art"
         data-nz-art-layer="${layer.id}"
-        src="${assetUrl(layer.assetPath ? layer.asset : `${NANOSCALE_ASSET_ROOT}/${layer.asset}`)}"
+        src="${assetUrl(imagePath(layer.assetPath ? layer.asset : `${NANOSCALE_ASSET_ROOT}/${layer.asset}`))}"
         alt=""
         draggable="false"
       >
@@ -292,11 +293,11 @@ export function nestNanoscaleCameraMarkup(contentMarkup) {
   return markup
 }
 
-function cameraStackMarkup() {
-  return nestNanoscaleCameraMarkup(sceneMarkup())
+function cameraStackMarkup(imagePath) {
+  return nestNanoscaleCameraMarkup(sceneMarkup(imagePath))
 }
 
-function moduleMarkup() {
+function moduleMarkup(imagePath) {
   const microsoftLogo = assetUrl(NANOSCALE_UI_IMAGE_PATHS.microsoftLogo)
   const restartIcon = assetUrl(NANOSCALE_UI_IMAGE_PATHS.restartIcon)
   const exitIcon = assetUrl(NANOSCALE_UI_IMAGE_PATHS.exitIcon)
@@ -336,7 +337,7 @@ function moduleMarkup() {
       <div class="nz__visual" data-nz-visual aria-label="Zoom journey. Swipe up, drag right or pinch to zoom in." tabindex="0">
       <div class="nz__board" data-nz-board>
       <div class="nz__stack" data-nz-stack aria-hidden="true">
-        ${cameraStackMarkup()}
+        ${cameraStackMarkup(imagePath)}
       </div>
 
       <svg class="nz__dimension" data-nz-dimension viewBox="0 0 2160 3840" aria-hidden="true" focusable="false">
@@ -388,14 +389,14 @@ function moduleMarkup() {
       <h1 class="nz__sr" id="nz-title">Nanoscale of topological qubits</h1>
       <p class="nz__sr" id="nz-controls">Use pinch, vertical or horizontal drag, trackpad or mouse wheel, arrow keys, plus, or minus to move through the zoom journey.</p>
 
-      ${finaleMarkup()}
+      ${finaleMarkup(imagePath)}
 
       <p class="nz__sr" data-nz-status aria-live="polite"></p>
     </section>
   `
 }
 
-function finaleMarkup() {
+function finaleMarkup(imagePath) {
   const [scale] = NANOSCALE_V3_FINALE
   return `
     <div class="nz__finale" data-nz-finale data-nz-content aria-hidden="true" inert>
@@ -421,9 +422,9 @@ function finaleMarkup() {
             <span class="nz__finale-divider" aria-hidden="true"></span>
             <!-- The ground the count has not reached yet, under the crisp field
                  that the count wipes across it. -->
-            <img class="nz__finale-field-ghost" src="${assetUrl(scale.figure.pixels)}" alt="" draggable="false" aria-hidden="true">
-            <img class="nz__finale-field" src="${assetUrl(scale.figure.image)}" alt="${scale.figure.alt}" draggable="false">
-            <img class="nz__finale-marker" src="${assetUrl(scale.figure.marker)}" alt="" draggable="false" aria-hidden="true">
+            <img class="nz__finale-field-ghost" src="${assetUrl(imagePath(scale.figure.pixels))}" alt="" draggable="false" aria-hidden="true">
+            <img class="nz__finale-field" src="${assetUrl(imagePath(scale.figure.image))}" alt="${scale.figure.alt}" draggable="false">
+            <img class="nz__finale-marker" src="${assetUrl(imagePath(scale.figure.marker))}" alt="" draggable="false" aria-hidden="true">
           </figure>
         </section>
       </div>
@@ -488,8 +489,8 @@ function createNanoscaleExplainers(root) {
   return Object.freeze({ identity, instruction, intro, scrollCue })
 }
 
-/* App startup calls this while the visitor is still outside the experience;
-   mount awaits the same promise, so the two paths never duplicate image work. */
+/* Electron prewarms the full-resolution set; browser mounts decode their own
+   responsive DOM images without retaining an app-lifetime image cache. */
 export function preload() {
   return preloadNanoscaleAssets()
 }
@@ -497,16 +498,22 @@ export function preload() {
 export async function mount(container, options = {}) {
   if (!container?.replaceChildren) throw new TypeError('Nanoscale requires a DOM container')
 
-  const { signal, onActivity, navigate = {}, module } = options
+  const { signal, onActivity, navigate = {}, module, runtime = {} } = options
   if (signal?.aborted) throw createAbortError()
 
   if (import.meta.env?.DEV) assertValidNanoscaleCamera()
 
-  await waitForNanoscaleAssets({ signal })
+  if (runtime.platform) await waitForNanoscaleAssets({ signal })
   if (signal?.aborted) throw createAbortError()
 
+  const imageSize = runtime.platform ? 0 : nanoscaleImageSize({
+    width: window.innerWidth,
+    height: window.innerHeight,
+    devicePixelRatio: window.devicePixelRatio || 1
+  })
+  const imagePath = path => nanoscaleImagePath(path, imageSize)
   const host = document.createElement('div')
-  host.innerHTML = moduleMarkup().trim()
+  host.innerHTML = moduleMarkup(imagePath).trim()
   const root = host.firstElementChild
   const explainers = createNanoscaleExplainers(root)
   const comparisonMediaHost = root.querySelector('[data-nz-comparison-media-host]')
@@ -514,6 +521,7 @@ export async function mount(container, options = {}) {
   const comparisonMediaStack = createNanoscaleComparisonMediaStack({
     activeReference: firstStop,
     alt: comparisonAlt(firstStop),
+    imagePath,
     ownerDocument: root.ownerDocument
   })
   comparisonMediaHost.append(comparisonMediaStack)
@@ -1834,9 +1842,8 @@ export async function mount(container, options = {}) {
     return new Promise(resolve => requestAnimationFrame(resolve))
   }
 
-  /* Decoding preserves CPU-side pixels, but a layer that has never been painted
-     can still upload its texture on the first zoom frame. ModuleHost calls this
-     while the stage is visible behind its opaque transition wipe. */
+  /* Electron warms every scene behind the wipe. Browsers warm only the splash
+     and first handoff; subsequent stops use the existing next-stop warmup. */
   function warmCameraTextures() {
     presentationWarmup ??= (async () => {
       stackCameras.forEach((camera, segment) => {
@@ -1848,6 +1855,7 @@ export async function mount(container, options = {}) {
         writtenPresentationOpacities[segment] = null
       })
       for (const [layerId, element] of sceneElements) {
+        if (!runtime.platform && layerId !== NANOSCALE_CAMERA_SCENES[0].layerId) continue
         if (disposed || signal?.aborted) return
         const written = sceneStyles.get(element)
         element.style.visibility = 'visible'
@@ -1867,7 +1875,7 @@ export async function mount(container, options = {}) {
         await nextPaintFrame()
         await nextPaintFrame()
       }
-      /* Revisit the first handoff last. Warming every 4K layer in one pass can
+      /* Revisit the first handoff last. Warming every layer in one pass can
          evict the Cryostat again before the wipe opens; this makes the first
          actual zoom the most recently decoded and painted transition. */
       await warmTimelineStop(1, { covered: true })
@@ -1893,6 +1901,7 @@ export async function mount(container, options = {}) {
     resizeObserver.disconnect()
     listeners.abort()
     pointers.clear()
+    root.querySelectorAll('img').forEach(image => image.removeAttribute('src'))
     disposeKioskExplainer(explainers.intro)
     disposeKioskExplainer(explainers.identity)
     upNextBanner.dispose()

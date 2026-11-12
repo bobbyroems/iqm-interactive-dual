@@ -192,9 +192,8 @@ async function decodeElementImage(image) {
     try {
       await image.decode()
     } catch (error) {
-      /* These URLs were decoded by the shared preheat immediately before the
-         detached stage was built. Chromium can reject a second decode under
-         memory pressure even though the DOM image has loaded valid dimensions. */
+      /* Chromium can reject an additional decode under memory pressure even
+         though the DOM image has loaded valid dimensions. */
       if (!image.complete || !image.naturalWidth || !image.naturalHeight) {
         throw new Error(
           `Unable to decode Nanoscale DOM image: ${image.src}${error?.message ? ` (${error.message})` : ''}`,
@@ -211,7 +210,7 @@ async function decodeElementImage(image) {
 /**
  * Refresh the decoded backing for a focused set of live DOM images.
  *
- * The whole Nanoscale runtime is roughly half a gigabyte once decoded, so the
+ * The full-resolution artwork is roughly half a gigabyte once decoded, so the
  * browser is allowed to discard an early image even though its `<img>` remains
  * complete. Calling decode() again at the preceding stop brings just the next
  * scene back without competing with the zoom frame that first needs it.

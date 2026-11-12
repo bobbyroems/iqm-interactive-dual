@@ -337,6 +337,30 @@ rectangle and output size it used. Those numbers and the constants in
 `nanoscale-camera.js` have to agree; `npm run check:nanoscale` is what proves
 the camera still lands its handoffs afterwards.
 
+### Browser image derivatives
+
+Run `npm run generate:nanoscale-images` after replacing Nanoscale runtime artwork.
+It generates lossless WebP derivatives under
+`public/assets/modules/nanoscale/responsive/` at 1024, 1536 and 2048 pixels on
+the longest side, without enlarging smaller sources. Commit the derivatives
+with their source changes. The media checks require every generated asset.
+
+Browser mounts choose a tier from the viewport's longest side, allowing up to
+1.5x pixel-density headroom. The tier stays fixed for that visit to avoid
+replacing textures mid-gesture. Viewports larger than 2048 CSS pixels and
+Electron retain the original artwork. The logical image bounds and camera
+registration are unchanged; these are resizes, not new crops.
+
+The 18 raster sources occupy about 44.6, 95.2 and 160.2 MiB of RGBA pixels at
+the three tiers, versus about 464 MiB for the original runtime set. Tests cap
+those derivative footprints at 50, 100 and 165 MiB respectively. These are
+pixel-data budgets, not total browser-process memory measurements.
+
+Browsers decode the actual module images without the app-lifetime preheat cache,
+warm only the splash and first handoff on entry, and clear image sources on
+unmount. Later GPU warmups follow the next timeline stop. Electron keeps its
+full-resolution preheat cache and all-scene startup warmup.
+
 ### The current masters
 
 Three renders, delivered 2026-08-31, 116 MB together:

@@ -6,6 +6,7 @@ import {
   nanoscaleGestureDistance
 } from '../src/js/modules/nanoscale/nanoscale-layout.js'
 import { dragDeltaToProgress, horizontalDragDeltaToProgress } from '../src/js/modules/nanoscale/zoom-model.js'
+import { nanoscaleImagePath, nanoscaleImageSize } from '../src/js/modules/nanoscale/nanoscale-image-source.js'
 
 test('registered nanoscale artwork covers the viewport and stays centered without changing its aspect ratio', () => {
   for (const [width, height] of [[320, 320], [568, 320], [768, 600], [1440, 800], [2160, 3840], [3440, 900]]) {
@@ -33,4 +34,20 @@ test('one nanoscale stop takes a reachable client-space gesture regardless of as
     assert.equal(horizontalDragDeltaToProgress(distance, 1, distance), 1)
     assert.equal(dragDeltaToProgress(distance, 1, distance), -1)
   }
+})
+
+test('browser image tiers account for viewport size and density without replacing large-display originals', () => {
+  assert.equal(nanoscaleImageSize({ width: 390, height: 844 }), 1024)
+  assert.equal(nanoscaleImageSize({ width: 390, height: 844, devicePixelRatio: 3 }), 1536)
+  assert.equal(nanoscaleImageSize({ width: 844, height: 390, devicePixelRatio: 3 }), 1536)
+  assert.equal(nanoscaleImageSize({ width: 1920, height: 1080, devicePixelRatio: 2 }), 2048)
+  assert.equal(nanoscaleImageSize({ width: 2160, height: 3840 }), 0)
+})
+
+test('responsive paths cover camera and comparison artwork but leave full-resolution and vector sources intact', () => {
+  const path = 'assets/modules/nanoscale/comparison/salt-background.png'
+  assert.equal(nanoscaleImagePath(path, 1536), 'assets/modules/nanoscale/responsive/comparison/salt-background-1536.webp')
+  assert.equal(nanoscaleImagePath(path), path)
+  assert.equal(nanoscaleImagePath('assets/modules/nanoscale/swipe-up-arrow.svg', 1024), 'assets/modules/nanoscale/swipe-up-arrow.svg')
+  assert.equal(nanoscaleImagePath('assets/ui/microsoft-logo.png', 1024), 'assets/ui/microsoft-logo.png')
 })

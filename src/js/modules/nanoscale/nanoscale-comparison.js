@@ -346,6 +346,7 @@ function applyPaint(image, layer) {
  */
 export function createNanoscaleComparisonMedia(reference, {
   alt = '',
+  imagePath = path => path,
   ownerDocument = globalThis.document
 } = {}) {
   if (!ownerDocument?.createElement) {
@@ -381,7 +382,7 @@ export function createNanoscaleComparisonMedia(reference, {
 
     const image = ownerDocument.createElement('img')
     image.className = 'nz__comparison-media-image'
-    image.src = assetUrl(layer.asset, ownerDocument.baseURI)
+    image.src = assetUrl(imagePath(layer.asset), ownerDocument.baseURI)
     image.alt = ''
     image.decoding = 'async'
     image.draggable = false
@@ -409,6 +410,7 @@ function setStackMediaActive(media, active, alt = '') {
 export function createNanoscaleComparisonMediaStack({
   activeReference = null,
   alt = '',
+  imagePath = path => path,
   ownerDocument = globalThis.document
 } = {}) {
   if (!ownerDocument?.createElement) {
@@ -426,7 +428,7 @@ export function createNanoscaleComparisonMediaStack({
   stack.style.overflow = 'hidden'
 
   for (const recipe of NANOSCALE_COMPARISON_RECIPES) {
-    const media = createNanoscaleComparisonMedia(recipe, { ownerDocument })
+    const media = createNanoscaleComparisonMedia(recipe, { ownerDocument, imagePath })
     media.style.position = 'absolute'
     media.style.inset = '0'
     setStackMediaActive(media, false)

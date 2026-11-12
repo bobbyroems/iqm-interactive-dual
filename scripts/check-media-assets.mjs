@@ -2,6 +2,11 @@ import { open, readdir, stat } from 'node:fs/promises'
 import { basename, extname, join, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { NANOSCALE_RUNTIME_IMAGE_PATHS } from '../src/js/modules/nanoscale/nanoscale-assets.js'
+import {
+  isNanoscaleRaster,
+  NANOSCALE_IMAGE_SIZES,
+  nanoscaleImagePath
+} from '../src/js/modules/nanoscale/nanoscale-image-source.js'
 
 const LFS_POINTER_PREFIX = 'version https://git-lfs.github.com/spec/v1'
 const LFS_EXTENSIONS = new Set(['.glb', '.hdr', '.mp4', '.ogg', '.wav', '.webm'])
@@ -118,7 +123,14 @@ const nanoscaleRuntimeAssets = NANOSCALE_RUNTIME_IMAGE_PATHS
 
 const MODULE_ASSETS = Object.freeze([
   ...BASE_MODULE_ASSETS,
-  ...nanoscaleRuntimeAssets
+  ...nanoscaleRuntimeAssets,
+  ...NANOSCALE_RUNTIME_IMAGE_PATHS.filter(isNanoscaleRaster).flatMap(path =>
+    NANOSCALE_IMAGE_SIZES.map(size => ({
+      path: nanoscaleImagePath(path, size),
+      type: 'webp',
+      minimumBytes: 1
+    }))
+  )
 ])
 
 async function collectFiles(directory) {
