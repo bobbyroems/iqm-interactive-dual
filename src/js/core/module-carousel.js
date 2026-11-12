@@ -34,6 +34,7 @@ export class ModuleCarousel {
     nextButton,
     onActivity,
     onOpen,
+    onSelect,
     pagination,
     previousButton,
     root,
@@ -44,6 +45,7 @@ export class ModuleCarousel {
     this.nextButton = nextButton
     this.onActivity = onActivity
     this.onOpen = onOpen
+    this.onSelect = onSelect
     this.pagination = pagination
     this.previousButton = previousButton
     this.root = root
@@ -258,10 +260,17 @@ export class ModuleCarousel {
     this.previousButton.disabled = false
     this.nextButton.disabled = false
     this.currentLabel.textContent = this.cards[nextIndex].dataset.moduleNumber
+    this.onSelect?.(this.cards[nextIndex].dataset.moduleId)
   }
 
   updatePreviewVideoPlayback() {
     this.cards.forEach((card, cardIndex) => {
+      if (this.active && cardIndex === this.currentIndex) {
+        for (const media of card.querySelectorAll('[data-preview-src]')) {
+          media.src = media.dataset.previewSrc
+          media.removeAttribute('data-preview-src')
+        }
+      }
       const previewVideo = card.querySelector('.module-card__preview-video')
       if (!previewVideo) return
       if (this.active && cardIndex === this.currentIndex) previewVideo.play().catch(() => {})

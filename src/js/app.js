@@ -12,7 +12,6 @@ import { getLightRigs, lightRigsVersion } from './core/light-rig-registry.js'
 import { playMajoranaPortalTransition } from './core/experience-portal.js'
 import { ModuleCarousel } from './core/module-carousel.js'
 import { buildShapeScene } from './core/module-shape-scenes.js'
-import { createShapeScenePool, hasShapeScene } from './core/shape-scene-3d.js'
 import { initAudio, sound, startAmbient, stopAmbient } from './core/kiosk-audio.js'
 import { installPressBloom } from './core/press-bloom.js'
 import { installButtonTapSound } from './core/button-tap-sound.js'
@@ -21,7 +20,6 @@ import { configureIdleTimeouts } from './core/idle-timeouts.js'
 import { splitTextForReveal } from './core/text-reveal.js'
 import { ModuleHost } from './core/module-host.js'
 import { ScreenRouter } from './core/screen-router.js'
-import { createMajoranaScene } from './modules/build-majorana-2/majorana-scene.js'
 import { getModule, isPlayable, MODULE_CATEGORIES, MODULES } from './modules/module-registry.js'
 
 /* Whether the dev dock was left collapsed, so a reload doesn't drop it back over
@@ -51,7 +49,7 @@ function revealCssShapeFallback(hosts) {
   for (const host of hosts) host.element.dataset.shapeFallback = 'shown'
 }
 
-function createModuleCard(module, moduleCountLabel) {
+function createModuleCard(module, moduleCountLabel, eagerPreviews) {
   const category = MODULE_CATEGORIES[module.category]
   const button = document.createElement('button')
   button.className = 'module-card'
@@ -68,14 +66,15 @@ function createModuleCard(module, moduleCountLabel) {
   /* A slot whose module is still in production carries its FPO mark rather than
      a generated shape: the shape pool would give it an abstract sphere, which is
      the reason the previous placeholder was pulled from the carousel. */
+  const sourceAttribute = eagerPreviews ? 'src' : 'data-preview-src'
   const previewImage = module.preview?.kind !== 'video' && module.preview
-    ? `<img class="module-card__preview-image" src="${assetUrl(module.preview.src)}" alt="${module.preview.alt || ''}">`
+    ? `<img class="module-card__preview-image" ${sourceAttribute}="${assetUrl(module.preview.src)}" alt="${module.preview.alt || ''}">`
     : ''
   const preview = module.placeholder
     ? `<span class="module-card__preview-fpo" aria-hidden="true">FPO</span>`
     : module.preview?.kind === 'video'
       ? `<span class="module-card__preview-portal" data-carousel-preview-motion aria-hidden="true">
-          <video class="module-card__preview-video" src="${assetUrl(module.preview.src)}" loop muted playsinline preload="metadata" disablepictureinpicture></video>
+          <video class="module-card__preview-video" ${sourceAttribute}="${assetUrl(module.preview.src)}" loop muted playsinline preload="${eagerPreviews ? 'metadata' : 'none'}" disablepictureinpicture></video>
         </span>`
     : module.preview?.swing
       ? `<span class="module-card__preview-swing" data-carousel-preview-motion>
@@ -130,6 +129,7 @@ export class KioskApp {
   constructor(root = document) {
     this.root = root
     this.runtime = window.kiosk || {}
+    this.eagerPreviews = Boolean(this.runtime.platform)
     this.config = {
       ...fallbackConfig,
       ...this.runtime.config,
@@ -165,6 +165,7 @@ export class KioskApp {
       nextButton: root.getElementById('module-carousel-next'),
       onActivity: this.onActivity,
       onOpen: moduleId => this.openModule(moduleId),
+      onSelect: () => this.updateMenuPreviews(),
       pagination: root.getElementById('module-carousel-pagination'),
       previousButton: root.getElementById('module-carousel-previous'),
       root: root.getElementById('module-carousel'),
@@ -214,12 +215,14 @@ export class KioskApp {
     this.updateDevelopmentHud()
     this.router.show('attract')
     this.restoreDevelopmentView()
-    void this.preloadMajoranaModule()
-    void this.preloadQuantumPrinciplesModule()
-    void this.preloadNanoscaleModule()
-    void this.ensureShapeScenes()
-    if (this.router.currentScreen !== 'module') {
-      void this.ensureMajoranaMenuPreview()
+    if (this.eagerPreviews) {
+      void this.preloadMajoranaModule()
+      void this.preloadQuantumPrinciplesModule()
+      void this.preloadNanoscaleModule()
+      void this.ensureShapeScenes()
+      if (this.router.currentScreen !== 'module') {
+        void this.ensureMajoranaMenuPreview()
+      }
     }
   }
 
@@ -249,34 +252,32 @@ export class KioskApp {
   }
 
   ensureShapeScenes() {
-    if (this.shapeScenePoolPromise) return this.shapeScenePoolPromise
-
     const hosts = [...this.moduleGrid.querySelectorAll('.module-card__shape-scene')]
       .map(element => ({
         element,
         moduleId: element.closest('.module-card')?.dataset.moduleId,
         gridOnly: element.hasAttribute('data-navigation-grid-only')
       }))
-      .filter(host => host.gridOnly || hasShapeScene(host.moduleId))
+      .filter(host => this.eagerPreviews || host.moduleId === this.moduleCarousel.cards[this.moduleCarousel.currentIndex]?.dataset.moduleId)
     if (!hosts.length) return Promise.resolve(null)
 
-    this.shapeScenePoolPromise = createShapeScenePool({
+    this.shapeScenePoolPromise ??= import('./core/shape-scene-3d.js').then(({ createShapeScenePool }) => createShapeScenePool({
       hosts,
       onActivity: this.onActivity,
       isVisible: () =>
         this.router.currentScreen === 'menu' ||
         this.menuScreen.classList.contains('is-leaving')
-    }).then(pool => {
+    })).catch(error => {
+      console.warn('3D shape scenes unavailable, keeping CSS fallback.', error)
+      return null
+    })
+
+    return this.shapeScenePoolPromise.then(async pool => {
       if (pool) {
         for (const host of hosts) {
-          host.element.querySelectorAll('.ss').forEach(shape => shape.remove())
+          const entry = await pool.addHost(host)
+          if (entry) host.element.querySelectorAll('.ss').forEach(shape => shape.remove())
         }
-        /* The pool does not draw until the menu is on screen, so without this
-           the first menu frame pays for every shader link and texture upload at
-           once — which is the stutter leaving the attract screen. Warming here
-           spends it while the attract screen is still up. Not awaited: the menu
-           must not wait on an optimisation. */
-        void pool.warmUp?.()
       } else {
         revealCssShapeFallback(hosts)
       }
@@ -286,8 +287,15 @@ export class KioskApp {
       revealCssShapeFallback(hosts)
       return null
     })
+  }
 
-    return this.shapeScenePoolPromise
+  updateMenuPreviews() {
+    if (this.router.currentScreen !== 'menu') return
+    void this.ensureShapeScenes()
+    const moduleId = this.moduleCarousel.cards[this.moduleCarousel.currentIndex]?.dataset.moduleId
+    const showMajorana = this.eagerPreviews || moduleId === 'build-majorana-2'
+    this.majoranaPreviewController?.setSuspended(!showMajorana)
+    if (showMajorana) void this.ensureMajoranaMenuPreview()
   }
 
   setupTextReveals() {
@@ -300,7 +308,7 @@ export class KioskApp {
   renderModuleMenu() {
     const moduleCountLabel = String(MODULES.length).padStart(2, '0')
     const fragment = document.createDocumentFragment()
-    MODULES.forEach(module => fragment.append(createModuleCard(module, moduleCountLabel)))
+    MODULES.forEach(module => fragment.append(createModuleCard(module, moduleCountLabel, this.eagerPreviews)))
     this.moduleGrid.replaceChildren(fragment)
     this.root.getElementById('module-carousel-total').textContent = moduleCountLabel
     this.moduleCarousel.mount(this.moduleGrid.children)
@@ -341,15 +349,14 @@ export class KioskApp {
     const moduleIndex = MODULES.findIndex(module => module.id === this.activeModuleId)
     if (moduleIndex >= 0) this.moduleCarousel.setIndex(moduleIndex, { animate: false })
     this.activeModuleId = null
-    this.majoranaPreviewController?.setSuspended(false)
     Promise.resolve(this.shapeScenePoolPromise).then(pool => pool?.resetDive?.())
     this.router.show('menu')
     this.deferModuleUnmount()
     this.moduleCarousel.setActive(true)
     this.rememberDevelopmentView('menu')
     this.armIdle()
-    void this.preloadMajoranaModule()
-    void this.ensureMajoranaMenuPreview()
+    if (this.eagerPreviews) void this.preloadMajoranaModule()
+    this.updateMenuPreviews()
   }
 
   openModule(moduleId) {
@@ -533,7 +540,7 @@ export class KioskApp {
     card.classList.remove('has-live-preview', 'is-preview-unavailable')
     this.majoranaPreviewAbortController = abortController
     const deadline = setTimeout(() => abortController.abort(taskTimeout('Majorana preview timed out.')), 30000)
-    this.majoranaPreviewPromise = waitForTask(createMajoranaScene({
+    this.majoranaPreviewPromise = waitForTask(import('./modules/build-majorana-2/majorana-scene.js').then(({ createMajoranaScene }) => createMajoranaScene({
       host,
       signal: abortController.signal,
       navigationPreview: true,
@@ -543,7 +550,7 @@ export class KioskApp {
         card.classList.remove('is-preview-warming', 'is-preview-unavailable')
         card.classList.add('has-live-preview')
       }
-    }), abortController.signal, controller => controller.dispose()).finally(() => clearTimeout(deadline)).then(controller => {
+    })), abortController.signal, controller => controller.dispose()).finally(() => clearTimeout(deadline)).then(controller => {
       if (abortController.signal.aborted) {
         controller.dispose()
         return null
@@ -552,7 +559,8 @@ export class KioskApp {
       window.requestAnimationFrame(() => {
         if (
           this.majoranaPreviewController === controller &&
-          this.router.currentScreen !== 'menu'
+          (this.router.currentScreen !== 'menu' ||
+            (!this.eagerPreviews && this.moduleCarousel.cards[this.moduleCarousel.currentIndex]?.dataset.moduleId !== 'build-majorana-2'))
         ) {
           controller.setSuspended(true)
         }
@@ -708,7 +716,7 @@ export class KioskApp {
         })
       }
       this.isOpeningExperience = false
-      void this.ensureMajoranaMenuPreview()
+      if (this.eagerPreviews) void this.ensureMajoranaMenuPreview()
     }
   }
 

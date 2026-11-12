@@ -168,8 +168,11 @@ src/js/modules/build-nanowire/
   assets/
 ```
 
-Keep state and cleanup inside the module. Large Three.js scenes and assets are
-loaded only when the user opens the relevant experience.
+Keep state and cleanup inside the module. In a web browser, experience assets
+load when the experience opens. Live menu previews load only when their card is
+selected, sharing one shape-scene renderer; hidden preview images and video
+sources are deferred too. The attract screen does not prewarm experiences.
+Electron retains its offline-first startup prewarming.
 
 See [docs/ASSET-PRODUCTION-NOTES.md](docs/ASSET-PRODUCTION-NOTES.md) before
 replacing the optimized Majorana asset or preparing the Windows package.

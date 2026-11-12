@@ -8,9 +8,7 @@
  * maps). Nothing here rebuilds materials any more: the glTF carries them, so
  * the only thing added is the HDRI environment the metals reflect.
  *
- * The model loads once, eagerly at module import — i.e. during app boot, while
- * the attract screen is up — and is memoised, so the menu card never shows a
- * loading gap.
+ * The model loads when its menu object is created and is memoised for reuse.
  */
 
 import * as THREE from 'three'
@@ -79,14 +77,12 @@ function loadChandelier() {
     })
 
     return assembly
-  })()
+  })().catch(error => {
+    assemblyPromise = null
+    throw error
+  })
   return assemblyPromise
 }
-
-/* Warm the cache at app boot, while the attract screen is up. */
-void loadChandelier().catch(error => {
-  console.warn('Quantum computer nav model could not be preloaded.', error)
-})
 
 export function createQuantumComputerMenuObject({ radius }) {
   const group = new THREE.Group()

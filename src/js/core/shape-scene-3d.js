@@ -1151,25 +1151,8 @@ export async function createShapeScenePool({ hosts, isVisible, onActivity }) {
     return null
   }
 
-  /* The states-of-matter card's ice cube; the card falls back to the
-     error-correction ball if the model can't load. */
   let iceGeometry = null
-  try {
-    iceGeometry = await loadIceCubeGeometry({
-      THREE,
-      GLTFLoader,
-      mergeVertices: BufferGeometryUtils.mergeVertices
-    })
-  } catch (error) {
-    console.warn('Shape scenes: ice cube model unavailable; falling back to the ball.', error)
-  }
-
   let protectionModel = null
-  try {
-    protectionModel = await loadProtectionMenuModel({ GLTFLoader })
-  } catch (error) {
-    console.warn('Shape scenes: Module 05 device model unavailable.', error)
-  }
 
   let renderer
   try {
@@ -1665,7 +1648,7 @@ export async function createShapeScenePool({ hosts, isVisible, onActivity }) {
     }
   }
 
-  const entries = hosts.map((host, hostIndex) => {
+  const createEntry = (host, hostIndex) => {
     const defs = host.gridOnly ? [] : SCENE_DEFS[host.moduleId]
     if (!defs) return null
     const allowsUserOrbit = !host.gridOnly && allowsShapeSceneUserOrbit(host.moduleId)
@@ -2170,37 +2153,10 @@ export async function createShapeScenePool({ hosts, isVisible, onActivity }) {
 
     applyLightParams(sceneEntry)
     return sceneEntry
-  }).filter(Boolean)
-
-  if (!entries.length) {
-    renderer.dispose()
-    pmrem.dispose()
-    return null
   }
 
-  /* Front-load shader compilation while the attract screen is up, so the
-     first menu frame doesn't stall on compiling every program at once.
-
-     Every card has to be warmed, not just the first. The cards are five
-     different scene types — quantum-computer, ball, topoconductor, ice and
-     protection-core — and they share no programs, so warming entries[0] only
-     covered whichever card happened to sort first and left the rest to
-     compile as they scrolled into view. That is the "slow on the first pass
-     through the menu, smooth on the second" hitch. */
-  try {
-    if (typeof renderer.compileAsync === 'function') {
-      /* Parallel where the driver supports KHR_parallel_shader_compile, and
-         off the main thread either way. */
-      await Promise.all(
-        entries.map(entry => renderer.compileAsync(entry.scene, entry.camera))
-      )
-    } else {
-      for (const entry of entries) renderer.compile(entry.scene, entry.camera)
-    }
-  } catch (error) {
-    console.warn('Shape scenes: shader warm-up failed.', error)
-  }
-
+  const entries = []
+  const pendingHosts = new Map()
   let disposed = false
   let lastCenterEntry = null
   const rendererSize = new THREE.Vector2()
@@ -2224,9 +2180,52 @@ export async function createShapeScenePool({ hosts, isVisible, onActivity }) {
       if (entry) entry.onScreen = record.isIntersecting
     }
   }, { rootMargin: '15%' })
-  for (const entry of entries) {
-    entry.onScreen = true
-    intersectionObserver.observe(entry.host)
+  function addHost(host) {
+    if (disposed) return Promise.resolve(null)
+    if (pendingHosts.has(host.element)) return pendingHosts.get(host.element)
+    const existing = entries.find(entry => entry.host === host.element)
+    if (existing) return Promise.resolve(existing)
+
+    const pending = (async () => {
+      const defs = host.gridOnly ? [] : SCENE_DEFS[host.moduleId]
+      if (!defs) return null
+      if (!iceGeometry && defs.some(def => def.type === 'ice')) {
+        try {
+          iceGeometry = await loadIceCubeGeometry({
+            THREE,
+            GLTFLoader,
+            mergeVertices: BufferGeometryUtils.mergeVertices
+          })
+        } catch (error) {
+          console.warn('Shape scenes: ice cube model unavailable; falling back to the ball.', error)
+        }
+      }
+      if (!protectionModel && defs.some(def => def.type === 'protection-core')) {
+        try {
+          protectionModel = await loadProtectionMenuModel({ GLTFLoader })
+        } catch (error) {
+          console.warn('Shape scenes: Module 05 device model unavailable.', error)
+        }
+      }
+      if (disposed) {
+        iceGeometry?.dispose()
+        return null
+      }
+
+      const entry = createEntry(host, entries.length)
+      entries.push(entry)
+      entry.onScreen = true
+      intersectionObserver.observe(entry.host)
+      try {
+        if (renderer.compileAsync) await renderer.compileAsync(entry.scene, entry.camera)
+        else renderer.compile(entry.scene, entry.camera)
+      } catch (error) {
+        console.warn('Shape scene warm-up skipped for', entry.moduleId, error)
+      }
+      return entry
+    })().finally(() => pendingHosts.delete(host.element))
+    pendingHosts.set(host.element, pending)
+    return pending
   }
 
   const menuScreen = document.querySelector('.screen--menu')
@@ -2611,9 +2610,11 @@ export async function createShapeScenePool({ hosts, isVisible, onActivity }) {
     }
   }
 
+  await Promise.all(hosts.map(addHost))
   window.requestAnimationFrame(renderFrame)
 
   return {
+    addHost,
     /* Dev tooling (material panel, console probes). */
     entries,
 
