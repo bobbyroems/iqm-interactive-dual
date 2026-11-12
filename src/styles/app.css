@@ -230,8 +230,8 @@
   z-index: 1;
   right: 18px;
   bottom: -34px;
-  width: 260px;
-  height: 260px;
+  width: 60px;
+  height: 60px;
   opacity: 0;
   transform-origin: 68% 22%;
   pointer-events: none;
@@ -239,10 +239,10 @@
   /* Start (off/retracted) and end (tap) positions for the cta-pointer-tap
      keyframes below, so the travel path can be tuned without touching the
      animation itself. */
-  --cta-pointer-start-x: 396px;
-  --cta-pointer-start-y: -206px;
-  --cta-pointer-end-x: 90px;
-  --cta-pointer-end-y: 125px;
+  --cta-pointer-start-x: 200px;
+  --cta-pointer-start-y: -100px;
+  --cta-pointer-end-x: 5px;
+  --cta-pointer-end-y: -15px;
 }
 
 /* ---------------------------------------------------------------------------
