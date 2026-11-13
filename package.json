@@ -8,6 +8,7 @@
   "scripts": {
     "dev": "node scripts/dev.mjs",
     "generate:nanoscale-images": "node scripts/generate-nanoscale-images.mjs",
+    "generate:majorana-images": "node scripts/generate-majorana-images.mjs",
     "generate:som-frost": "node scripts/generate-som-frost-assets.mjs",
     "generate:som-scrub-video": "node scripts/generate-som-scrub-video.mjs",
     "pack:alpha-video": "node scripts/pack-alpha-video.mjs",

@@ -102,7 +102,7 @@ function moduleMarkup() {
   const exitIcon = assetUrl('assets/ui/exit-x.svg')
   const chevronIcon = assetUrl('assets/ui/chevron-right.svg')
   const introShadow = assetUrl('assets/modules/build-majorana-2/majorana-shadow.svg')
-  const schematicBackdrop = assetUrl('assets/modules/build-majorana-2/majorana-schematic-backdrop.png')
+  const schematicBackdrop = assetUrl('assets/modules/build-majorana-2/majorana-schematic-backdrop.webp')
   const schematicComposite = assetUrl('assets/modules/build-majorana-2/majorana-schematic-composite.png')
   const qpuStackCrop = assetUrl('assets/modules/build-majorana-2/majorana-qpu-stack-crop.png')
   const pcbCover = assetUrl('assets/modules/build-majorana-2/majorana-pcb-cover.png')

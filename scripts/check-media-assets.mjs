@@ -12,6 +12,8 @@ const LFS_POINTER_PREFIX = 'version https://git-lfs.github.com/spec/v1'
 const LFS_EXTENSIONS = new Set(['.glb', '.hdr', '.mp4', '.ogg', '.wav', '.webm'])
 
 const BASE_MODULE_ASSETS = Object.freeze([
+  { path: 'assets/modules/build-majorana-2/majorana-intro-hero.webp', type: 'webp', minimumBytes: 1 },
+  { path: 'assets/modules/build-majorana-2/majorana-schematic-backdrop.webp', type: 'webp', minimumBytes: 1 },
   /* Nanoscale uses camera-ready WebP plates. The three deepest views are
      rebuilt from their source layers so the removed drafting grid cannot be
      baked back into the experience unnoticed. */

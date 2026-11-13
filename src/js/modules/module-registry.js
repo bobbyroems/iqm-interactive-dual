@@ -100,7 +100,7 @@ export const MODULES = Object.freeze([
     interaction: 'Drag-and-drop 3D assembly, snapping and callouts',
     category: 'topological',
     preview: {
-      src: '/assets/modules/build-majorana-2/majorana-intro-hero.png',
+      src: '/assets/modules/build-majorana-2/majorana-intro-hero.webp',
       alt: 'Majorana 2 quantum chip'
     },
     preview3d: { kind: 'majorana' },

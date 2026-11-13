@@ -1,5 +1,56 @@
 # Production asset notes
 
+## Large-media web optimization (2026-11-13)
+
+The attract/menu Majorana hero and the module's schematic backdrop now use
+full-resolution lossless WebP in both browser and Electron. Framing, visible
+RGBA pixels and the schematic's ICC profile are preserved; no change to
+Electron presentation or prewarming is intended.
+
+| Image | Dimensions | PNG master MiB | Runtime WebP MiB |
+| --- | --- | ---: | ---: |
+| Majorana hero | 3090 x 2482 | 6.47 | 4.48 |
+| Schematic backdrop | 4096 x 4096 | 16.61 | 11.17 |
+
+This saves approximately 7.43 MiB of deployment assets, including 1.99 MiB on
+the immediate startup path. It does **not** reduce decoded-image/GPU memory:
+the dimensions are unchanged. Startup savings are calculated from file sizes,
+not a new browser network measurement.
+
+PNG masters are retained in `ref/majorana-image-masters/`, outside Vite's
+public directory and Electron's packaged file list. Regenerate with:
+
+```sh
+npm run generate:majorana-images
+```
+
+The focused image test checks dimensions, color profiles, every visible pixel
+and alpha value, and at least 30% transfer savings per image. The production
+media check also requires both generated WebP files.
+
+### Remaining large-media candidates
+
+- **Quarter textures (16.32 MiB combined):** actively loaded by
+  `quantum-vs-classical/coin-assets.js`, including the live preview. Convert the
+  base color and bump BMPs losslessly before considering resolution changes;
+  bump-map relief and photographed material appearance need visual checks.
+- **Laptop TGA (48 MiB) and Majorana reference video (9.65 MiB):** no matching
+  renderer references found in this review. These are exclusion candidates, not
+  confirmed unused files; check external model/material dependencies and
+  development consumers before moving them out of the public asset inventory.
+- **Other coin BMPs:** the coin MTL references Five-Cent and Hundred-Cent maps,
+  but the runtime OBJ loader assigns quarter materials itself and does not load
+  that MTL. Do not equate a material-file reference with a browser request;
+  inventory the other consumers before excluding source maps.
+- **States of Matter video (40.06 MiB):** preserve the all-intra GOP structure
+  for seeking and the 4K rendition for Electron. A separate browser rendition
+  should target transfer/decode cost, not assume faster seeks from downscaling.
+  FFmpeg/ffprobe were unavailable on PATH during this review; no video was
+  re-encoded or newly seek-benchmarked.
+- **Majorana/chandelier/protection GLBs:** inspect geometry, embedded texture
+  sizes and runtime node-name contracts before mesh or GPU-texture compression.
+  Keep the selected live 3D previews rather than replacing them with posters.
+
 ## Majorana 2 GLB
 
 The supplied source GLB was approximately 160 MiB and embedded 30 PNG textures,
