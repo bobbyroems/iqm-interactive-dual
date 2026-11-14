@@ -1,7 +1,7 @@
 import { clampFrame, frameToTime } from './timeline.js'
+import { waitForMediaReady } from '../../core/media-readiness.js'
 
 export const FALLBACK_DURATION_SECONDS = 12.5
-export const MEDIA_READY_TIMEOUT_MS = 8_000
 
 export function drawVideoFrameToCanvas(video, canvas) {
   if (!video || Number(video.readyState) < 2 || !canvas?.getContext) return false
@@ -22,59 +22,8 @@ export function drawVideoFrameToCanvas(video, canvas) {
   }
 }
 
-function abortError() {
-  return new DOMException('States of Matter media loading was aborted.', 'AbortError')
-}
-
-function videoError(video) {
-  const code = Number(video?.error?.code)
-  const suffix = Number.isFinite(code) && code > 0 ? ` (media error ${code})` : ''
-  return new Error(`The States of Matter video could not be decoded${suffix}.`)
-}
-
-export function waitForVideoReady(video, {
-  signal,
-  timeoutMs = MEDIA_READY_TIMEOUT_MS,
-  setTimeoutFn = globalThis.setTimeout,
-  clearTimeoutFn = globalThis.clearTimeout
-} = {}) {
-  if (!video?.addEventListener) throw new TypeError('A video-like EventTarget is required.')
-  if (signal?.aborted) return Promise.reject(abortError())
-  if (video.readyState >= 2) return Promise.resolve()
-
-  return new Promise((resolve, reject) => {
-    let settled = false
-    let timeout = null
-
-    const cleanup = () => {
-      video.removeEventListener('loadeddata', onReady)
-      video.removeEventListener('error', onError)
-      signal?.removeEventListener?.('abort', onAbort)
-      if (timeout !== null) clearTimeoutFn(timeout)
-      timeout = null
-    }
-
-    const settle = callback => value => {
-      if (settled) return
-      settled = true
-      cleanup()
-      callback(value)
-    }
-
-    const succeed = settle(resolve)
-    const fail = settle(reject)
-    const onReady = () => succeed()
-    const onError = () => fail(videoError(video))
-    const onAbort = () => fail(abortError())
-
-    video.addEventListener('loadeddata', onReady)
-    video.addEventListener('error', onError)
-    signal?.addEventListener?.('abort', onAbort, { once: true })
-    timeout = setTimeoutFn(
-      () => fail(new Error(`The States of Matter video did not become ready within ${timeoutMs}ms.`)),
-      timeoutMs
-    )
-  })
+export function waitForVideoReady(video, options = {}) {
+  return waitForMediaReady(video, { label: 'The States of Matter video', ...options })
 }
 
 export function createVideoSeekQueue(video, {

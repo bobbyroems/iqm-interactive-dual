@@ -1028,6 +1028,35 @@
 }
 
 /* Fade used when the menu screen enters/leaves. */
+@container (max-height: 360px) {
+  body.is-browser .module-carousel__viewport {
+    overflow-y: auto;
+  }
+
+  body.is-browser .module-carousel__track {
+    --carousel-card-width: min(80cqi, 760px);
+    height: auto;
+    min-height: 100%;
+  }
+
+  body.is-browser .module-card {
+    height: auto;
+    min-height: 100cqb;
+    flex-direction: row;
+    padding: 12px 0 20px;
+    gap: 12px;
+  }
+
+  body.is-browser .module-card__visual {
+    width: 40%;
+  }
+
+  body.is-browser .module-card__content {
+    width: 60%;
+    padding: 0 12px;
+  }
+}
+
 .menu-body {
   transition: opacity 200ms ease;
 }

@@ -1,4 +1,5 @@
-import { waitForTask, taskTimeout } from './abortable-task.js'
+import { waitForTask } from './abortable-task.js'
+import { createLoadDeadline, WEB_LOAD_IDLE_MS, WEB_LOAD_TOTAL_MS } from './load-deadline.js'
 
 function noop() {}
 
@@ -153,6 +154,23 @@ export class DomModuleHostView {
     `
   }
 
+  showPending(module, onCancel) {
+    const overlay = this.root.ownerDocument.createElement('div')
+    overlay.className = 'module-host__system-view module-host__pending'
+    overlay.setAttribute('role', 'status')
+    overlay.innerHTML = `
+      <div class="module-host__system-copy">
+        <span class="module-host__spinner" aria-hidden="true"></span>
+        <h2>Preparing ${escapeHtml(module.title)}</h2>
+        <p>Loading the experience and its media. This may take a moment on a slow connection.</p>
+        <button class="primary-action" type="button">Cancel and return to menu</button>
+      </div>
+    `
+    overlay.querySelector('button').addEventListener('click', onCancel, { once: true })
+    this.root.append(overlay)
+    return () => overlay.remove()
+  }
+
   showStage(module, { animate = true, deferReveal = false } = {}) {
     this.#teardownConcept()
     this.root.dataset.moduleId = module.id
@@ -228,7 +246,7 @@ export class DomModuleHostView {
  * experience.
  */
 export class ModuleHost {
-  constructor({ root, view, onActivity = noop, navigate = {}, mountTimeoutMs = 30000 }) {
+  constructor({ root, view, onActivity = noop, navigate = {}, mountTimeoutMs = null }) {
     this.view = view || new DomModuleHostView(root)
     this.navigate = Object.freeze({
       home: navigate.home || noop,
@@ -266,10 +284,14 @@ export class ModuleHost {
 
     const abortController = new AbortController()
     this.abortController = abortController
-    const cancelLoadingView = this.#scheduleLoadingView(module, token, abortController)
-    const deadline = setTimeout(() => {
-      abortController.abort(taskTimeout('The experience took too long to prepare. Please try again.'))
-    }, this.mountTimeoutMs)
+    const browser = !mountContext.runtime?.platform
+    let cancelLoadingView = this.#scheduleLoadingView(module, token, abortController, browser)
+    const totalMs = this.mountTimeoutMs ?? (browser ? WEB_LOAD_TOTAL_MS : 30000)
+    const deadline = createLoadDeadline({
+      totalMs,
+      idleMs: browser ? Math.min(WEB_LOAD_IDLE_MS, totalMs) : totalMs,
+      onTimeout: error => abortController.abort(error)
+    })
 
     try {
       const moduleExports = await waitForTask(module.load({ signal: abortController.signal }), abortController.signal)
@@ -285,6 +307,8 @@ export class ModuleHost {
         animate: animateStage,
         deferReveal: deferStageReveal
       })
+      if (browser) cancelLoadingView = this.#scheduleLoadingView(module, token, abortController, true)
+      deadline.progress()
       if (!deferStageReveal) {
         this.view.revealStage?.(container, { animate: animateStage })
       }
@@ -294,6 +318,9 @@ export class ModuleHost {
         module,
         signal: abortController.signal,
         onActivity: this.onActivity,
+        onLoadProgress: () => {
+          if (this.#isCurrent(token, abortController)) deadline.progress()
+        },
         onError: error => {
           if (this.#isCurrent(token, abortController)) this.reportError(error)
         },
@@ -347,7 +374,7 @@ export class ModuleHost {
       this.view.showError(module, error, retry)
       return { status: 'error', error }
     } finally {
-      clearTimeout(deadline)
+      deadline.dispose()
       cancelLoadingView()
     }
   }
@@ -374,13 +401,25 @@ export class ModuleHost {
 
   /* Returns a cancel function; call it as soon as the load settles so a fast
      module goes straight from the wipe to its stage. */
-  #scheduleLoadingView(module, token, abortController) {
+  #scheduleLoadingView(module, token, abortController, browser) {
+    let removePending = noop
     const timer = setTimeout(() => {
       if (!this.#isCurrent(token, abortController)) return
-      this.view.showLoading(module)
+      if (browser && this.view.showPending) {
+        removePending = this.view.showPending(module, () => {
+          this.unmount()
+          this.navigate.menu()
+        })
+      } else {
+        this.view.showLoading(module)
+      }
     }, LOADING_VIEW_DELAY_MS)
 
-    return () => clearTimeout(timer)
+    return () => {
+      clearTimeout(timer)
+      removePending()
+      removePending = noop
+    }
   }
 
   #invalidate({ clear }) {

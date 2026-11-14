@@ -409,8 +409,46 @@ pixel-data budgets, not total browser-process memory measurements.
 
 Browsers decode the actual module images without the app-lifetime preheat cache,
 warm only the splash and first handoff on entry, and clear image sources on
-unmount. Later GPU warmups follow the next timeline stop. Electron keeps its
-full-resolution preheat cache and all-scene startup warmup.
+unmount. Browser artwork initially has deferred source attributes, so creating
+the detached DOM does not request the whole journey. Movement waits for required
+images, with visible loading feedback and host error/retry handling. Later GPU
+warmups follow the next timeline stop.
+
+At settled stops, every earlier camera layer is retained: those images are
+registered underlays, not replaceable slides. Cameras beyond the next stop,
+distant independent comparison media, and finale artwork far from its entry
+can release their sources. Returning to a released stop reloads its images.
+Pending loads/decode waits are abortable and bounded; unmount cancels their
+listeners and clears their sources. Electron keeps its full-resolution preheat
+cache, eager source assignment, and all-scene startup warmup.
+
+`npm run check:nanoscale-layout` checks all seven stops across six viewport sizes,
+then exercises mouse, pinch, wheel, keyboard, resize, restart, and disposal with
+both reduced and animated motion. Its 1024px-tier run samples 18.23 MiB of
+assigned RGBA pixels after entry warmup and 41.95 MiB at the finale, including UI
+and deduplicating URLs. These are snapshots of potential image pixel storage,
+not peak browser-process or GPU measurements. Cache eviction is browser-owned;
+physical-device memory and visual-quality acceptance remain necessary.
+
+### Online media readiness
+
+Browser video readiness and the module host share a 45-second inactivity window
+and a 180-second absolute limit. Growing buffered ranges or readiness state
+renew the video stall timer and notify the host; spurious progress events cannot
+extend it forever. Image completion also notifies the host. Image loads/decodes
+have their own abortable deadline, but native image elements do not expose
+byte-level download progress.
+
+Slow browser mounts expose a cancellable loading view. Covered entry wipes
+release after a short wait so they cannot conceal that control indefinitely.
+Failures use the existing explicit error/retry path, and navigation aborts
+outgoing work. Electron retains the prior eight-second video and 30-second host
+limits and unchanged presentation/prewarming policy.
+
+Local checks include a real 9.5-second delayed H.264 response, 2 Mbps/500 ms
+latency emulation, an HTTP failure followed by successful retry, cancellation,
+and deterministic deadline/progress tests. Browser codec support and deployed
+range/caching behavior are separate acceptance requirements.
 
 ### The current masters
 

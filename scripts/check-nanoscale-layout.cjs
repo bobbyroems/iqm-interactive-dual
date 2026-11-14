@@ -66,6 +66,21 @@ async function main() {
     });
     await nanoscale.presentationReady();
     await document.fonts.ready;
+    window.sampleImageLifetimes = () => {
+      const root = document.querySelector('.nz');
+      const images = [...new Map([...root.querySelectorAll('img[src]')]
+        .map(image => [image.src, image])).values()];
+      return {
+        cameraScenes: [...root.querySelectorAll('[data-nz-scene]')]
+          .filter(scene => scene.querySelector('img[src]')).length,
+        comparisons: [...root.querySelectorAll('[data-nz-comparison-media]')]
+          .filter(media => media.querySelector('img[src]')).length,
+        finale: root.querySelectorAll('[data-nz-finale] img[src]').length,
+        deferred: root.querySelectorAll('img[data-nz-src]:not([src])').length,
+        rgbaMiB: images.filter(image => !image.src.endsWith('.svg'))
+          .reduce((pixels, image) => pixels + image.naturalWidth * image.naturalHeight, 0) * 4 / 1048576
+      };
+    };
     window.pointerReleases = 0;
     document.querySelector('.nz').addEventListener('pointerup', () => pointerReleases++);
     window.scenePoint = () => {
@@ -188,6 +203,13 @@ async function main() {
     };
     check();
   })`)
+  const initialImages = await run('sampleImageLifetimes()')
+  assert.equal(initialImages.cameraScenes, 2, 'browser startup prepares splash and first handoff only')
+  assert.equal(initialImages.comparisons, 1)
+  assert.equal(initialImages.finale, 0)
+  assert(initialImages.deferred > 0)
+  assert(initialImages.rgbaMiB < 30, 'phone startup assigned pixels stay under 30 MiB RGBA')
+  console.log('Initial browser image footprint:', initialImages)
   for (let stop = 0; stop <= 6; stop++) {
     if (stop) await key('ArrowRight')
     for (const [width, height] of [[320, 568], [568, 320], [768, 1024], [1440, 900], [2160, 3840], [3440, 1440]]) {
@@ -215,9 +237,14 @@ async function main() {
     }
   }
   assert.equal(await run("document.querySelector('.nz__finale-count-value').textContent"), '1,000,000')
+  const deepImages = await run('sampleImageLifetimes()')
+  assert.equal(deepImages.cameraScenes, 6, 'every earlier registered camera remains available')
+  assert(deepImages.comparisons <= 1, 'distant independent comparisons are evicted')
+  console.log('Finale browser image footprint:', deepImages)
   await resize(320, 568)
   await key('Home')
   await ready(0)
+  assert((await run('sampleImageLifetimes()')).cameraScenes <= 2, 'returning home evicts distant future cameras')
   await run(`document.querySelector('.nz__body').scrollTop = document.querySelector('.nz__visual').offsetTop`)
   await settle()
   const { x, y } = await run('scenePoint()')
@@ -225,6 +252,7 @@ async function main() {
   page.sendInputEvent({ type: 'mouseMove', x, y: y - 200 })
   await settle()
   await mouseUp(x, y - 200)
+  await ready(1)
   assert.equal(await run("document.querySelector('.nz').dataset.stop"), '1')
   const ignored = await run(`(() => {
     const e = new WheelEvent('wheel', { deltaY: 100, bubbles: true, cancelable: true });
@@ -233,7 +261,7 @@ async function main() {
   })()`)
   assert(ignored, 'copy remains scrollable rather than hijacking the zoom')
   await run(`document.querySelector('.nz__visual').dispatchEvent(new WheelEvent('wheel', { deltaY: -100, bubbles: true, cancelable: true }))`)
-  await settle()
+  await ready(2)
   assert.equal(await run("document.querySelector('.nz').dataset.stop"), '2')
   await run(`document.querySelector('[data-nz-action="restart"]').click()`)
   await settle()

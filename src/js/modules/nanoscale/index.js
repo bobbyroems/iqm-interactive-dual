@@ -10,6 +10,7 @@
 
 import { assetUrl } from '../../core/asset-url.js'
 import { nanoscaleImagePath, nanoscaleImageSize } from './nanoscale-image-source.js'
+import { createNanoscaleImageLifetime } from './nanoscale-image-lifetime.js'
 import { mountModuleOutro } from '../module-outro.js'
 import {
   createKioskExplainer,
@@ -248,7 +249,7 @@ function shadowToCss(value) {
   return `${value.x ?? 0}px ${value.y ?? 0}px ${value.blur}px ${value.color ?? '#00000040'}`
 }
 
-function sceneMarkup(imagePath) {
+function sceneMarkup(imagePath, imageAttribute) {
   return UNIQUE_CAMERA_LAYERS.map(layerId => {
     const source = VISUAL_SOURCES[layerId]
     if (!source) throw new Error(`Missing nanoscale visual source for ${layerId}`)
@@ -265,7 +266,7 @@ function sceneMarkup(imagePath) {
       <img
         class="nz__scene-art"
         data-nz-art-layer="${layer.id}"
-        src="${assetUrl(imagePath(layer.assetPath ? layer.asset : `${NANOSCALE_ASSET_ROOT}/${layer.asset}`))}"
+        ${imageAttribute}="${assetUrl(imagePath(layer.assetPath ? layer.asset : `${NANOSCALE_ASSET_ROOT}/${layer.asset}`))}"
         alt=""
         draggable="false"
       >
@@ -293,11 +294,11 @@ export function nestNanoscaleCameraMarkup(contentMarkup) {
   return markup
 }
 
-function cameraStackMarkup(imagePath) {
-  return nestNanoscaleCameraMarkup(sceneMarkup(imagePath))
+function cameraStackMarkup(imagePath, imageAttribute) {
+  return nestNanoscaleCameraMarkup(sceneMarkup(imagePath, imageAttribute))
 }
 
-function moduleMarkup(imagePath) {
+function moduleMarkup(imagePath, imageAttribute = 'src') {
   const microsoftLogo = assetUrl(NANOSCALE_UI_IMAGE_PATHS.microsoftLogo)
   const restartIcon = assetUrl(NANOSCALE_UI_IMAGE_PATHS.restartIcon)
   const exitIcon = assetUrl(NANOSCALE_UI_IMAGE_PATHS.exitIcon)
@@ -337,7 +338,7 @@ function moduleMarkup(imagePath) {
       <div class="nz__visual" data-nz-visual aria-label="Zoom journey. Swipe up, drag right or pinch to zoom in." tabindex="0">
       <div class="nz__board" data-nz-board>
       <div class="nz__stack" data-nz-stack aria-hidden="true">
-        ${cameraStackMarkup(imagePath)}
+        ${cameraStackMarkup(imagePath, imageAttribute)}
       </div>
 
       <svg class="nz__dimension" data-nz-dimension viewBox="0 0 2160 3840" aria-hidden="true" focusable="false">
@@ -389,14 +390,15 @@ function moduleMarkup(imagePath) {
       <h1 class="nz__sr" id="nz-title">Nanoscale of topological qubits</h1>
       <p class="nz__sr" id="nz-controls">Use pinch, vertical or horizontal drag, trackpad or mouse wheel, arrow keys, plus, or minus to move through the zoom journey.</p>
 
-      ${finaleMarkup(imagePath)}
+      ${finaleMarkup(imagePath, imageAttribute)}
 
+      <p class="nz__image-loading" data-nz-image-loading role="status" hidden>Loading artwork…</p>
       <p class="nz__sr" data-nz-status aria-live="polite"></p>
     </section>
   `
 }
 
-function finaleMarkup(imagePath) {
+function finaleMarkup(imagePath, imageAttribute) {
   const [scale] = NANOSCALE_V3_FINALE
   return `
     <div class="nz__finale" data-nz-finale data-nz-content aria-hidden="true" inert>
@@ -422,9 +424,9 @@ function finaleMarkup(imagePath) {
             <span class="nz__finale-divider" aria-hidden="true"></span>
             <!-- The ground the count has not reached yet, under the crisp field
                  that the count wipes across it. -->
-            <img class="nz__finale-field-ghost" src="${assetUrl(imagePath(scale.figure.pixels))}" alt="" draggable="false" aria-hidden="true">
-            <img class="nz__finale-field" src="${assetUrl(imagePath(scale.figure.image))}" alt="${scale.figure.alt}" draggable="false">
-            <img class="nz__finale-marker" src="${assetUrl(imagePath(scale.figure.marker))}" alt="" draggable="false" aria-hidden="true">
+            <img class="nz__finale-field-ghost" ${imageAttribute}="${assetUrl(imagePath(scale.figure.pixels))}" alt="" draggable="false" aria-hidden="true">
+            <img class="nz__finale-field" ${imageAttribute}="${assetUrl(imagePath(scale.figure.image))}" alt="${scale.figure.alt}" draggable="false">
+            <img class="nz__finale-marker" ${imageAttribute}="${assetUrl(imagePath(scale.figure.marker))}" alt="" draggable="false" aria-hidden="true">
           </figure>
         </section>
       </div>
@@ -513,7 +515,7 @@ export async function mount(container, options = {}) {
   })
   const imagePath = path => nanoscaleImagePath(path, imageSize)
   const host = document.createElement('div')
-  host.innerHTML = moduleMarkup(imagePath).trim()
+  host.innerHTML = moduleMarkup(imagePath, runtime.platform ? 'src' : 'data-nz-src').trim()
   const root = host.firstElementChild
   const explainers = createNanoscaleExplainers(root)
   const comparisonMediaHost = root.querySelector('[data-nz-comparison-media-host]')
@@ -522,10 +524,20 @@ export async function mount(container, options = {}) {
     activeReference: firstStop,
     alt: comparisonAlt(firstStop),
     imagePath,
+    deferImages: !runtime.platform,
     ownerDocument: root.ownerDocument
   })
   comparisonMediaHost.append(comparisonMediaStack)
-  await decodeNanoscaleStageImages(root, { signal })
+  const imageLifetime = runtime.platform ? null : createNanoscaleImageLifetime(root, {
+    signal, onProgress: options.onLoadProgress
+  })
+  try {
+    await imageLifetime?.ensure(0)
+    await decodeNanoscaleStageImages(root, { signal, onProgress: options.onLoadProgress })
+  } catch (error) {
+    imageLifetime?.dispose()
+    throw error
+  }
   if (signal?.aborted) throw createAbortError()
   container.replaceChildren(root)
 
@@ -632,6 +644,8 @@ export async function mount(container, options = {}) {
   const marker = root.querySelector('[data-nz-marker]')
   const ticks = [...root.querySelectorAll('[data-nz-tick]')]
   const status = root.querySelector('[data-nz-status]')
+  const imageLoading = root.querySelector('[data-nz-image-loading]')
+  let imageRequestToken = 0
   const finale = root.querySelector('[data-nz-finale]')
   const finaleTrack = root.querySelector('[data-nz-finale-track]')
   const finaleGuides = new Map(
@@ -1371,6 +1385,8 @@ export async function mount(container, options = {}) {
   }
 
   async function warmTimelineStop(timelineIndex, { covered = false } = {}) {
+    await imageLifetime?.ensure(timelineIndex)
+    if (disposed || signal?.aborted) return
     cancelTextureWarmup()
     const token = textureWarmupToken
     const timelineStop = nanoscaleTimelineStopAt(timelineIndex)
@@ -1436,6 +1452,9 @@ export async function mount(container, options = {}) {
   function setProgress(next) {
     const clamped = clamp(next, 0, LAST_STOP)
     if (clamped === progress) return
+    if (!prepareMovementImages(clamped, () => {
+      if (gesture) setProgress(gesture.lastProgress)
+    })) return
     cancelTextureWarmup()
     progress = clamped
     requestRender()
@@ -1448,14 +1467,42 @@ export async function mount(container, options = {}) {
     if (target > 0) clearMisdirectedHint()
     progress = target
     arrivedStop = target
+    imageLifetime?.evict(target)
     if (changedStop) settledAt = performance.now()
     requestRender()
     scheduleNextStopWarmup(target)
   }
 
+  function prepareMovementImages(target, resume) {
+    if (!imageLifetime) return true
+    const token = ++imageRequestToken
+    if (imageLifetime.isReady(progress, target)) {
+      imageLoading.hidden = true
+      root.removeAttribute('aria-busy')
+      return true
+    }
+    imageLoading.textContent = 'Loading artwork…'
+    imageLoading.hidden = false
+    root.setAttribute('aria-busy', 'true')
+    void imageLifetime.ensure(progress, target).then(() => {
+      if (disposed || token !== imageRequestToken) return
+      imageLoading.hidden = true
+      root.removeAttribute('aria-busy')
+      resume()
+    }).catch(error => {
+      if (disposed || token !== imageRequestToken || error?.name === 'AbortError') return
+      console.error('Nanoscale artwork failed to load.', error)
+      imageLoading.textContent = 'Artwork could not load. Exit and try again.'
+      root.removeAttribute('aria-busy')
+      options.onError?.(error)
+    })
+    return false
+  }
+
   function settleTo(target, velocity) {
     settle?.cancel()
     settle = null
+    if (!prepareMovementImages(target, () => settleTo(target, velocity))) return
     if (Math.abs(progress - target) <= 0.001) {
       arriveAt(target)
       return
@@ -1546,6 +1593,10 @@ export async function mount(container, options = {}) {
   }
 
   function restart() {
+    imageRequestToken++
+    imageLoading.hidden = true
+    root.removeAttribute('aria-busy')
+    imageLifetime?.evict(0)
     upNextBanner.withdraw()
     settle?.cancel()
     settle = null
@@ -1562,11 +1613,12 @@ export async function mount(container, options = {}) {
   }
 
   function beginGesture() {
+    const intendedProgress = gesture?.lastProgress ?? progress
     settle?.cancel()
     settle = null
     gesture = {
-      startProgress: progress,
-      lastProgress: progress,
+      startProgress: intendedProgress,
+      lastProgress: intendedProgress,
       lastAt: performance.now(),
       velocity: 0,
       mode: null,
@@ -1709,7 +1761,7 @@ export async function mount(container, options = {}) {
        commits, however small or slow. */
     if (
       gesture.startProgress >= NANOSCALE_LAST_CONTENT_STOP - NANOSCALE_SETTLED_EPSILON &&
-      progress - gesture.startProgress > FINALE_COMMIT_PROGRESS
+      gesture.lastProgress - gesture.startProgress > FINALE_COMMIT_PROGRESS
     ) {
       const velocity = gesture.velocity
       gesture = null
@@ -1717,7 +1769,7 @@ export async function mount(container, options = {}) {
       return
     }
 
-    const target = getVelocityAwareSnapTarget(progress, gesture.velocity, {
+    const target = getVelocityAwareSnapTarget(gesture.lastProgress, gesture.velocity, {
       gestureStartProgress: gesture.startProgress,
       stops: NANOSCALE_V3_STOPS
     })
@@ -1887,6 +1939,8 @@ export async function mount(container, options = {}) {
   function dispose() {
     if (disposed) return
     disposed = true
+    imageRequestToken++
+    imageLifetime?.dispose()
     settle?.cancel()
     if (frame !== null) cancelAnimationFrame(frame)
     if (wheelUnlockTimer !== null) clearTimeout(wheelUnlockTimer)

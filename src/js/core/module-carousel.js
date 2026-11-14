@@ -404,12 +404,15 @@ export class ModuleCarousel {
       return
     }
     this.onActivity?.()
-    if (event.target.closest('.module-card__footer')) {
+    if (event.detail === 0 || event.target.closest('.module-card__footer')) {
       this.onOpen?.(card.dataset.moduleId)
     }
   }
 
   handleWheel(event) {
+    if (this.viewport.contains(event.target) &&
+        this.viewport.scrollHeight > this.viewport.clientHeight &&
+        Math.abs(event.deltaY) > Math.abs(event.deltaX)) return
     event.preventDefault()
     const delta = Math.abs(event.deltaX) > Math.abs(event.deltaY) ? event.deltaX : event.deltaY
     if (Math.abs(delta) < 10) return

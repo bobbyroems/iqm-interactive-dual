@@ -1,4 +1,5 @@
 import { assetUrl } from '../../core/asset-url.js'
+import { waitForMediaReady } from '../../core/media-readiness.js'
 import { createKioskTooltip, updateKioskTooltip } from '../../core/kiosk-tooltip.js'
 import {
   createKioskExplainer,
@@ -24,7 +25,6 @@ import {
   reduceMeasurementStoryState
 } from './story-state.js'
 
-const MEDIA_READY_TIMEOUT_MS = 8_000
 const MEDIA_END_BUFFER_MS = 1_500
 /* How long each kind of join between two clips takes, kept in step with the
    mbqc-media-* keyframes in the stylesheet.
@@ -112,42 +112,6 @@ function mediaError(video, message) {
   const code = Number(video?.error?.code)
   const suffix = Number.isFinite(code) && code > 0 ? ` (media error ${code})` : ''
   return new Error(`${message}${suffix}`)
-}
-
-function waitForMediaReady(video, { signal, timeoutMs = MEDIA_READY_TIMEOUT_MS } = {}) {
-  if (signal?.aborted) return Promise.reject(abortError(signal))
-  if (video.readyState >= 2) return Promise.resolve()
-
-  return new Promise((resolve, reject) => {
-    let timeout = null
-    let settled = false
-
-    const cleanup = () => {
-      video.removeEventListener('loadeddata', onReady)
-      video.removeEventListener('error', onError)
-      signal?.removeEventListener?.('abort', onAbort)
-      if (timeout !== null) window.clearTimeout(timeout)
-    }
-    const settle = callback => value => {
-      if (settled) return
-      settled = true
-      cleanup()
-      callback(value)
-    }
-    const succeed = settle(resolve)
-    const fail = settle(reject)
-    const onReady = () => succeed()
-    const onError = () => fail(mediaError(video, 'A topological-qubit video could not be decoded'))
-    const onAbort = () => fail(abortError(signal))
-
-    video.addEventListener('loadeddata', onReady)
-    video.addEventListener('error', onError)
-    signal?.addEventListener?.('abort', onAbort, { once: true })
-    timeout = window.setTimeout(
-      () => fail(new Error(`A topological-qubit video did not become ready within ${timeoutMs}ms.`)),
-      timeoutMs
-    )
-  })
 }
 
 function waitForMediaEnd(video, { signal } = {}) {
@@ -533,7 +497,12 @@ export async function mount(container, options = {}) {
 
     video.loop = media.loop === true && !reducedMotion
     video.playbackRate = Number.isFinite(media.playbackRate) ? media.playbackRate : 1
-    await waitForMediaReady(video, { signal: operationSignal })
+    await waitForMediaReady(video, {
+      signal: operationSignal,
+      label: 'A topological-qubit video',
+      ...(options.runtime?.platform ? { timeoutMs: 8_000 } : {}),
+      onProgress: options.onLoadProgress
+    })
     if (operationSignal?.aborted) throw abortError(operationSignal)
 
     try { video.currentTime = 0 } catch { /* A ready frame is already usable. */ }

@@ -18,9 +18,9 @@ Keep Electron presentation and prewarming intact unless explicitly changing that
 
 ### Finding 2 follow-up: bound and validate Nanoscale memory
 
-- [ ] Evaluate stop-aware image loading/decoding and safe eviction of distant
-  layers. Earlier scenes remain visible as registered underlays, so retaining
-  only previous/current/next scenes would break the composition.
+- [x] Add stop-aware browser loading/decoding and safe eviction. All earlier
+  camera scenes remain available as registered underlays; distant independent
+  comparisons and unreached future cameras can release their sources.
 - [ ] Measure peak and settled memory on physical mobile devices, including GPU
   textures and repeated entry/exit. Clearing image sources makes them eligible
   for release; it does not guarantee immediate browser cache eviction.
@@ -28,11 +28,14 @@ Keep Electron presentation and prewarming intact unless explicitly changing that
   The tier is selected once per mount with pixel-density headroom capped at 1.5x.
   Browser viewports whose longest side exceeds 2048 CSS pixels still use originals.
 
-Current calculated image-pixel footprints, including module UI, are approximately
-60 MiB on a phone, 176 MiB on a desktop, and 472 MiB with originals. These are
-RGBA pixel estimates, **not measured browser-process RAM**. All module image
-sources are still assigned and decoded on entry; rolling image eviction is not
-implemented.
+The eager full-set calculated image-pixel footprints, including module UI, were
+approximately 60 MiB on a phone, 176 MiB on a desktop, and 472 MiB with originals.
+The 1024px-tier browser layout check now samples **18.23 MiB at entry** and
+**41.95 MiB at the finale**, deduplicating assigned image URLs and including UI.
+These are RGBA pixel estimates, **not measured RAM, GPU memory, or peak usage**.
+Entry prepares only the splash and first handoff; transitions await required
+images, next-stop prefetch remains, and restarting releases distant sources.
+Electron retains the full-resolution preheat cache and all-scene warmup.
 
 Sources: [image selection](src/js/modules/nanoscale/nanoscale-image-source.js),
 [module lifecycle](src/js/modules/nanoscale/index.js),
@@ -40,28 +43,39 @@ Sources: [image selection](src/js/modules/nanoscale/nanoscale-image-source.js),
 
 ### Finding 3: recover the menu CTA on short landscape screens
 
-- [ ] Add a short-height menu layout or reachable scrolling instead of clipping
+- [x] Add a browser-only short-height menu layout and reachable overflow instead of clipping
   the active card's copy and CTA.
-- [ ] Recheck every menu card at 844 x 390 and smaller landscape sizes, using both
-  touch and keyboard. The original reproduction had the Computing with
-  topological qubits CTA extend to about 377px while its clipping viewport ended
-  at 299px, with no scrollable recovery.
+- [x] Recheck all nine cards at 844 x 390, 667 x 375, and 568 x 320 with pointer
+  and keyboard activation, plus emulated touch at 568 x 320. CTA bounds fit
+  their viewport; keyboard activation now opens the selected card without
+  requiring its decorative footer to be the click target. Physical touch
+  acceptance remains part of the device checks below.
 
 Sources: [menu styles](src/styles/app.css),
 [carousel layout](src/js/core/module-carousel.js).
 
 ### Finding 4: make media readiness resilient to online transfers
 
-- [ ] Replace or revise fixed readiness deadlines so progressing downloads are
+- [x] Replace or revise fixed readiness deadlines so progressing downloads are
   not treated as stalled transfers. Provide useful loading, cancellation, retry,
   and explicit failure states without allowing indefinite hangs.
-- [ ] Coordinate media-specific limits with the module host's overall deadline.
-  States of Matter and Measurement currently allow 8 seconds; the host allows
-  30 seconds. The full-resolution Nanoscale preloader retains a 15-second
-  per-image deadline, but responsive browser mounts no longer use that cache.
-- [ ] Test throttled connections, delayed responses, failed requests, retries,
-  and navigation away during loading. A 9.5-second response delay previously
-  reproduced a States of Matter failure despite the asset being available.
+- [x] Coordinate browser media/host limits: 45 seconds without observable
+  readiness progress, bounded by 180 seconds overall. Increasing buffered
+  ranges/readiness renew the video stall timer; completed image decodes notify
+  the host. A browser loading/cancel view remains reachable behind slow-entry
+  wipes. Electron retains its 8-second media and 30-second host limits, and its
+  full-resolution Nanoscale preloader retains a 15-second per-image deadline.
+- [x] Test delayed responses, failed requests, retries, and cancellation locally:
+  a real 9.5-second delayed MP4 now loads, a 2 Mbps/500 ms latency emulation
+  loads, and failure/retry/cancel paths pass. Deterministic tests cover genuine
+  versus spurious progress, overall limits, stalled images, and late cleanup.
+  Real mobile-network/browser acceptance remains outstanding.
+
+Validation note: the production build, unit tests, camera checks, and Nanoscale
+layout/gesture suite pass. The separate `check:recovery` command is blocked
+before application startup by the pre-existing LF-only instrumentation extractor
+in `scripts/check-runtime-recovery.cjs` on this CRLF Windows checkout; that
+unrelated harness was not changed. Focused Electron host-deadline tests pass.
 
 Sources: [States of Matter media](src/js/modules/states-of-matter/media.js),
 [Measurement media](src/js/modules/measurement-based/index.js),

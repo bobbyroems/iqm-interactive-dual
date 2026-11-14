@@ -199,6 +199,7 @@ export class KioskApp {
 
   start() {
     document.body.classList.toggle('is-kiosk', Boolean(this.runtime.isKiosk))
+    document.body.classList.toggle('is-browser', !this.runtime.platform)
     this.auroraBackgrounds?.dispose()
     this.auroraBackgrounds = mountAuroraBackgrounds(this.root)
     this.renderModuleMenu()
@@ -403,14 +404,29 @@ export class KioskApp {
     return new Promise(resolve => {
       wipe.classList.add('is-active', 'is-covering')
       window.setTimeout(async () => {
+        let revealed = false
+        const reveal = () => {
+          if (revealed) return
+          revealed = true
+          wipe.classList.remove('is-covering')
+          wipe.classList.add('is-revealing')
+          window.setTimeout(() => {
+            wipe.classList.remove('is-active', 'is-revealing')
+            resolve()
+          }, 560)
+        }
+        // A web download must not hide the loading/cancel view behind the wipe.
+        const revealDeadline = this.runtime.platform ? null : window.setTimeout(reveal, 1200)
         try {
           /* Mount may include a module-specific presentation-ready barrier.
              Keep the fully opaque wipe in place until that contract settles. */
           await onCovered?.()
         } catch (error) {
           console.error('Module activation during wipe failed.', error)
+        } finally {
+          if (revealDeadline !== null) window.clearTimeout(revealDeadline)
         }
-        if (commitFrames > 0) {
+        if (commitFrames > 0 && !revealed) {
           /* A deferred stage was measurable but visibility:hidden during its
              warmup. Give Chromium covered frames to promote and composite its
              now-visible canvases before moving the wipe away. */
@@ -431,12 +447,7 @@ export class KioskApp {
             frame = requestAnimationFrame(commit)
           })
         }
-        wipe.classList.remove('is-covering')
-        wipe.classList.add('is-revealing')
-        window.setTimeout(() => {
-          wipe.classList.remove('is-active', 'is-revealing')
-          resolve()
-        }, 560)
+        reveal()
       }, 560)
     })
   }

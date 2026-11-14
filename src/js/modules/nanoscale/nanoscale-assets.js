@@ -1,4 +1,6 @@
 import { assetUrl } from '../../core/asset-url.js'
+import { waitForTask } from '../../core/abortable-task.js'
+import { createLoadDeadline } from '../../core/load-deadline.js'
 import { NANOSCALE_CAMERA_SCENES } from './nanoscale-camera.js'
 import { NANOSCALE_COMPARISON_IMAGE_PATHS } from './nanoscale-comparison.js'
 import { NANOSCALE_V3_FINALE, NANOSCALE_V3_TIMELINE } from './nanoscale-stops.js'
@@ -161,7 +163,8 @@ export function waitForNanoscaleAssets({ signal } = {}) {
   return waitWithoutCancellingSharedPreload(preloadNanoscaleAssets(), signal)
 }
 
-function waitForElementLoad(image) {
+function waitForElementLoad(image, signal) {
+  if (signal.aborted) return Promise.reject(signal.reason)
   if (image.complete) {
     return image.naturalWidth && image.naturalHeight
       ? Promise.resolve()
@@ -172,6 +175,7 @@ function waitForElementLoad(image) {
     const cleanup = () => {
       image.removeEventListener('load', onLoad)
       image.removeEventListener('error', onError)
+      signal.removeEventListener('abort', onAbort)
     }
     const onLoad = () => {
       cleanup()
@@ -181,17 +185,23 @@ function waitForElementLoad(image) {
       cleanup()
       reject(new Error(`Unable to load Nanoscale DOM image: ${image.src}`))
     }
+    const onAbort = () => {
+      cleanup()
+      reject(signal.reason)
+    }
     image.addEventListener('load', onLoad, { once: true })
     image.addEventListener('error', onError, { once: true })
+    signal.addEventListener('abort', onAbort, { once: true })
   })
 }
 
-async function decodeElementImage(image) {
-  await waitForElementLoad(image)
+async function decodeElementImage(image, signal) {
+  await waitForElementLoad(image, signal)
   if (typeof image.decode === 'function') {
     try {
-      await image.decode()
+      await waitForTask(image.decode(), signal)
     } catch (error) {
+      if (signal.aborted) throw signal.reason
       /* Chromium can reject an additional decode under memory pressure even
          though the DOM image has loaded valid dimensions. */
       if (!image.complete || !image.naturalWidth || !image.naturalHeight) {
@@ -215,18 +225,29 @@ async function decodeElementImage(image) {
  * complete. Calling decode() again at the preceding stop brings just the next
  * scene back without competing with the zoom frame that first needs it.
  */
-export async function decodeNanoscaleElementImages(images, { signal } = {}) {
+export async function decodeNanoscaleElementImages(images, { signal, onProgress } = {}) {
   const uniqueImages = [...new Set(images)].filter(image => image?.tagName === 'IMG')
   for (const image of uniqueImages) {
-    await waitWithoutCancellingSharedPreload(decodeElementImage(image), signal)
+    const controller = new AbortController()
+    const onAbort = () => controller.abort(signal.reason)
+    signal?.addEventListener('abort', onAbort, { once: true })
+    if (signal?.aborted) onAbort()
+    const deadline = createLoadDeadline({ onTimeout: error => controller.abort(error) })
+    try {
+      await decodeElementImage(image, controller.signal)
+      onProgress?.()
+    } finally {
+      deadline.dispose()
+      signal?.removeEventListener('abort', onAbort)
+    }
   }
 }
 
 /** Decode the actual detached stage images before ModuleHost reveals or enables it. */
-export async function decodeNanoscaleStageImages(root, { signal } = {}) {
+export async function decodeNanoscaleStageImages(root, { signal, onProgress } = {}) {
   const images = [...root.querySelectorAll('img[src]')]
   try {
-    await decodeNanoscaleElementImages(images, { signal })
+    await decodeNanoscaleElementImages(images, { signal, onProgress })
   } catch (error) {
     /* The detached stage will not be used after a failed/aborted mount. Cancel
        any requests it still owns instead of leaving them alive off-DOM. */

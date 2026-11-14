@@ -37,6 +37,24 @@
   user-select: none;
 }
 
+.nz__image-loading {
+  position: absolute;
+  z-index: 20;
+  left: 50%;
+  bottom: 80px;
+  max-width: calc(100% - 32px);
+  margin: 0;
+  padding: 12px 20px;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 4px 20px rgb(42 68 111 / 0.2);
+  color: var(--nz-navy);
+  font-size: 16px;
+  text-align: center;
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
 .nz__body {
   position: relative;
   z-index: 6;

@@ -347,6 +347,7 @@ function applyPaint(image, layer) {
 export function createNanoscaleComparisonMedia(reference, {
   alt = '',
   imagePath = path => path,
+  deferImages = false,
   ownerDocument = globalThis.document
 } = {}) {
   if (!ownerDocument?.createElement) {
@@ -382,7 +383,9 @@ export function createNanoscaleComparisonMedia(reference, {
 
     const image = ownerDocument.createElement('img')
     image.className = 'nz__comparison-media-image'
-    image.src = assetUrl(imagePath(layer.asset), ownerDocument.baseURI)
+    const url = assetUrl(imagePath(layer.asset), ownerDocument.baseURI)
+    if (deferImages) image.dataset.nzSrc = url
+    else image.src = url
     image.alt = ''
     image.decoding = 'async'
     image.draggable = false
@@ -404,13 +407,13 @@ function setStackMediaActive(media, active, alt = '') {
 }
 
 /**
- * Build all five recipes once. Keeping every `img[src]` in this detached tree
- * lets the stage decoder await the actual DOM images before the module reveals.
+ * Build all five recipes once; browser mounts assign sources only as needed.
  */
 export function createNanoscaleComparisonMediaStack({
   activeReference = null,
   alt = '',
   imagePath = path => path,
+  deferImages = false,
   ownerDocument = globalThis.document
 } = {}) {
   if (!ownerDocument?.createElement) {
@@ -428,7 +431,7 @@ export function createNanoscaleComparisonMediaStack({
   stack.style.overflow = 'hidden'
 
   for (const recipe of NANOSCALE_COMPARISON_RECIPES) {
-    const media = createNanoscaleComparisonMedia(recipe, { ownerDocument, imagePath })
+    const media = createNanoscaleComparisonMedia(recipe, { ownerDocument, imagePath, deferImages })
     media.style.position = 'absolute'
     media.style.inset = '0'
     setStackMediaActive(media, false)

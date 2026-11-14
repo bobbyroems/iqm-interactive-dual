@@ -714,7 +714,11 @@ export async function mount(containerArgument, optionsArgument) {
   requestFrame(0)
 
   try {
-    await waitForVideoReady(video, { signal })
+    await waitForVideoReady(video, {
+      signal,
+      ...(options.runtime?.platform ? { timeoutMs: 8_000 } : {}),
+      onProgress: options.onLoadProgress
+    })
     if (disposed) throw new DOMException('States of Matter was disposed.', 'AbortError')
 
     mediaReady = true

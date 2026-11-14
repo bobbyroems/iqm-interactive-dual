@@ -79,3 +79,56 @@ test('a dependency abort without host cancellation still presents a recoverable 
   assert.equal(view.state, 'error')
   host.unmount()
 })
+
+test('browser preparation keeps a cancellable loading view while an async mount waits', async () => {
+  const { host, view } = fixture(2000)
+  let cancel, removed = 0, navigated = 0
+  host.navigate = { menu: () => navigated++ }
+  view.showPending = (_module, onCancel) => {
+    cancel = onCancel
+    return () => removed++
+  }
+  const mounted = host.mount({
+    id: 'slow-media',
+    load: () => ({ mount: () => new Promise(() => {}) })
+  })
+  await new Promise(resolve => setTimeout(resolve, 300))
+  assert.equal(typeof cancel, 'function')
+  cancel()
+  assert.equal((await mounted).status, 'stale')
+  assert.equal(navigated, 1)
+  assert.equal(removed, 1)
+})
+
+test('browser host renews its stall window when media reports real progress', async t => {
+  t.mock.timers.enable({ apis: ['setTimeout'] })
+  const { view } = fixture()
+  const host = new ModuleHost({ view })
+  const late = pending()
+  let context
+  const mounted = host.mount({
+    id: 'progressing',
+    load: () => ({ mount: (_root, options) => { context = options; return late.promise } })
+  })
+  await new Promise(resolve => setImmediate(resolve))
+  t.mock.timers.tick(40_000)
+  context.onLoadProgress()
+  t.mock.timers.tick(40_000)
+  assert.equal(context.signal.aborted, false)
+  late.resolve(() => {})
+  assert.equal((await mounted).status, 'active')
+  host.unmount()
+})
+
+test('Electron retains its thirty-second host preparation limit', async t => {
+  t.mock.timers.enable({ apis: ['setTimeout'] })
+  const { view } = fixture()
+  const host = new ModuleHost({ view })
+  const mounted = host.mount({ id: 'electron-stall', load: () => new Promise(() => {}) }, {
+    runtime: { platform: 'win32' }
+  })
+  t.mock.timers.tick(30_000)
+  assert.equal((await mounted).status, 'error')
+  assert.equal(view.error.name, 'TimeoutError')
+  host.unmount()
+})
