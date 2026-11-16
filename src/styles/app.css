@@ -489,6 +489,17 @@
   flex: 0 0 auto;
 }
 
+body.is-browser .module-card {
+  padding-bottom: 12px;
+}
+
+/* Let the preview yield to the actual copy height instead of clipping the CTA
+   when a title exceeds the carousel's estimated content budget. */
+body.is-browser .module-card__visual {
+  flex-shrink: 1;
+  min-height: 0;
+}
+
 .module-card__visual[data-has-preview="true"]:not([data-preview-layout="portal"]) {
   overflow: hidden;
   border-radius: clamp(12px, 2vw, 20px);

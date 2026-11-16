@@ -54,6 +54,13 @@ Sources: [image selection](src/js/modules/nanoscale/nanoscale-image-source.js),
 Sources: [menu styles](src/styles/app.css),
 [carousel layout](src/js/core/module-carousel.js).
 
+Wide-layout follow-up (2026-11-16): browser card previews now shrink to leave
+room for the actual copy and full CTA, with a bottom gutter inside the carousel
+viewport. `npm run check:menu-layout` checks all nine CTAs for containment,
+pagination clearance, text fit, hit testing, and pointer activation across
+phone, tablet, laptop, desktop, and ultrawide sizes, including live resizing.
+Electron card sizing is unchanged.
+
 ### Finding 4: make media readiness resilient to online transfers
 
 - [x] Replace or revise fixed readiness deadlines so progressing downloads are

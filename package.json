@@ -40,6 +40,7 @@
     "check:nanoscale-layout": "electron scripts/check-nanoscale-layout.cjs",
     "check:protection-layout": "electron scripts/check-protection-layout.cjs",
     "check:qvc-layout": "electron scripts/check-qvc-layout.cjs",
+    "check:menu-layout": "electron scripts/check-menu-layout.cjs",
     "check:majorana-layout": "electron scripts/check-majorana-layout.cjs"
   },
   "engines": {
