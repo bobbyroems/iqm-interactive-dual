@@ -628,6 +628,7 @@
 /* ============ Superposition (Figma 1:2578) ============ */
 
 /* Copy and hints flow separately from the scene instead of overlaying the coin. */
+.qvc-flip__narration,
 .qvc-flip__copy,
 .qvc-flip__hint,
 .qvc-flip__result,
@@ -637,6 +638,26 @@
   max-width: 100%;
   flex: 0 0 auto;
   pointer-events: none;
+}
+
+/* All stages share one grid cell so copy changes cannot move or resize the
+   camera's canvas. Hidden stages still reserve their responsive text height. */
+.qvc-flip__narration {
+  display: grid;
+  width: 100%;
+}
+
+.qvc-flip__stage {
+  grid-area: 1 / 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: clamp(16px, 1rem + 0.5cqw, 40px);
+  visibility: hidden;
+}
+
+.qvc-flip__stage.is-active {
+  visibility: visible;
 }
 
 .qvc-flip__copy {
@@ -692,8 +713,7 @@
 }
 
 /* Copy and hint cross-fade together on every stage change. */
-.qvc-flip__copy,
-.qvc-flip__hint {
+.qvc-flip__narration {
   opacity: 0;
   transition: opacity 220ms ease;
 }
@@ -727,12 +747,12 @@
   color: #7c8282;
 }
 
-.qvc-flip.is-copy-in .qvc-flip__copy,
-.qvc-flip.is-copy-in .qvc-flip__hint {
+.qvc-flip.is-copy-in .qvc-flip__narration {
   opacity: 1;
 }
 
 .qvc-flip__result {
+  min-height: 1.2em;
   color: #225b62;
   font-size: clamp(28px, 1.75rem + 1cqw, 72px);
   font-weight: 600;
@@ -838,8 +858,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .qvc-flip__copy,
-  .qvc-flip__hint,
+  .qvc-flip__narration,
   .qvc-flip__result,
   .qvc-flip__tally {
     transition: none;

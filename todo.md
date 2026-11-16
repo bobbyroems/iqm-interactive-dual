@@ -1,6 +1,6 @@
 # Browser readiness TODO
 
-Updated 2026-11-13. Remaining work from the offline Electron-to-web review.
+Updated 2026-11-16. Remaining work from the offline Electron-to-web review.
 Keep Electron presentation and prewarming intact unless explicitly changing that policy.
 
 ## Completed baseline
@@ -133,6 +133,12 @@ Sizes below are approximate compressed/on-disk MiB, not decoded memory:
 
 ## Other browser concerns
 
+- [x] **Superposition scene stability.** Narration stages share a reserved grid
+  cell, and the result label retains its line height while empty. Text and hint
+  changes no longer move the canvas or toggle its scrollbar-dependent width
+  during a toss. `npm run check:qvc-layout` samples scene bounds and scroll
+  position frame by frame through classical and quantum landings on phone and
+  desktop. Coin physics, timing, and rendering quality are unchanged.
 - [ ] **Codec capability detection and fallback.** Measurement currently depends
   on WebM media, and alpha-video selection follows the manifest rather than
   proven browser capabilities. The integrated Chromium runtime rejected VP9

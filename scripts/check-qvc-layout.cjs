@@ -124,9 +124,38 @@ async function main() {
   const click = selector => run(`document.querySelector(${JSON.stringify(selector)}).click()`)
   const gameReady = name => waitFor(`document.querySelector('.qvc-${name} .is-ready') &&
     !document.querySelector('.qvc').classList.contains('is-transitioning')`, `${name} first frame`)
+  const watchFlipLayout = () => run(`(() => {
+    window.flipLayoutSamples = [];
+    window.stopFlipLayoutWatch = false;
+    const sample = () => {
+      if (stopFlipLayoutWatch) return;
+      const root = document.querySelector('.qvc-flip');
+      const box = root.querySelector('[data-game-scene]').getBoundingClientRect();
+      flipLayoutSamples.push({
+        state: root.dataset.state, stage: root.dataset.stage,
+        top: box.top, left: box.left, width: box.width, height: box.height,
+        scrollTop: document.querySelector('.qvc__game-host').scrollTop
+      });
+      requestAnimationFrame(sample);
+    };
+    sample();
+  })()`)
+  const checkFlipLayout = async label => {
+    const samples = await run('stopFlipLayoutWatch = true; flipLayoutSamples')
+    assert(samples.some(sample => sample.state === 'rising') && samples.some(sample => sample.state === 'landed'),
+      `${label}: sampled the entire toss`)
+    const tossSamples = samples.slice(samples.findIndex(sample => sample.state === 'rising'))
+    const first = tossSamples[0]
+    for (const sample of tossSamples) {
+      assert(['top', 'left', 'width', 'height', 'scrollTop'].every(key => Math.abs(sample[key] - first[key]) <= 1),
+        `${label}: scene moved during a toss: ${JSON.stringify({ first, sample })}`)
+    }
+    console.log(`${label}: scene bounds and scroll position stable through narration and landing`)
+  }
   const swipe = async (touch = false, cancel = false) => {
     await run("document.querySelector('.qvc-game__canvas').scrollIntoView({ block: 'center' })")
     await settle()
+    if (!cancel) await watchFlipLayout()
     const box = await run("document.querySelector('.qvc-game__canvas').getBoundingClientRect().toJSON()")
     const x = box.left + box.width / 2
     const y = box.top + box.height * 0.75
@@ -145,6 +174,18 @@ async function main() {
   await click('[data-qvc-game="superposition"]')
   await gameReady('flip')
   await matrix('Superposition')
+  window.setContentSize(1440, 900)
+  await waitFor('innerWidth === 1440 && innerHeight === 900', 'desktop resize')
+  await swipe()
+  await waitFor("document.querySelector('.qvc-flip').dataset.stage === 'reframed' && document.querySelector('.qvc-flip').classList.contains('is-copy-in')", 'desktop classical narration')
+  await settle()
+  await checkFlipLayout('Desktop classical flip')
+  await swipe()
+  await waitFor("document.querySelector('.qvc-flip').dataset.stage === 'bullet'", 'desktop slow motion')
+  await waitFor("document.querySelector('.qvc-flip').dataset.stage === 'landed' && document.querySelector('.qvc-flip').classList.contains('is-copy-in')", 'desktop quantum narration')
+  await settle()
+  await checkFlipLayout('Desktop quantum flip')
+  await click('[data-qvc-action="restart"]')
   window.setContentSize(320, 568)
   await waitFor('innerWidth === 320 && innerHeight === 568', 'phone resize')
   await run(`document.querySelector('.qvc-game__canvas').scrollIntoView({ block: 'center' });
@@ -169,11 +210,16 @@ async function main() {
   await swipe(true)
   await waitFor("document.querySelector('.qvc-flip').dataset.state === 'landed'", 'classical coin landing')
   await waitFor("document.querySelector('.qvc-flip').classList.contains('is-copy-in')", 'classical narration')
+  await settle()
+  await checkFlipLayout('Phone classical flip')
   await check('Classical result')
   await swipe()
   await waitFor("document.querySelector('.qvc-flip').dataset.state === 'bullet'", 'superposition slow motion')
   await check('Slow-motion narration')
   await waitFor("document.querySelector('.qvc-flip').dataset.state === 'landed'", 'quantum coin landing')
+  await waitFor("document.querySelector('.qvc-flip').dataset.stage === 'landed' && document.querySelector('.qvc-flip').classList.contains('is-copy-in')", 'quantum narration')
+  await settle()
+  await checkFlipLayout('Phone quantum flip')
   await waitFor("!document.querySelector('[data-qvc-game=\"entanglement\"]').disabled", 'unlocking entanglement')
   await check('Quantum result and tally')
   await click('[data-qvc-action="back"]')

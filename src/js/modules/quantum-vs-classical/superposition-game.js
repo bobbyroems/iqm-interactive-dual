@@ -125,10 +125,7 @@ const STAGE_COPY = Object.freeze({
 function gameMarkup() {
   return `
     <div class="qvc-game qvc-flip" data-state="ready" data-place="high" data-flipped="false">
-      <div class="qvc-flip__copy" data-flip-copy>
-        <h2 class="qvc-flip__title" data-flip-title>Superposition</h2>
-        <p class="qvc-flip__body" data-flip-body></p>
-      </div>
+      <div class="qvc-flip__narration" data-flip-narration></div>
       <div class="qvc-game__scene" data-game-scene></div>
       <div class="qvc-flip__result" data-result aria-hidden="true">Heads</div>
       <section class="qvc-flip__tally" aria-label="Running tally">
@@ -163,14 +160,33 @@ async function buildSuperpositionGame(host, { assets, RoomEnvironment, onActivit
   defer(() => root.remove())
 
   const sceneHost = root.querySelector('[data-game-scene]')
-  const copyPanel = root.querySelector('[data-flip-copy]')
-  const copyTitle = root.querySelector('[data-flip-title]')
-  const copyBody = root.querySelector('[data-flip-body]')
-  const flipHint = createKioskTooltip({
-    className: 'kiosk-tooltip--light qvc-flip__hint'
-  })
-  copyPanel.after(flipHint.element)
-  const hintText = flipHint.copy
+  const narration = root.querySelector('[data-flip-narration]')
+  const stagePanels = new Map(Object.entries(STAGE_COPY).map(([id, stage]) => {
+    const panel = document.createElement('div')
+    panel.className = 'qvc-flip__stage'
+    panel.inert = true
+    panel.setAttribute('aria-hidden', 'true')
+
+    const copy = document.createElement('div')
+    copy.className = 'qvc-flip__copy'
+    const title = document.createElement('h2')
+    title.className = 'qvc-flip__title'
+    title.textContent = stage.title
+    title.hidden = !stage.title
+    const body = document.createElement('p')
+    body.className = 'qvc-flip__body'
+    renderBody(stage, body)
+    copy.append(title, body)
+
+    const hint = createKioskTooltip({
+      className: 'kiosk-tooltip--light qvc-flip__hint',
+      text: stage.hint,
+      hidden: !stage.hint
+    })
+    panel.append(copy, hint.element)
+    narration.append(panel)
+    return [id, panel]
+  }))
 
   /* The band belongs to the module, which mounts the 1-2-3 on it and takes it
      back when the view changes. A game only borrows it to offer what follows —
@@ -514,7 +530,7 @@ async function buildSuperpositionGame(host, { assets, RoomEnvironment, onActivit
 
   /* Split the authored body around its accent phrase so the emphasis is a real
      element rather than markup parsed back out of a string. */
-  function renderBody(stage) {
+  function renderBody(stage, copyBody) {
     copyBody.replaceChildren()
     const paragraphs = Array.isArray(stage.body) ? stage.body : [stage.body]
     for (const text of paragraphs) {
@@ -540,11 +556,12 @@ async function buildSuperpositionGame(host, { assets, RoomEnvironment, onActivit
   function applyStage(stageId) {
     const stage = STAGE_COPY[stageId]
     if (!stage) return
-    copyTitle.textContent = stage.title
-    copyTitle.hidden = !stage.title
-    renderBody(stage)
-    hintText.textContent = stage.hint
-    flipHint.element.hidden = !stage.hint
+    for (const [id, panel] of stagePanels) {
+      const active = id === stageId
+      panel.classList.toggle('is-active', active)
+      panel.inert = !active
+      panel.setAttribute('aria-hidden', String(!active))
+    }
     /* Drives where the copy and hint sit: the airborne coin owns the middle of
        the stage, so bullet time pushes its narration below it. */
     root.dataset.place = stage.place
