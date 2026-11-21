@@ -33,6 +33,7 @@ npm run dev             # Vite + resizable Electron development window
 npm run build           # Syntax checks and renderer build
 npm run preview         # Built renderer in a safe window
 npm run preview:kiosk   # Local fullscreen preview; Ctrl+Shift+Q exits
+npm run check:feedback  # Build + browser/Electron feedback integration checks
 npm run package:win     # Production Windows NSIS application installer
 npm run package:win:kiosk # Complete client ZIP with one-click install/update
 npm run package:win:pro # Windows Pro event ZIP: fullscreen + Explorer/session control
@@ -103,6 +104,8 @@ The renderer already provides:
 - fixed-canvas scaling for the 4K portrait display;
 - a settings cog in the bottom-right corner holding volume, menu layout, up-next
   visibility and persisted module/menu idle-return controls;
+- an optional visitor-feedback add-on with a 1–5-star modal, local records and
+  operator export controls;
 - a small development HUD showing the active scale, off unless
   `development.showHud` is switched on.
 
@@ -112,6 +115,87 @@ supplied reference media and production 3D assets. Module 08, "From quantum
 signal to readout", has been dropped from the carousel — it never received design
 or production assets, and shipping it as a concept placeholder ended the menu on
 an unexplained abstract sphere.
+
+## Visitor feedback
+
+The menu's **Give feedback** button opens a touch-friendly, keyboard-accessible
+modal with a required 1–5-star rating, a rating guide and bottom-aligned
+**Not now** / **Send feedback** actions. No names, contact details, quick reasons
+or written comments are collected.
+**Send feedback** immediately closes the modal. A snackbar at the bottom of the
+viewport shows saving progress, then confirms success for four seconds once the
+IndexedDB transaction commits. A storage failure instead leaves an error snackbar
+with **Retry**, preserving the submitted rating without reopening the modal.
+Tapping the background overlay also dismisses the modal without submitting.
+
+Automatic feedback is enabled by default. After 60 seconds within a visitor
+session, the next deliberate return from a module to the menu offers the modal.
+It never interrupts a module or appears on an idle return. Opening the modal
+(including using **Not now**, Escape or the background overlay) suppresses further automatic offers for
+that session. The manual button remains available. Returning to the attract/start
+screen, either by Exit or inactivity, starts a fresh session. An abandoned modal
+uses the normal menu idle timeout and is dismissed when returning to the start.
+Returning to the start also clears snackbars and any failed response awaiting
+retry, so a later visitor does not inherit the previous visitor's notification.
+
+In the settings cog, scroll to **Visitor feedback** to:
+
+- enable/disable both the button and automatic offers;
+- adjust the delay from 0 to 600 seconds (0 means the first module return);
+- view response count and average rating;
+- export CSV as a browser download (`iqm-feedback.csv`);
+- clear saved responses after a separate confirmation (preferences are retained).
+
+These controls use the existing settings surface, not an authenticated admin area.
+CSV exports remain wherever the operator saves them; clearing kiosk data does not
+delete previously exported files.
+
+Records and preferences use the `iqm-feedback` IndexedDB database, version 1,
+in both regular browsers and Electron. There is no feedback filesystem or IPC
+dependency. Each record contains a generated ID, timestamp in UTC, star rating,
+reason IDs (empty for new responses), current/most recently visited module ID
+(or `null`) and the app version built from `package.json`.
+
+Data survives reloads and restarts within the same site origin and browser
+profile. Different protocols, hosts, ports, browsers or profiles have separate
+databases. For example, a Vite server changing ports starts with separate feedback,
+and Electron's packaged `iqm-app` origin does not share data with a browser.
+Clearing site data, deleting a profile, private-browsing cleanup or browser storage
+eviction can remove records. There is no application-level expiration; export CSV
+regularly for a durable backup. Keep the same URL and profile for ongoing collection.
+Browser download settings determine where CSV files are saved.
+
+Read/write transactions serialize concurrent updates, including from separate
+tabs, and success is reported only after commit. Quota, blocked-storage and
+damaged-data errors are surfaced, not silently replaced with empty feedback.
+If browser storage is unavailable, settings offers **Retry storage**.
+
+Old Electron `feedback/feedback.json` files are no longer read, written or
+automatically imported. Existing files are left untouched. Export from the older
+application first if those responses need to be retained; the new database starts
+fresh. The `reasons` CSV column remains compatible with existing exports.
+
+The add-on does not upload feedback. The existing app-wide Clarity integration
+remains separate; the feedback modal, snackbar and settings content are marked
+for masking. Browser previews and Electron use the same feedback code.
+
+### Extension points
+
+- `src/js/addons/feedback/index.js` owns the modal and operator UI, exposing
+  `onScreen`, `close`, `isOpen` and `dispose`, with an injectable storage API.
+- `src/js/addons/feedback/session.js` owns the independently tested prompt policy.
+- `src/js/addons/feedback/storage.js` owns IndexedDB version 1, validation,
+  statistics and CSV formatting.
+  Changes to persisted record shape should include an explicit schema migration.
+- Navigation in `KioskApp` only sends screen/module context. CSV downloading and
+  confirmed clearing use standard browser APIs.
+
+`npm run check:feedback` exercises real Chromium IndexedDB on an HTTP browser page
+with no preload and on the packaged Electron protocol. It checks concurrent and
+aborted writes, damaged-data protection, reload persistence, the modal/snackbar,
+save failure and retry, session/idle behavior, CSV downloads and confirmed clearing.
+All browser profiles and downloads are temporary and cleaned up after Electron
+exits. It does not touch the installed kiosk's records or the user's browser data.
 
 ## Analytics
 

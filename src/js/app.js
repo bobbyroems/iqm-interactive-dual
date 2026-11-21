@@ -17,6 +17,7 @@ import { initAudio, sound, startAmbient, stopAmbient } from './core/kiosk-audio.
 import { installPressBloom } from './core/press-bloom.js'
 import { installButtonTapSound } from './core/button-tap-sound.js'
 import { createKioskSettings } from './core/kiosk-settings.js'
+import { createFeedbackAddon } from './addons/feedback/index.js'
 import { configureIdleTimeouts } from './core/idle-timeouts.js'
 import { splitTextForReveal } from './core/text-reveal.js'
 import { ModuleHost } from './core/module-host.js'
@@ -223,6 +224,12 @@ export class KioskApp {
       onIdleTimeoutChange: () => this.onIdleTimeoutChange(),
       onLayoutChange: layout => this.applyMenuLayout(layout)
     })
+    this.feedback = createFeedbackAddon({
+      stage: this.stage,
+      settingsPanel: this.root.getElementById('kiosk-settings-panel'),
+      onActivity: this.onActivity,
+      onBeforeOpen: () => this.settings?.close()
+    })
     this.applyMenuLayout(this.settings?.layout ?? 'top', { animate: false })
     this.setupTextReveals()
     this.setupDevelopmentHud()
@@ -340,6 +347,7 @@ export class KioskApp {
 
     window.addEventListener('keydown', event => {
       if (event.key !== 'Escape') return
+      if (this.feedback?.isOpen()) return
       if (this.settings?.isOpen()) {
         this.settings.close()
         return
@@ -350,12 +358,13 @@ export class KioskApp {
     })
   }
 
-  openMenu() {
+  openMenu({ automaticFeedback = true } = {}) {
     if (this.isOpeningExperience) return
     // Following the outro can advance through modules without touching the
     // carousel. Select the module being left before revealing the menu.
     const moduleIndex = MODULES.findIndex(module => module.id === this.activeModuleId)
     if (moduleIndex >= 0) this.moduleCarousel.setIndex(moduleIndex, { animate: false })
+    const previousModuleId = this.activeModuleId
     this.activeModuleId = null
     this.majoranaPreviewController?.setSuspended(false)
     Promise.resolve(this.shapeScenePoolPromise).then(pool => pool?.resetDive?.())
@@ -364,6 +373,10 @@ export class KioskApp {
     this.moduleCarousel.setActive(true)
     this.rememberDevelopmentView('menu')
     this.armIdle()
+    this.feedback?.onScreen('menu', {
+      moduleId: previousModuleId,
+      automatic: automaticFeedback
+    })
     void this.preloadMajoranaModule()
     void this.ensureMajoranaMenuPreview()
   }
@@ -374,6 +387,7 @@ export class KioskApp {
     /* Placeholder slots sit in the carousel so the run of eight reads as
        complete, but there is nothing behind them to mount. */
     if (!isPlayable(module)) return
+    this.feedback?.onScreen('module', { moduleId: module.id })
     this.cancelDeferredModuleUnmount()
     this.moduleCarousel.setActive(false)
 
@@ -462,6 +476,7 @@ export class KioskApp {
       runtime: this.runtime
     }
     this.activeModuleId = module.id
+    this.feedback?.onScreen('module', { moduleId: module.id })
     this.router.show('module')
     this.rememberDevelopmentView('module', module.id)
     this.armIdle()
@@ -730,6 +745,7 @@ export class KioskApp {
 
   goHome() {
     if (this.isOpeningExperience) return
+    this.feedback?.onScreen('attract')
     this.moduleCarousel.setActive(false)
     this.majoranaPreviewController?.setSuspended(true)
     this.activeModuleId = null
@@ -755,7 +771,7 @@ export class KioskApp {
       goHome: () => this.goHome(),
       idleController: this.idleController,
       isOpeningExperience: this.isOpeningExperience,
-      openMenu: () => this.openMenu()
+      openMenu: () => this.openMenu({ automaticFeedback: false })
     })
   }
 
