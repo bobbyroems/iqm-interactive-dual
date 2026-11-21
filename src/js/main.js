@@ -1,4 +1,6 @@
-import { KioskApp } from './app.js'
+import './attract-image.js'
 
-const app = new KioskApp(document)
-app.start()
+import('./app.js').then(({ KioskApp }) => {
+  const app = new KioskApp(document)
+  app.start()
+})

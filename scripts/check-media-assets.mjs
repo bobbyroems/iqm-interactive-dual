@@ -2,6 +2,11 @@ import { open, readdir, stat } from 'node:fs/promises'
 import { basename, extname, join, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { NANOSCALE_RUNTIME_IMAGE_PATHS } from '../src/js/modules/nanoscale/nanoscale-assets.js'
+import {
+  BROWSER_IMAGE_WIDTHS,
+  RESPONSIVE_IMAGE_PATHS,
+  browserImagePath
+} from '../src/js/core/responsive-images.js'
 
 const LFS_POINTER_PREFIX = 'version https://git-lfs.github.com/spec/v1'
 const LFS_EXTENSIONS = new Set(['.glb', '.hdr', '.mp4', '.ogg', '.wav', '.webm'])
@@ -118,6 +123,12 @@ const nanoscaleRuntimeAssets = NANOSCALE_RUNTIME_IMAGE_PATHS
 
 const MODULE_ASSETS = Object.freeze([
   ...BASE_MODULE_ASSETS,
+  ...RESPONSIVE_IMAGE_PATHS.flatMap(path => [
+    { path, type: 'png', minimumBytes: 1 },
+    ...BROWSER_IMAGE_WIDTHS.map(width => ({
+      path: browserImagePath(path, width), type: 'webp', minimumBytes: 1
+    }))
+  ]),
   ...nanoscaleRuntimeAssets
 ])
 

@@ -1,5 +1,24 @@
 # Production asset notes
 
+## Browser image variants
+
+Run `npm run generate:browser-images` after replacing the Majorana intro hero,
+Majorana schematic backdrop or measurement-based menu preview PNGs. The script
+uses Sharp to generate checked-in 768, 1500 and 2048 pixel-wide WebP variants at
+quality 85, retaining transparency and embedded ICC profiles. It never modifies
+the original PNGs.
+
+Browsers select a variant using `srcset`, viewport size and device pixel ratio.
+Electron continues to use the original full-resolution PNGs through the
+`window.kiosk.platform` bridge. The attract image has no initial `src`: the small
+bootstrap selects the correct source before importing the main app, so browsers
+do not download the original PNG first or wait for the heavier app chunk.
+Build asset validation requires
+all variants in both `public` and `dist`.
+
+Review lossy-image quality at the intended browser sizes before delivery; keep
+the original artwork for the offline 4K kiosk.
+
 ## Majorana 2 GLB
 
 The supplied source GLB was approximately 160 MiB and embedded 30 PNG textures,

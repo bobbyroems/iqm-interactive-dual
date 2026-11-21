@@ -1,4 +1,5 @@
 import { assetUrl } from '../../core/asset-url.js'
+import { imageSourceAttributes } from '../../core/responsive-images.js'
 import { createBuildGuidanceController } from './build-guidance.js'
 import {
   blendBuildDragTilt,
@@ -102,7 +103,7 @@ function moduleMarkup() {
   const exitIcon = assetUrl('assets/ui/exit-x.svg')
   const chevronIcon = assetUrl('assets/ui/chevron-right.svg')
   const introShadow = assetUrl('assets/modules/build-majorana-2/majorana-shadow.svg')
-  const schematicBackdrop = assetUrl('assets/modules/build-majorana-2/majorana-schematic-backdrop.png')
+  const schematicBackdrop = imageSourceAttributes('assets/modules/build-majorana-2/majorana-schematic-backdrop.png')
   const schematicComposite = assetUrl('assets/modules/build-majorana-2/majorana-schematic-composite.png')
   const qpuStackCrop = assetUrl('assets/modules/build-majorana-2/majorana-qpu-stack-crop.png')
   const pcbCover = assetUrl('assets/modules/build-majorana-2/majorana-pcb-cover.png')
@@ -486,7 +487,7 @@ function moduleMarkup() {
           <div class="majorana-schematic__reveal">
             <div class="majorana-schematic__content">
               <div class="majorana-schematic__backdrop" aria-hidden="true">
-                <img src="${schematicBackdrop}" alt="" loading="eager" decoding="async">
+                <img ${schematicBackdrop} alt="" loading="eager" decoding="async">
               </div>
 
               <div class="majorana-schematic__composite majorana-schematic__composite--qpu" aria-hidden="true">

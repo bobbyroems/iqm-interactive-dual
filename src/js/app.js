@@ -6,6 +6,7 @@ import {
   routeIdle
 } from './core/idle-navigation.js'
 import { assetUrl } from './core/asset-url.js'
+import { imageSourceAttributes } from './core/responsive-images.js'
 import { mountAuroraBackgrounds } from './core/aurora-background.js'
 import { imperfectionParams, setImperfection } from './core/surface-imperfection.js'
 import { getLightRigs, lightRigsVersion } from './core/light-rig-registry.js'
@@ -75,7 +76,7 @@ function createModuleCard(module, moduleCountLabel) {
      a generated shape: the shape pool would give it an abstract sphere, which is
      the reason the previous placeholder was pulled from the carousel. */
   const previewImage = module.preview?.kind !== 'video' && module.preview
-    ? `<img class="module-card__preview-image" src="${assetUrl(module.preview.src)}" alt="${module.preview.alt || ''}">`
+    ? `<img class="module-card__preview-image" ${imageSourceAttributes(module.preview.src)} alt="${module.preview.alt || ''}">`
     : ''
   const preview = module.placeholder
     ? `<span class="module-card__preview-fpo" aria-hidden="true">FPO</span>`
