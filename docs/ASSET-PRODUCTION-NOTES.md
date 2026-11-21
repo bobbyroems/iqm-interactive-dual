@@ -19,6 +19,21 @@ all variants in both `public` and `dist`.
 Review lossy-image quality at the intended browser sizes before delivery; keep
 the original artwork for the offline 4K kiosk.
 
+## Browser coin textures
+
+Run `npm run generate:coin-textures` after replacing the quarter's color/bump
+BMPs or its four photographed JPEG variants. Browsers use 2048-pixel-wide WebP
+derivatives: quality 95 for color and lossless encoding after resizing for the
+bump map. Electron retains all original textures. The OBJ geometry, photographed
+variant order, reflection maps, sRGB color handling and linear bump handling
+are unchanged.
+
+Sharp does not decode BMP, so the generator includes a decoder restricted to
+the supplied uncompressed 24-bit BITMAPINFOHEADER format. Other encodings and
+truncated inputs fail explicitly. Tests cover BGR channel order, row padding,
+both BMP orientations, color fidelity, lossless bump pixels and download size.
+All six derivatives are checked in and required by build asset validation.
+
 ## Majorana 2 GLB
 
 The supplied source GLB was approximately 160 MiB and embedded 30 PNG textures,

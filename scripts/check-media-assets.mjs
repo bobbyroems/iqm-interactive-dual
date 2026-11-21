@@ -2,6 +2,7 @@ import { open, readdir, stat } from 'node:fs/promises'
 import { basename, extname, join, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { NANOSCALE_RUNTIME_IMAGE_PATHS } from '../src/js/modules/nanoscale/nanoscale-assets.js'
+import { COIN_TEXTURE_PATHS, coinTexturePath } from '../src/js/modules/quantum-vs-classical/coin-texture-source.js'
 import {
   BROWSER_IMAGE_WIDTHS,
   RESPONSIVE_IMAGE_PATHS,
@@ -123,6 +124,9 @@ const nanoscaleRuntimeAssets = NANOSCALE_RUNTIME_IMAGE_PATHS
 
 const MODULE_ASSETS = Object.freeze([
   ...BASE_MODULE_ASSETS,
+  ...COIN_TEXTURE_PATHS.map(path => ({
+    path: coinTexturePath(path), type: 'webp', minimumBytes: 1
+  })),
   ...RESPONSIVE_IMAGE_PATHS.flatMap(path => [
     { path, type: 'png', minimumBytes: 1 },
     ...BROWSER_IMAGE_WIDTHS.map(width => ({

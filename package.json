@@ -8,6 +8,7 @@
   "scripts": {
     "dev": "node scripts/dev.mjs",
     "generate:browser-images": "node scripts/generate-browser-images.mjs",
+    "generate:coin-textures": "node scripts/generate-coin-textures.mjs",
     "generate:som-frost": "node scripts/generate-som-frost-assets.mjs",
     "generate:som-scrub-video": "node scripts/generate-som-scrub-video.mjs",
     "pack:alpha-video": "node scripts/pack-alpha-video.mjs",
