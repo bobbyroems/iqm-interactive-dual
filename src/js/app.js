@@ -21,6 +21,7 @@ import { createKioskSettings } from './core/kiosk-settings.js'
 import { configureIdleTimeouts } from './core/idle-timeouts.js'
 import { splitTextForReveal } from './core/text-reveal.js'
 import { ModuleHost } from './core/module-host.js'
+import { createModuleSidebar } from './core/module-sidebar.js'
 import { ScreenRouter } from './core/screen-router.js'
 import { StageScaler } from './core/stage-scaler.js'
 import { createMajoranaScene } from './modules/build-majorana-2/majorana-scene.js'
@@ -167,6 +168,16 @@ export class KioskApp {
     this.menuLayoutFadeTimer = null
 
     this.onActivity = this.onActivity.bind(this)
+
+    this.moduleSidebar = createModuleSidebar({
+      root,
+      getActiveModuleId: () => this.activeModuleId,
+      canOpen: () => this.router.currentScreen === 'module' && !this.isOpeningExperience,
+      onActivity: this.onActivity,
+      onRestart: () => this.openModule(this.activeModuleId),
+      onHome: () => this.goHome(),
+      onModule: moduleId => this.openModule(moduleId)
+    })
 
     this.moduleCarousel = new ModuleCarousel({
       currentLabel: root.getElementById('module-carousel-current'),
@@ -353,6 +364,7 @@ export class KioskApp {
 
   openMenu() {
     if (this.isOpeningExperience) return
+    this.moduleSidebar.close({ restoreFocus: false })
     // Following the outro can advance through modules without touching the
     // carousel. Select the module being left before revealing the menu.
     const moduleIndex = MODULES.findIndex(module => module.id === this.activeModuleId)
@@ -375,10 +387,11 @@ export class KioskApp {
     /* Placeholder slots sit in the carousel so the run of eight reads as
        complete, but there is nothing behind them to mount. */
     if (!isPlayable(module)) return
+    this.moduleSidebar.close({ restoreFocus: false })
     this.cancelDeferredModuleUnmount()
     this.moduleCarousel.setActive(false)
 
-    if (module.preview3d?.kind === 'majorana') {
+    if (module.preview3d?.kind === 'majorana' && this.router.currentScreen !== 'module') {
       this.moduleCarousel.markVisited(moduleId)
       sound.dive()
       void this.openMajoranaWithPortal(module)
@@ -453,6 +466,7 @@ export class KioskApp {
 
   activateModule(module, mountContext = {}) {
     if (!module) return null
+    this.moduleSidebar.close({ restoreFocus: false })
     this.cancelDeferredModuleUnmount()
     this.moduleCarousel.setActive(false)
 
@@ -731,6 +745,7 @@ export class KioskApp {
 
   goHome() {
     if (this.isOpeningExperience) return
+    this.moduleSidebar.close({ restoreFocus: false })
     this.moduleCarousel.setActive(false)
     this.majoranaPreviewController?.setSuspended(true)
     this.activeModuleId = null

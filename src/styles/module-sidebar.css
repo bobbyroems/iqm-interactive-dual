@@ -1,0 +1,210 @@
+/* Keep module-owned restart hooks for their outros, but move the visible
+   utilities into the shared drawer. The principles' in-module Back stays. */
+.screen--module .microsoft-header__actions > button:not([data-qvc-action="back"]) {
+  display: none;
+}
+
+.screen--module .qvc__actions {
+  padding-right: 140px;
+}
+
+.screen--module:has(.module-sidebar:not([hidden])) {
+  z-index: 50;
+}
+
+.module-sidebar-launcher {
+  position: absolute;
+  z-index: 250;
+  top: 0;
+  right: 70px;
+  display: grid;
+  width: 120px;
+  height: 120px;
+  padding: 30px;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  place-items: center;
+}
+
+.module-sidebar-launcher:active {
+  background: rgba(0, 0, 0, 0.08);
+}
+
+.module-sidebar {
+  position: absolute;
+  z-index: 300;
+  inset: 0;
+}
+
+.module-sidebar__backdrop {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  backdrop-filter: blur(15px);
+  background: rgba(0, 0, 0, 0.3);
+}
+
+.module-sidebar__panel {
+  position: absolute;
+  inset: 0 0 0 auto;
+  display: flex;
+  width: 1620px;
+  flex-direction: column;
+  padding: 100px;
+  background: #fff;
+  color: var(--band-ink);
+  box-shadow: 2px 0 4px rgba(0, 0, 0, 0.14);
+  animation: module-sidebar-enter 260ms var(--ease-out);
+}
+
+.module-sidebar__close {
+  display: grid;
+  width: 132px;
+  height: 132px;
+  flex: 0 0 auto;
+  padding: 36px;
+  border: 0;
+  border-radius: 1998px;
+  background: rgba(0, 0, 0, 0.08);
+  place-items: center;
+}
+
+.module-sidebar__utilities {
+  display: grid;
+  gap: 40px;
+  margin-top: 69px;
+}
+
+.module-sidebar__utility {
+  display: flex;
+  height: 140px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 28px 60px;
+  border: 0;
+  border-radius: 16px;
+  background: #004256;
+  color: #fff;
+  font-family: var(--font-display);
+  font-size: 50px;
+  font-weight: 400;
+  letter-spacing: -0.5px;
+}
+
+.module-sidebar__utility--home {
+  background: #ff5c39;
+}
+
+.module-sidebar__utility-icon {
+  display: grid;
+  width: 84px;
+  height: 84px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.2);
+  place-items: center;
+}
+
+.module-sidebar__heading {
+  margin: 90px 0 30px;
+  font-size: 40px;
+  font-weight: 600;
+  letter-spacing: -0.4px;
+  line-height: 60px;
+}
+
+.module-sidebar__grid {
+  display: grid;
+  min-height: 0;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px;
+  overflow: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  touch-action: pan-y;
+}
+
+.module-sidebar__tile {
+  position: relative;
+  height: 720px;
+  overflow: hidden;
+  padding: 0;
+  border: 2px solid var(--color-line);
+  border-radius: 5px;
+  background: #f0f1f2;
+  color: var(--color-navy);
+  touch-action: pan-y;
+}
+
+.module-sidebar__tile[aria-current="true"] {
+  border: 8px solid var(--color-blue);
+}
+
+.module-sidebar__selected-background {
+  position: absolute;
+  inset: 0;
+  display: none;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0.7;
+  pointer-events: none;
+}
+
+.module-sidebar__tile[aria-current="true"] .module-sidebar__selected-background {
+  display: block;
+}
+
+.module-sidebar__art {
+  position: absolute;
+  top: calc(50% - 87px);
+  left: 50%;
+  max-width: none;
+  object-fit: contain;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+
+.module-sidebar__title {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  padding: 60px 40px;
+  font-family: var(--font-display);
+  font-size: 48px;
+  font-weight: 600;
+  letter-spacing: -0.96px;
+  line-height: normal;
+  text-align: center;
+}
+
+.module-sidebar__badge {
+  position: absolute;
+  top: 30px;
+  left: 30px;
+  padding: 6px 24px;
+  border-radius: 12px;
+  background: #8de971;
+  color: var(--band-ink);
+  font-size: 32px;
+  font-weight: 600;
+}
+
+.module-sidebar__tile:focus-visible {
+  outline-offset: -14px;
+}
+
+@keyframes module-sidebar-enter {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .module-sidebar__panel {
+    animation: none;
+  }
+}

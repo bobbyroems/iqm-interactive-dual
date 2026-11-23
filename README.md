@@ -33,6 +33,7 @@ npm run dev             # Vite + resizable Electron development window
 npm run build           # Syntax checks and renderer build
 npm run preview         # Built renderer in a safe window
 npm run preview:kiosk   # Local fullscreen preview; Ctrl+Shift+Q exits
+npm run check:module-sidebar # Electron quick-select navigation, layout and touch checks
 npm run package:win     # Production Windows NSIS application installer
 npm run package:win:kiosk # Complete client ZIP with one-click install/update
 npm run package:win:pro # Windows Pro event ZIP: fullscreen + Explorer/session control
@@ -97,6 +98,10 @@ The renderer already provides:
 - Module 07, **Build a Majorana 2**, using the supplied 3D model and HDR lighting
   for Components, Pathways and a validated two-part drag-and-drop build;
 - home and back navigation;
+- a module-only hamburger menu opening a right-hand quick-select drawer with
+  all nine current modules, current/next indicators, a full module restart and
+  an exit to Welcome; close it without resetting progress using its close
+  button, the backdrop or Escape (keyboard focus stays inside while open);
 - a two-stage idle return that moves an abandoned module to the menu, then the
   menu to the attract screen;
 - touch-safe defaults and blocked browser gestures;

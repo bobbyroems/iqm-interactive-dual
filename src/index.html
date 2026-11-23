@@ -11,6 +11,7 @@
   <link rel="stylesheet" href="/styles/base.css">
   <link rel="stylesheet" href="/styles/app.css">
   <link rel="stylesheet" href="/styles/module-host.css">
+  <link rel="stylesheet" href="/styles/module-sidebar.css">
   <link rel="stylesheet" href="/js/modules/nanoscale/nanoscale.css">
   <link rel="stylesheet" href="/js/modules/states-of-matter/styles.css">
   <link rel="stylesheet" href="/js/modules/qubit-explorer/qubit-explorer.css">
@@ -119,24 +120,40 @@
             <span class="microsoft-brand__quantum">Quantum</span>
           </div>
 
-          <div class="microsoft-header__actions">
-            <button class="microsoft-header__action" data-action="menu" type="button" aria-label="Back to all modules">
-              <span class="microsoft-header__action-icon microsoft-header__action-icon--back" aria-hidden="true">
-                <img src="/assets/ui/chevron-right.svg" alt="">
-              </span>
-              <span>All modules</span>
-            </button>
-
-            <button class="microsoft-header__action" data-action="home" type="button" aria-label="Return to start">
-              <span>Exit</span>
-              <span class="microsoft-header__action-icon" aria-hidden="true">
-                <img src="/assets/ui/exit-x.svg" alt="">
-              </span>
-            </button>
-          </div>
         </header>
 
+        <button class="module-sidebar-launcher" id="module-sidebar-launcher" type="button"
+          aria-label="Open module menu" aria-controls="module-sidebar-panel" aria-expanded="false" aria-haspopup="dialog">
+          <img src="/assets/ui/module-sidebar/menu.svg" width="60" height="60" alt="">
+        </button>
         <div class="module-host" id="module-host"></div>
+
+        <div class="module-sidebar" id="module-sidebar" hidden>
+          <button class="module-sidebar__backdrop" type="button" data-sidebar-action="close"
+            aria-label="Close module menu" tabindex="-1"></button>
+          <aside class="module-sidebar__panel" id="module-sidebar-panel" role="dialog" aria-modal="true"
+            aria-labelledby="module-sidebar-heading">
+            <button class="module-sidebar__close" type="button" data-sidebar-action="close" aria-label="Close module menu">
+              <img src="/assets/ui/module-sidebar/close.svg" width="60" height="60" alt="">
+            </button>
+            <div class="module-sidebar__utilities">
+              <button class="module-sidebar__utility" type="button" data-sidebar-action="restart">
+                <span>Restart this module</span>
+                <span class="module-sidebar__utility-icon" aria-hidden="true">
+                  <img src="/assets/ui/module-sidebar/restart.svg" width="48" height="48" alt="">
+                </span>
+              </button>
+              <button class="module-sidebar__utility module-sidebar__utility--home" type="button" data-sidebar-action="home">
+                <span>Exit back to home</span>
+                <span class="module-sidebar__utility-icon" aria-hidden="true">
+                  <img src="/assets/ui/module-sidebar/home.svg" width="60" height="60" alt="">
+                </span>
+              </button>
+            </div>
+            <h2 class="module-sidebar__heading" id="module-sidebar-heading">Quick select menu</h2>
+            <nav class="module-sidebar__grid" id="module-sidebar-grid" aria-label="Choose a module"></nav>
+          </aside>
+        </div>
       </section>
 
       <!-- Settings cog and its popover. Not a .kiosk-explainer: AGENTS.md
