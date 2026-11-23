@@ -7,6 +7,12 @@ import {
   NANOSCALE_IMAGE_SIZES,
   nanoscaleImagePath
 } from '../src/js/modules/nanoscale/nanoscale-image-source.js'
+import { COIN_TEXTURE_PATHS, coinTexturePath } from '../src/js/modules/quantum-vs-classical/coin-texture-source.js'
+import {
+  BROWSER_IMAGE_WIDTHS,
+  RESPONSIVE_IMAGE_PATHS,
+  browserImagePath
+} from '../src/js/core/responsive-images.js'
 
 const LFS_POINTER_PREFIX = 'version https://git-lfs.github.com/spec/v1'
 const LFS_EXTENSIONS = new Set(['.glb', '.hdr', '.mp4', '.ogg', '.wav', '.webm'])
@@ -132,7 +138,16 @@ const MODULE_ASSETS = Object.freeze([
       type: 'webp',
       minimumBytes: 1
     }))
-  )
+  ),
+  ...COIN_TEXTURE_PATHS.map(path => ({
+    path: coinTexturePath(path), type: 'webp', minimumBytes: 1
+  })),
+  ...RESPONSIVE_IMAGE_PATHS.flatMap(path => [
+    { path, type: RUNTIME_IMAGE_TYPES[extname(path)], minimumBytes: 1 },
+    ...BROWSER_IMAGE_WIDTHS.map(width => ({
+      path: browserImagePath(path, width), type: 'webp', minimumBytes: 1
+    }))
+  ])
 ])
 
 async function collectFiles(directory) {

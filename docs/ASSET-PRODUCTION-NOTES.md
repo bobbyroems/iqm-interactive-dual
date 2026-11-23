@@ -3,7 +3,8 @@
 ## Large-media web optimization (2026-11-13)
 
 The attract/menu Majorana hero and the module's schematic backdrop now use
-full-resolution lossless WebP in both browser and Electron. Framing, visible
+full-resolution lossless WebP in Electron, with smaller browser variants described
+below. Framing, visible
 RGBA pixels and the schematic's ICC profile are preserved; no change to
 Electron presentation or prewarming is intended.
 
@@ -12,10 +13,10 @@ Electron presentation or prewarming is intended.
 | Majorana hero | 3090 x 2482 | 6.47 | 4.48 |
 | Schematic backdrop | 4096 x 4096 | 16.61 | 11.17 |
 
-This saves approximately 7.43 MiB of deployment assets, including 1.99 MiB on
-the immediate startup path. It does **not** reduce decoded-image/GPU memory:
-the dimensions are unchanged. Startup savings are calculated from file sizes,
-not a new browser network measurement.
+The full-resolution WebP files save approximately 7.43 MiB compared with the
+PNG masters. They do **not** reduce decoded-image/GPU memory: the dimensions
+are unchanged. Browser variants additionally reduce transfer and decoded-image
+cost at smaller display sizes.
 
 PNG masters are retained in `ref/majorana-image-masters/`, outside Vite's
 public directory and Electron's packaged file list. Regenerate with:
@@ -30,10 +31,6 @@ media check also requires both generated WebP files.
 
 ### Remaining large-media candidates
 
-- **Quarter textures (16.32 MiB combined):** actively loaded by
-  `quantum-vs-classical/coin-assets.js`, including the live preview. Convert the
-  base color and bump BMPs losslessly before considering resolution changes;
-  bump-map relief and photographed material appearance need visual checks.
 - **Laptop TGA (48 MiB) and Majorana reference video (9.65 MiB):** no matching
   renderer references found in this review. These are exclusion candidates, not
   confirmed unused files; check external model/material dependencies and
@@ -50,6 +47,45 @@ media check also requires both generated WebP files.
 - **Majorana/chandelier/protection GLBs:** inspect geometry, embedded texture
   sizes and runtime node-name contracts before mesh or GPU-texture compression.
   Keep the selected live 3D previews rather than replacing them with posters.
+
+## Browser image variants
+
+Run `npm run generate:browser-images` after replacing the Majorana intro hero,
+Majorana schematic backdrop lossless WebPs or measurement-based menu preview PNG.
+Regenerate the Majorana WebPs from their PNG masters first if the artwork changes.
+The script
+uses Sharp to generate checked-in 768, 1500 and 2048 pixel-wide WebP variants at
+quality 85, retaining transparency and embedded ICC profiles. It never modifies
+the full-resolution sources.
+
+Browsers select a variant using `srcset`, viewport size and device pixel ratio.
+Electron continues to use the full-resolution lossless WebPs for Majorana and
+the original PNG for the measurement-based preview through the
+`window.kiosk.platform` bridge. The attract image has no initial `src`: the small
+bootstrap selects the correct source before importing the main app, so browsers
+do not download the full-resolution image first or wait for the heavier app chunk.
+Browser menu previews remain deferred until their card is selected in the active
+carousel; responsive attributes are applied before setting the image source.
+Build asset validation requires
+all variants in both `public` and `dist`.
+
+Review lossy-image quality at the intended browser sizes before delivery; keep
+the original artwork for the offline 4K kiosk.
+
+## Browser coin textures
+
+Run `npm run generate:coin-textures` after replacing the quarter's color/bump
+BMPs or its four photographed JPEG variants. Browsers use 2048-pixel-wide WebP
+derivatives: quality 95 for color and lossless encoding after resizing for the
+bump map. Electron retains all original textures. The OBJ geometry, photographed
+variant order, reflection maps, sRGB color handling and linear bump handling
+are unchanged.
+
+Sharp does not decode BMP, so the generator includes a decoder restricted to
+the supplied uncompressed 24-bit BITMAPINFOHEADER format. Other encodings and
+truncated inputs fail explicitly. Tests cover BGR channel order, row padding,
+both BMP orientations, color fidelity, lossless bump pixels and download size.
+All six derivatives are checked in and required by build asset validation.
 
 ## Majorana 2 GLB
 

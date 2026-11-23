@@ -9,6 +9,8 @@
     "dev": "node scripts/dev.mjs",
     "generate:nanoscale-images": "node scripts/generate-nanoscale-images.mjs",
     "generate:majorana-images": "node scripts/generate-majorana-images.mjs",
+    "generate:browser-images": "node scripts/generate-browser-images.mjs",
+    "generate:coin-textures": "node scripts/generate-coin-textures.mjs",
     "generate:som-frost": "node scripts/generate-som-frost-assets.mjs",
     "generate:som-scrub-video": "node scripts/generate-som-scrub-video.mjs",
     "pack:alpha-video": "node scripts/pack-alpha-video.mjs",

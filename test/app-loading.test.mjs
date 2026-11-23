@@ -70,6 +70,38 @@ test('browser menu starts only the selected live preview and suspends Majorana w
   assert.deepEqual(events, ['shape', true])
 })
 
+test('selected browser images apply responsive sources before loading on nested deployments', t => {
+  globalThis.document = { baseURI: 'https://example.test/kiosk/' }
+  t.after(() => { delete globalThis.document })
+  const events = []
+  const image = {
+    tagName: 'IMG',
+    dataset: { previewSrc: '/assets/modules/build-majorana-2/majorana-intro-hero.webp' },
+    set sizes(value) { events.push(['sizes', value]) },
+    set srcset(value) { events.push(['srcset', value]) },
+    set src(value) { events.push(['src', value]) },
+    removeAttribute() { delete this.dataset.previewSrc }
+  }
+  const carousel = {
+    active: false, currentIndex: 0,
+    cards: [{
+      querySelectorAll: () => image.dataset.previewSrc ? [image] : [],
+      querySelector: () => null
+    }]
+  }
+  const update = () => ModuleCarousel.prototype.updatePreviewVideoPlayback.call(carousel)
+  update()
+  assert.deepEqual(events, [])
+  carousel.active = true
+  update()
+  assert.deepEqual(events.map(([name]) => name), ['sizes', 'srcset', 'src'])
+  assert.match(events[1][1], /https:\/\/example\.test\/kiosk\/assets\/.*-browser-768\.webp 768w/)
+  assert.match(events[2][1], /https:\/\/example\.test\/kiosk\/assets\/.*-browser-1500\.webp$/)
+  assert.equal(image.dataset.previewSrc, undefined)
+  update()
+  assert.equal(events.length, 3)
+})
+
 test('browser shape loading ignores unselected cards before importing the scene pool', async () => {
   const hidden = {
     closest: () => ({ dataset: { moduleId: 'states-of-matter' } }),

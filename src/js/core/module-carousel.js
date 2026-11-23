@@ -1,6 +1,7 @@
 import { advanceCarouselSpring, createCarouselSpring } from './carousel-spring.js'
 import { sound } from './kiosk-audio.js'
 import { getModuleNavigationGridLayout } from './module-navigation-projection.js'
+import { imageSources } from './responsive-images.js'
 
 export function clampCarouselIndex(index, itemCount) {
   if (!Number.isFinite(index) || itemCount <= 0) return 0
@@ -267,7 +268,13 @@ export class ModuleCarousel {
     this.cards.forEach((card, cardIndex) => {
       if (this.active && cardIndex === this.currentIndex) {
         for (const media of card.querySelectorAll('[data-preview-src]')) {
-          media.src = media.dataset.previewSrc
+          if (media.tagName === 'IMG') {
+            for (const [name, value] of Object.entries(imageSources(media.dataset.previewSrc))) {
+              media[name] = value
+            }
+          } else {
+            media.src = media.dataset.previewSrc
+          }
           media.removeAttribute('data-preview-src')
         }
       }

@@ -36,6 +36,14 @@ async function main() {
   })`)
   await window.loadURL(`http://127.0.0.1:${server.httpServer.address().port}`)
   await waitFor("window.__kioskApp?.moduleCarousel.cards.length === 9 && document.body.classList.contains('is-browser')")
+  await waitFor("document.querySelector('.attract-chip img').naturalWidth > 0")
+  const initialImages = await run(`({
+    attractSource: document.querySelector('.attract-chip img').currentSrc,
+    previewsDeferred: [...document.querySelectorAll('.module-card__preview-image')]
+      .every(image => !image.hasAttribute('src') && !image.hasAttribute('srcset'))
+  })`)
+  assert.match(initialImages.attractSource, /majorana-intro-hero-browser-\d+\.webp$/)
+  assert(initialImages.previewsDeferred, 'browser previews must remain deferred on the attract screen')
   await page.insertCSS('.screen--menu, .screen--menu * { animation: none !important; transition: none !important; }')
   await run(`(async () => {
     await document.fonts.ready;
@@ -61,6 +69,11 @@ async function main() {
     for (let index = 0; index < 9; index++) {
       await run(`window.__kioskApp.moduleCarousel.setIndex(${index}, { animate: false })`)
       await settle()
+      if (width === 1366 && height === 768 && [5, 6].includes(index)) {
+        await waitFor("document.querySelector('.module-card.is-active img.module-card__preview-image').naturalWidth > 0")
+        const source = await run("document.querySelector('.module-card.is-active img.module-card__preview-image').currentSrc")
+        assert.match(source, /-browser-\d+\.webp$/, 'selected Majorana and measurement previews must use browser variants')
+      }
       const sample = await run(`(() => {
         const card = document.querySelector('.module-card.is-active');
         const footer = card.querySelector('.module-card__footer');

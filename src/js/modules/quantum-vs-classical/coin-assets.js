@@ -8,23 +8,17 @@
 
 import { assetUrl } from '../../core/asset-url.js'
 import { disposeObject3DResources } from '../../core/three-resource-disposal.js'
+import {
+  COIN_COLOR_TEXTURE_PATHS,
+  COIN_BUMP_TEXTURE_PATH,
+  coinTexturePath
+} from './coin-texture-source.js'
 
 export const QVC_COIN_ACCENT_COLOR = '#5a9bff'
 export const ENTANGLEMENT_COIN_MATERIAL_SEEDS = Object.freeze([41, 42])
 
 const COIN_DIR = 'assets/modules/differences/coins/'
 const OBJ_URL = `${COIN_DIR}US Coins OBj.obj`
-const COLOR_URL = `${COIN_DIR}TwentyFive_Cent_Color.bmp`
-const BUMP_URL = `${COIN_DIR}TwentyFive_Cent_Bump.bmp`
-/* Photographed quarter variants — assigned per seed so a pile of coins
-   never shows the same face twice in a row. */
-const COLOR_VARIANT_URLS = Object.freeze([
-  COLOR_URL,
-  `${COIN_DIR}TwentyFive_Cent_Color01.jpg`,
-  `${COIN_DIR}TwentyFive_Cent_Color02.jpg`,
-  `${COIN_DIR}TwentyFive_Cent_Color03.jpg`,
-  `${COIN_DIR}TwentyFive_Cent_Color04.jpg`
-])
 /* Grayscale gloss-variation maps: mostly 01, occasionally 02, so worn and
    polished regions break up the mirror-perfect reflections. */
 const REFLECTION_MAP_URLS = Object.freeze([
@@ -87,9 +81,9 @@ export function loadCoinAssets() {
 
     const textureLoader = new THREE.TextureLoader()
     const [colorMaps, glossMaps, bumpMap] = await Promise.all([
-      Promise.all(COLOR_VARIANT_URLS.map(url => textureLoader.loadAsync(assetUrl(url)))),
+      Promise.all(COIN_COLOR_TEXTURE_PATHS.map(url => textureLoader.loadAsync(assetUrl(coinTexturePath(url))))),
       Promise.all(REFLECTION_MAP_URLS.map(url => textureLoader.loadAsync(assetUrl(url)))),
-      textureLoader.loadAsync(assetUrl(BUMP_URL))
+      textureLoader.loadAsync(assetUrl(coinTexturePath(COIN_BUMP_TEXTURE_PATH)))
     ])
     for (const map of colorMaps) {
       map.colorSpace = THREE.SRGBColorSpace

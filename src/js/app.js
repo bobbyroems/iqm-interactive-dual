@@ -6,6 +6,7 @@ import {
   routeIdle
 } from './core/idle-navigation.js'
 import { assetUrl } from './core/asset-url.js'
+import { imageSourceAttributes } from './core/responsive-images.js'
 import { mountAuroraBackgrounds } from './core/aurora-background.js'
 import { imperfectionParams, setImperfection } from './core/surface-imperfection.js'
 import { getLightRigs, lightRigsVersion } from './core/light-rig-registry.js'
@@ -68,7 +69,7 @@ function createModuleCard(module, moduleCountLabel, eagerPreviews) {
      the reason the previous placeholder was pulled from the carousel. */
   const sourceAttribute = eagerPreviews ? 'src' : 'data-preview-src'
   const previewImage = module.preview?.kind !== 'video' && module.preview
-    ? `<img class="module-card__preview-image" ${sourceAttribute}="${assetUrl(module.preview.src)}" alt="${module.preview.alt || ''}">`
+    ? `<img class="module-card__preview-image" ${eagerPreviews ? imageSourceAttributes(module.preview.src) : `data-preview-src="${module.preview.src}"`} alt="${module.preview.alt || ''}">`
     : ''
   const preview = module.placeholder
     ? `<span class="module-card__preview-fpo" aria-hidden="true">FPO</span>`
